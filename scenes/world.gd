@@ -14,7 +14,8 @@ func _ready() -> void:
 
 	# Sub spawns floating at the surface, just past the dock over the shallows.
 	_sub = Sub.new()
-	_sub.position = Vector2(45.0 * M, 0.0)
+	_sub.buoyancy_enabled = true  # floats at the surface, can't fly out of the water
+	_sub.position = Vector2(45.0 * M, Sub.SURFACE_FLOAT_DEPTH)
 	add_child(_sub)
 
 	var p1 := Crew.new()

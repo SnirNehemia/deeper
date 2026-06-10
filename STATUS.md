@@ -47,10 +47,16 @@ Shore Shelf test map while a depth meter tracks them. All placeholder art.
 - Runs from a fresh clone, no manual setup; headless check passes. ✓
 
 ## Known issues / notes
-- Pitch tilt is cosmetic: hull + crew **art** tilt, physics stays upright (fixed the
-  earlier "crew sink/float" bug). Tilt direction/strength is a one-number tweak.
-- Sub hull collider is a rough rectangle (slightly larger than the rounded art) —
-  fine while bumps are harmless; refine to a polygon/capsule if it feels off.
+- Pitch tilt is cosmetic for the interior: hull + crew **art** tilt and the **hull
+  collider tilts with them**, but the body's footing stays upright so crew don't
+  slide. Tilt strength is a one-number tweak (`GameFeel.sub.max_pitch_deg`).
+- Sub hull collider is a polygon matched to the hull silhouette (fixed the earlier
+  big collision gap) and rotates with the pitch.
+- Buoyancy: the sub floats at `Sub.SURFACE_FLOAT_DEPTH` (~3 m, reads "Depth 3 m"
+  at rest) and gets heavy as it emerges so it can't fly out of the water; neutral
+  below the surface band (holds depth when idle). Tune with
+  `GameFeel.sub.surface_gravity` + `Sub.SURFACE_FLOAT_DEPTH`. Only the world
+  enables buoyancy; dry sandboxes/tests leave it off.
 - Interior floors are StaticBody2D moved via parent transform; no jitter seen, but
   if fast driving ever shows it, switch interior to AnimatableBody2D.
 - `up` = jump = climb = "steer up" share a key; fine because a seated crew can't

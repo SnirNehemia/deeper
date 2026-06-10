@@ -49,7 +49,8 @@ func _build_terrain() -> void:
 	add_child(body)
 
 	# Sea-floor + ground silhouette (left shore -> shallows -> steep shelf cliff
-	# -> basin). The cliff is nearly vertical so it reads as a wall.
+	# -> basin). The cliff face has a real cave carved into it: the boundary juts
+	# left into the rock to form a hollow the sub can drive into.
 	var profile := [
 		_v(0.0, -6.0),    # shore top (above water)
 		_v(15.0, -2.0),   # ramp toward the water
@@ -57,8 +58,11 @@ func _build_terrain() -> void:
 		_v(35.0, 20.0),   # shallows plateau begins (20 m deep)
 		_v(150.0, 20.0),  # shallows plateau
 		_v(156.0, 26.0),  # shelf edge
-		_v(161.0, 55.0),  # cliff face
-		_v(163.0, FLOOR_BASIN_M),  # down to the basin floor
+		_v(160.0, 54.0),  # cliff face down to the cave mouth (top)
+		_v(108.0, 56.0),  # cave ceiling (into the rock)
+		_v(108.0, 78.0),  # cave back wall
+		_v(160.0, 80.0),  # cave floor (back to the cliff face)
+		_v(163.0, FLOOR_BASIN_M),  # cliff continues to the basin floor
 		_v(WIDTH_M, FLOOR_BASIN_M), # basin floor
 		_v(WIDTH_M, DEPTH_M),       # down the right edge
 		_v(0.0, DEPTH_M),           # along the bottom
@@ -85,12 +89,11 @@ func _build_terrain() -> void:
 	_add_pillar(body, 240.0, 12.0, 38.0)
 	_add_pillar(body, 272.0, 9.0, 62.0)
 
-	# Cave mouth: a dark recess carved into the cliff face (nothing inside yet).
+	# Dark fill inside the carved cave so it reads as a recess (nothing in it yet).
 	var cave := PackedVector2Array([
-		_v(162.0, 66.0), _v(154.0, 69.0), _v(151.0, 79.0),
-		_v(154.0, 89.0), _v(162.0, 92.0),
+		_v(162.0, 52.0), _v(106.0, 54.0), _v(106.0, 80.0), _v(162.0, 82.0),
 	])
-	_add_visual_polygon(cave, PlaceholderArt.CAVE_COLOR, -78)
+	_add_visual_polygon(cave, PlaceholderArt.CAVE_COLOR, -85)
 
 func _add_pillar(body: StaticBody2D, center_x_m: float, width_m: float, top_m: float) -> void:
 	var pts := PackedVector2Array([

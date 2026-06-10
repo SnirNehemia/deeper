@@ -68,6 +68,7 @@ class SubFeel:
 	var time_to_max: float = 3.0   ## s to spin up to max
 	var coast_to_stop: float = 2.0 ## s to coast to a stop once input is released
 	var max_pitch_deg: float = 5.0 ## cosmetic nose tilt at full horizontal speed
+	var surface_gravity: float = 14.0 ## m/s^2 downward weight when fully out of the water
 
 	func accel_h() -> float:
 		return max_speed_h / time_to_max

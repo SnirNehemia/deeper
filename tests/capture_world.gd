@@ -8,8 +8,10 @@ func _ready() -> void:
 	add_child(ShoreShelf.new())
 
 	var sub := Sub.new()
-	sub.position = Vector2(180.0 * 48.0, 74.0 * 48.0)
+	sub.position = Vector2(132.0 * 48.0, 66.0 * 48.0)  # nosed into the cave
 	add_child(sub)
+	for i in 60:
+		await get_tree().physics_frame
 
 	var p1 := Crew.new()
 	p1.player_index = 99

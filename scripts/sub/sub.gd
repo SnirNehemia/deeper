@@ -41,7 +41,20 @@ var drive_input: Vector2 = Vector2.ZERO
 ## this; the physics body stays upright. Read by crew to match the tilted floor.
 var pitch: float = 0.0
 
+## Buoyancy: when enabled, the sub is neutrally buoyant underwater but gets
+## heavier as it rises out of the water, so it floats at the surface and can't
+## fly. The world enables this; dry sandboxes/tests leave it off.
+var buoyancy_enabled: bool = false
+var water_surface_y: float = 0.0
+
+# The sub floats here (px below the surface) — spawn it at this depth so it rests
+# without bobbing. Above this line, weight fades in over EMERGE_RANGE so the rise
+# gets heavier the further it emerges, and it can't lift its hull out of the water.
+const SURFACE_FLOAT_DEPTH := 150.0
+const _EMERGE_RANGE := 220.0
+
 var _visual: SubVisual
+var _hull_collision: CollisionPolygon2D
 
 func _ready() -> void:
 	collision_layer = Layers.SUB_HULL
@@ -57,23 +70,33 @@ func _physics_process(delta: float) -> void:
 	var feel: GameFeel.SubFeel = GameFeel.sub
 	var ppm: float = GameFeel.PIXELS_PER_METER
 
-	# Per-axis: accelerate toward the target speed, or coast toward zero.
-	var target := Vector2(
-		clampf(drive_input.x, -1.0, 1.0) * feel.max_speed_h * ppm,
-		clampf(drive_input.y, -1.0, 1.0) * feel.max_speed_v * ppm)
-	var rate_x := feel.accel_h() if absf(target.x) > 0.01 else feel.decel_h()
-	var rate_y := feel.accel_v() if absf(target.y) > 0.01 else feel.decel_v()
-	velocity.x = move_toward(velocity.x, target.x, rate_x * ppm * delta)
-	velocity.y = move_toward(velocity.y, target.y, rate_y * ppm * delta)
+	# Horizontal: velocity-target control (heavy spin-up / long coast).
+	var target_x := clampf(drive_input.x, -1.0, 1.0) * feel.max_speed_h * ppm
+	var rate_x := feel.accel_h() if absf(target_x) > 0.01 else feel.decel_h()
+	velocity.x = move_toward(velocity.x, target_x, rate_x * ppm * delta)
 
-	# No gravity: neutral buoyancy, so it holds depth when idle.
+	# Vertical: acceleration-based thrust (bounded), so buoyancy weight can
+	# actually overpower it near the surface instead of being cancelled out.
+	var max_v := feel.max_speed_v * ppm
+	if absf(drive_input.y) > 0.01:
+		velocity.y += clampf(drive_input.y, -1.0, 1.0) * feel.accel_v() * ppm * delta
+	else:
+		velocity.y = move_toward(velocity.y, 0.0, feel.decel_v() * ppm * delta)
+	if buoyancy_enabled:
+		var above := (water_surface_y + SURFACE_FLOAT_DEPTH) - global_position.y
+		var emergence := clampf(above / _EMERGE_RANGE, 0.0, 1.0)
+		velocity.y += feel.surface_gravity * ppm * emergence * delta
+	velocity.y = clampf(velocity.y, -max_v, max_v)
+
 	move_and_slide()
 
-	# Cosmetic pitch tilt proportional to horizontal speed. Only the ART tilts
-	# (hull + crew); the physics body and footing stay upright, so nobody slides.
+	# Cosmetic pitch tilt proportional to horizontal speed. The crew art stays
+	# aligned (they read `pitch`); the hull collider tilts with it so collisions
+	# match the visible hull. The body's other axes stay upright (no sliding).
 	var t := clampf(velocity.x / (feel.max_speed_h * ppm), -1.0, 1.0)
 	pitch = deg_to_rad(feel.max_pitch_deg) * t
 	_visual.rotation = pitch
+	_hull_collision.rotation = pitch
 
 func _build_helm() -> void:
 	var helm := HelmStation.new()
@@ -81,15 +104,17 @@ func _build_helm() -> void:
 	helm.position = Vector2(HELM_X, HELM_SEAT_Y)
 	add_child(helm)
 
-## Rough outer-shell collider (vs terrain). Shape only matters once the ocean map
-## exists; bumping terrain is harmless this milestone.
+## Outer-shell collider (vs terrain), shaped to match the hull silhouette (the
+## old rough rectangle hung ~1.5 m below the art, causing a visible gap). Tilts
+## with the cosmetic pitch so the collision matches what you see.
 func _build_hull_collision() -> void:
-	var hull := CollisionShape2D.new()
-	var shape := RectangleShape2D.new()
-	shape.size = Vector2(HALF_W * 2.0 + 80.0, ROOM_H + 6.0 * PPM)
-	hull.shape = shape
-	hull.position = Vector2(0, -ROOM_H * 0.5)
-	add_child(hull)
+	_hull_collision = CollisionPolygon2D.new()
+	_hull_collision.polygon = PackedVector2Array([
+		Vector2(-352, -168), Vector2(-90, -168), Vector2(-90, -274), Vector2(90, -274),
+		Vector2(90, -168), Vector2(352, -168), Vector2(400, -120), Vector2(400, 24),
+		Vector2(352, 72), Vector2(-352, 72), Vector2(-400, 24), Vector2(-400, -120),
+	])
+	add_child(_hull_collision)
 
 func _build_interior() -> void:
 	# Floor across all three rooms (top surface at y = 0).
