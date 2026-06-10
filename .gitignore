@@ -7,3 +7,7 @@
 /tilt_capture.png.import
 /world_capture.png
 /world_capture.png.import
+
+# Stray stderr capture files
+/.e.txt
+/.o.txt
