@@ -46,7 +46,10 @@
 - **Ladders (revised from spec):** pressing a direction does *not* drop you; you can climb and move sideways at once; you stay attached until you leave the ladder zone. The conning hatch is a solid deck you stand on — you drop through it only by pressing **down**.
 - **Pitch tilt:** cosmetic only — hull *and crew art* tilt together, physics bodies stay upright (so nobody slides). Tilt ∝ horizontal speed, ±5°.
 - **Ride-along:** crew are parented to the sub and ride it with zero sliding (verified) — no moving-platform physics needed for the interior.
-- **Depth reference:** waterline = world y 0; depth = sub y / 48 px, clamped ≥ 0.
+- **Buoyancy:** sub is neutrally buoyant underwater (holds depth when idle) but gets heavier as it emerges, so it floats at the surface and can't fly out (`GameFeel.sub.surface_gravity`, `Sub.SURFACE_FLOAT_DEPTH`). Vertical thrust is acceleration-based so weight can overpower it.
+- **Depth meter reads 0 at the surface float** (`Sub.depth_m()` is measured below the floating waterline), clamped ≥ 0.
+- **Sub hull collider:** polygon matched to the hull silhouette, tilts with the cosmetic pitch (interior footing stays upright).
+- **Cave:** the shelf cave is a real carved opening in the terrain (enterable), not a painted recess.
 
 ## Open
 - **Solo play:** is "lock station" enough, or does solo need an AI helper (Lovers-style pet)? Answer via solo playtests during MVP.

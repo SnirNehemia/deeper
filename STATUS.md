@@ -52,11 +52,13 @@ Shore Shelf test map while a depth meter tracks them. All placeholder art.
   slide. Tilt strength is a one-number tweak (`GameFeel.sub.max_pitch_deg`).
 - Sub hull collider is a polygon matched to the hull silhouette (fixed the earlier
   big collision gap) and rotates with the pitch.
-- Buoyancy: the sub floats at `Sub.SURFACE_FLOAT_DEPTH` (~3 m, reads "Depth 3 m"
-  at rest) and gets heavy as it emerges so it can't fly out of the water; neutral
-  below the surface band (holds depth when idle). Tune with
-  `GameFeel.sub.surface_gravity` + `Sub.SURFACE_FLOAT_DEPTH`. Only the world
-  enables buoyancy; dry sandboxes/tests leave it off.
+- Buoyancy: the sub floats at `Sub.SURFACE_FLOAT_DEPTH` and gets heavy as it
+  emerges so it can't fly out of the water; neutral below the surface band (holds
+  depth when idle). Tune with `GameFeel.sub.surface_gravity` +
+  `Sub.SURFACE_FLOAT_DEPTH`. Only the world enables buoyancy (`buoyancy_enabled`);
+  dry sandboxes/tests leave it off.
+- Depth meter reads **0 at the surface float** (`Sub.depth_m()` measures below the
+  floating waterline, i.e. offset by `SURFACE_FLOAT_DEPTH`), clamped ≥ 0.
 - Interior floors are StaticBody2D moved via parent transform; no jitter seen, but
   if fast driving ever shows it, switch interior to AnimatableBody2D.
 - `up` = jump = climb = "steer up" share a key; fine because a seated crew can't
@@ -65,7 +67,46 @@ Shore Shelf test map while a depth meter tracks them. All placeholder art.
 - Feel is at canon "weighty"; `GameFeel.use_snappy()` switches the crew preset for
   playtest comparison (no live key yet).
 
-## Suggested next step
-Playtest Milestone 1 for **feel** (crew weight, jump, sub heft, pitch, camera) and
-feed tuning notes into `GameFeel`. Then Milestone 2 territory: turret, water/breaches,
-or enemies (per DECISIONS, water should prove fun first).
+## Architecture & how to extend (read before Milestone 2)
+Core idea: **input → providers → InputHub → consumers**; **all feel numbers in
+GameFeel**; **all placeholder art in PlaceholderArt**; **physics layers in Layers**.
+
+- **Add an input device (gamepad/phone):** subclass `InputProvider` (override
+  `handle_event`/`poll`/`reset` to fill its `PlayerInput`), then register it in
+  `InputHub._register_milestone1_players()`. No gameplay code changes — every
+  consumer reads `InputHub.get_input(index)`.
+- **Add a station (turret, periscope, pump…):** subclass `Station`, override
+  `handle_input(input)` (and `seat_global_position()` if the seat isn't the node
+  origin). Build it inside `Sub` like `_build_helm()`. The crew seat/enter/exit
+  flow and the "one occupant" rule are already handled in `crew.gd` + `station.gd`.
+  Crew detect stations via a STATION-layer Area2D sensor.
+- **Sub systems (water/breaches, damage, oxygen):** the sub is one `CharacterBody2D`
+  with the interior built in code (`_build_interior`). Per-room state belongs on
+  `Sub`; the rooms are known rectangles (see the geometry consts at the top of
+  `sub.gd`). Damage model v1 = per-room water level only (see DECISIONS).
+- **Add/extend the map:** terrain lives in `scenes/shore_shelf.gd` as TERRAIN-layer
+  `CollisionPolygon2D` + matching `Polygon2D` visuals. Carve caves by routing the
+  ground polygon boundary into the rock (see the cave in `_build_terrain`).
+- **Tuning:** crew + sub feel are all in `autoload/game_feel.gd` (meters/seconds;
+  `PIXELS_PER_METER = 48`). `GameFeel.use_snappy()` swaps the crew preset.
+- **Collision layers:** `scripts/collision_layers.gd`. Crew touch INTERIOR + HATCH
+  + each other (CREW); the sub hull touches TERRAIN; ladders/hatch/stations are
+  their own layers. Keep new physics on named layers, never magic numbers.
+- **Testing discipline:** every system has a headless scene test in `tests/`
+  (`extends Node`, `_ready()` runs checks via the live autoloads, prints
+  `ok:`/`FAIL:`, `get_tree().quit(0/1)`). Run them as **scenes**, not `--script`
+  (global class_names don't resolve under `--script`). Pipe PowerShell output
+  through `Out-String` to capture stdout. `tests/capture_*.tscn` are windowed
+  screenshot tools for visual sign-off (png output is gitignored).
+
+## Open feel questions for the next playtest
+Crew weight/jump, sub heft + coast, pitch amount/direction, camera framing,
+buoyancy strength (`surface_gravity`) and float depth, whether `up`=jump=climb
+sharing a key ever bites. Feed answers into `GameFeel` / the relevant const.
+
+## Suggested next step (Milestone 2)
+Snir scopes M2 in a fresh session. Per DECISIONS the likely territory is **water /
+breaches first** (damage model v1 = per-room water level; auto-drains after
+patching; infinite hold-to-repair in MVP), then turret (limited arc) and enemies
+(small fauna territorial, large fauna hunts on detection). Start by writing a
+`MILESTONE_2.md` brief the same way `MILESTONE_1.md` was written.

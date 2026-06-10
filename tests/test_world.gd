@@ -44,8 +44,9 @@ func _test_buoyancy_and_floor() -> void:
 	# Settle: should hold its float line, not sink away or bob.
 	await _frames(120)
 	var float_depth := _depth(sub)
-	print("    float depth=", float_depth)
+	print("    float depth=", float_depth, " meter=", sub.depth_m())
 	_check(float_depth > 1.0 and float_depth < 5.0, "sub holds the surface float line at rest")
+	_check(sub.depth_m() < 1.0, "depth meter reads ~0 m at the surface")
 
 	# Dive to the shallows floor (~20 m); the hull should rest on it.
 	for i in 480:

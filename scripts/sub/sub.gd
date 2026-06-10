@@ -98,6 +98,13 @@ func _physics_process(delta: float) -> void:
 	_visual.rotation = pitch
 	_hull_collision.rotation = pitch
 
+## Depth shown to the player: metres below the surface. Reads 0 while the sub
+## floats at rest (its keel sits SURFACE_FLOAT_DEPTH down, which we treat as the
+## waterline), and clamps at 0 above that.
+func depth_m() -> float:
+	var below := global_position.y - water_surface_y - SURFACE_FLOAT_DEPTH
+	return maxf(0.0, below / GameFeel.PIXELS_PER_METER)
+
 func _build_helm() -> void:
 	var helm := HelmStation.new()
 	helm.sub = self

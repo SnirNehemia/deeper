@@ -1,6 +1,6 @@
 # CLAUDE.md — DEEPER
 
-Couch co-op submarine roguelite, 1–4 players, Godot 4.x, GDScript. Side-view cutaway sub; crew runs between stations. Canon design lives in `docs/design_doc.md`. Read `STATUS.md` at session start and `DECISIONS.md` before proposing changes to anything settled.
+Couch co-op submarine roguelite, 1–4 players, Godot 4.x, GDScript. Side-view cutaway sub; crew runs between stations. Canon design lives in `DEEPER_design_doc_v0.3.md` (repo root). Read `STATUS.md` at session start and `DECISIONS.md` before proposing changes to anything settled.
 
 ## The developer
 Snir does not read or write code and will not learn Godot. He is the designer; you are the entire engineering team. Consequences:

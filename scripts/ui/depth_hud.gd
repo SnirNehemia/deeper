@@ -2,8 +2,7 @@ class_name DepthHud
 extends CanvasLayer
 
 ## Top-center depth meter: how far below the surface the sub is, live in meters.
-## Surface (waterline) is world y = 0, so depth = sub.y / pixels-per-meter,
-## clamped at 0 while at/above the surface.
+## Reads 0 while the sub floats at the surface (see Sub.depth_m()).
 
 var sub: Sub
 
@@ -23,5 +22,4 @@ func _ready() -> void:
 func _process(_delta: float) -> void:
 	if sub == null:
 		return
-	var depth := maxf(0.0, sub.global_position.y / GameFeel.PIXELS_PER_METER)
-	_label.text = "Depth  %d m" % int(round(depth))
+	_label.text = "Depth  %d m" % int(round(sub.depth_m()))
