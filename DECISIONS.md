@@ -38,8 +38,19 @@
 - **Tone:** genuinely tense deep zones; cute crew + cozy interior as the contrast anchor
 - **Docs:** PLAYTEST_LOG.md added; no further doc files until a real need appears
 
+## Settled (2026-06-10, round 4 — Milestone 1 build)
+- **Engine:** Godot 4.4.1 stable (path in CLAUDE.md). Project: 1920×1080, canvas_items/expand, nearest filter.
+- **Input:** provider pattern (PlayerInput snapshot + InputHub autoload); only providers read devices. P2 interact pinned to *right* Shift by key location to avoid cross-talk.
+- **Crew height:** 1.2 m (was 1.5; shortened per playtest).
+- **Crew collision:** crew are solid to each other — must jump over to pass (designer call).
+- **Ladders (revised from spec):** pressing a direction does *not* drop you; you can climb and move sideways at once; you stay attached until you leave the ladder zone. The conning hatch is a solid deck you stand on — you drop through it only by pressing **down**.
+- **Pitch tilt:** cosmetic only — hull *and crew art* tilt together, physics bodies stay upright (so nobody slides). Tilt ∝ horizontal speed, ±5°.
+- **Ride-along:** crew are parented to the sub and ride it with zero sliding (verified) — no moving-platform physics needed for the interior.
+- **Depth reference:** waterline = world y 0; depth = sub y / 48 px, clamped ≥ 0.
+
 ## Open
 - **Solo play:** is "lock station" enough, or does solo need an AI helper (Lovers-style pet)? Answer via solo playtests during MVP.
+- **Pitch direction/strength:** confirm the lean feels right in playtest (one-number tweak).
 
 ## Parked
 - Snappy Overcooked-style crew movement (kept as switchable preset; playtest against weighty)
