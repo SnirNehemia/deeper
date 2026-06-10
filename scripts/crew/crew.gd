@@ -25,6 +25,11 @@ var _jump_buffer: float = 0.0
 var _ladder_overlaps: int = 0
 var _on_ladder: bool = false
 
+# Station state: a station we're standing in range of, and the one we're seated
+# at (driving) if any.
+var _nearby_station: Station = null
+var _station: Station = null
+
 var _facing: float = 1.0
 var _run_phase: float = 0.0
 var _was_on_floor: bool = false
@@ -54,6 +59,7 @@ func _ready() -> void:
 	add_child(_visual)
 
 	_add_ladder_sensor()
+	_add_station_sensor()
 
 func _add_ladder_sensor() -> void:
 	var sensor := Area2D.new()
@@ -70,6 +76,24 @@ func _add_ladder_sensor() -> void:
 	sensor.area_exited.connect(func(_a: Area2D) -> void:
 		_ladder_overlaps = maxi(0, _ladder_overlaps - 1))
 
+func _add_station_sensor() -> void:
+	var sensor := Area2D.new()
+	sensor.collision_layer = 0
+	sensor.collision_mask = Layers.STATION
+	var shape := CollisionShape2D.new()
+	var rect := RectangleShape2D.new()
+	rect.size = Vector2(PlaceholderArt.CREW_WIDTH_M * GameFeel.PIXELS_PER_METER,
+		PlaceholderArt.CREW_HEIGHT_M * GameFeel.PIXELS_PER_METER)
+	shape.shape = rect
+	sensor.add_child(shape)
+	add_child(sensor)
+	sensor.area_entered.connect(func(a: Area2D) -> void:
+		if a is Station:
+			_nearby_station = a)
+	sensor.area_exited.connect(func(a: Area2D) -> void:
+		if a == _nearby_station:
+			_nearby_station = null)
+
 func _physics_process(delta: float) -> void:
 	var input: PlayerInput = InputHub.get_input(player_index)
 	var feel: GameFeel.CrewFeel = GameFeel.crew
@@ -78,6 +102,19 @@ func _physics_process(delta: float) -> void:
 	var move_x := input.move.x if input != null else 0.0
 	var move_y := input.move.y if input != null else 0.0
 	var jump_pressed := input.jump_pressed if input != null else false
+	var interact_pressed := input.interact_pressed if input != null else false
+
+	# Seated at a station: hand our input to it and stay locked in the seat.
+	if _station != null:
+		_be_seated(input, interact_pressed)
+		_update_visual(0.0, ppm, delta)
+		return
+
+	# Sit down at a station we're standing in (and that's free).
+	if interact_pressed and _nearby_station != null and _nearby_station.can_enter():
+		_enter_station(_nearby_station)
+		_update_visual(0.0, ppm, delta)
+		return
 
 	# Grab a ladder when overlapping one and deliberately pushing up or down.
 	# (Pressing down is also how you drop through the conning hatch.)
@@ -138,6 +175,26 @@ func _move_on_ladder(move_x: float, move_y: float, feel: GameFeel.CrewFeel,
 	elif is_on_floor() and move_y >= 0.0:
 		_on_ladder = false
 	_was_on_floor = is_on_floor()
+
+func _be_seated(input: PlayerInput, interact_pressed: bool) -> void:
+	# Locked in the seat (which rides with the sub); feed input to the station.
+	velocity = Vector2.ZERO
+	global_position = _station.seat_global_position()
+	if input != null:
+		_station.handle_input(input)
+	if interact_pressed:
+		_exit_station()
+
+func _enter_station(station: Station) -> void:
+	station.enter(self)
+	_station = station
+	velocity = Vector2.ZERO
+	_on_ladder = false
+
+func _exit_station() -> void:
+	if _station != null:
+		_station.exit(self)
+	_station = null
 
 func _update_visual(move_x: float, ppm: float, delta: float) -> void:
 	if absf(move_x) > 0.01:

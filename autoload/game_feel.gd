@@ -58,3 +58,25 @@ func use_weighty() -> void:
 
 func use_snappy() -> void:
 	crew = snappy()
+
+## Submarine driving feel: heavy but controllable. Direct control — the helm
+## occupant's move vector accelerates the sub; neutral buoyancy means it drifts
+## to a stop and never sinks on its own.
+class SubFeel:
+	var max_speed_h: float = 6.0   ## m/s horizontal
+	var max_speed_v: float = 4.0   ## m/s vertical
+	var time_to_max: float = 3.0   ## s to spin up to max
+	var coast_to_stop: float = 2.0 ## s to coast to a stop once input is released
+	var max_pitch_deg: float = 5.0 ## cosmetic nose tilt at full horizontal speed
+
+	func accel_h() -> float:
+		return max_speed_h / time_to_max
+	func decel_h() -> float:
+		return max_speed_h / coast_to_stop
+	func accel_v() -> float:
+		return max_speed_v / time_to_max
+	func decel_v() -> float:
+		return max_speed_v / coast_to_stop
+
+## The submarine feel currently in effect.
+var sub: SubFeel = SubFeel.new()

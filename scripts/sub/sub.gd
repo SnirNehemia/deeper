@@ -29,12 +29,52 @@ const CONN_TOP := -ROOM_H - 2.0 * PPM  # -240-ish — conning ceiling region
 # Divider x positions between the three rooms.
 const DIV_X := ROOM_W * 0.5   # 120
 
+# Helm seat location (helm/bow room, near the floor). Crew origin sits here.
+const HELM_X := HALF_W - ROOM_W * 0.5                          # 240 — helm room center
+const HELM_SEAT_Y := -PlaceholderArt.CREW_HEIGHT_M * PPM * 0.5 # crew feet on the floor
+
+## Desired drive direction this frame, set by the helm occupant (each axis in
+## [-1, 1]). Zero when no one is steering — the sub then coasts to a stop.
+var drive_input: Vector2 = Vector2.ZERO
+
+var _visual: SubVisual
+
 func _ready() -> void:
 	collision_layer = Layers.SUB_HULL
 	collision_mask = Layers.TERRAIN
+	_visual = SubVisual.new()
+	add_child(_visual)
 	_build_hull_collision()
 	_build_interior()
 	_build_ladder()
+	_build_helm()
+
+func _physics_process(delta: float) -> void:
+	var feel: GameFeel.SubFeel = GameFeel.sub
+	var ppm: float = GameFeel.PIXELS_PER_METER
+
+	# Per-axis: accelerate toward the target speed, or coast toward zero.
+	var target := Vector2(
+		clampf(drive_input.x, -1.0, 1.0) * feel.max_speed_h * ppm,
+		clampf(drive_input.y, -1.0, 1.0) * feel.max_speed_v * ppm)
+	var rate_x := feel.accel_h() if absf(target.x) > 0.01 else feel.decel_h()
+	var rate_y := feel.accel_v() if absf(target.y) > 0.01 else feel.decel_v()
+	velocity.x = move_toward(velocity.x, target.x, rate_x * ppm * delta)
+	velocity.y = move_toward(velocity.y, target.y, rate_y * ppm * delta)
+
+	# No gravity: neutral buoyancy, so it holds depth when idle.
+	move_and_slide()
+
+	# Cosmetic pitch tilt proportional to horizontal speed (visual only — the
+	# body and crew stay upright so collisions and footing are unaffected).
+	var t := clampf(velocity.x / (feel.max_speed_h * ppm), -1.0, 1.0)
+	_visual.rotation = deg_to_rad(feel.max_pitch_deg) * t
+
+func _build_helm() -> void:
+	var helm := HelmStation.new()
+	helm.sub = self
+	helm.position = Vector2(HELM_X, HELM_SEAT_Y)
+	add_child(helm)
 
 ## Rough outer-shell collider (vs terrain). Shape only matters once the ocean map
 ## exists; bumping terrain is harmless this milestone.
@@ -120,54 +160,3 @@ func _add_box(center: Vector2, size: Vector2, layer: int) -> void:
 	col.shape = shape
 	body.add_child(col)
 	add_child(body)
-
-# --- Placeholder visuals (drawn in local space; collision is separate) ---
-
-func _draw() -> void:
-	var deck_y := CEIL_Y - WALL_T
-	var conn_ceil_y := deck_y - 2.0 * PPM
-
-	# Outer hull silhouette (rounded), behind everything.
-	_draw_round_rect(Rect2(-HALF_W - 40.0, -ROOM_H - 24.0, HALF_W * 2.0 + 80.0, ROOM_H + 24.0 + 1.5 * PPM),
-		48.0, PlaceholderArt.HULL_COLOR)
-	# Conning tower bump on top.
-	_draw_round_rect(Rect2(-CONN_HALF - 18.0, conn_ceil_y - 18.0, CONN_HALF * 2.0 + 36.0, deck_y - conn_ceil_y + 24.0),
-		18.0, PlaceholderArt.HULL_COLOR)
-
-	# Room interiors.
-	for i in 3:
-		var room_x := -HALF_W + i * ROOM_W
-		draw_rect(Rect2(room_x, CEIL_Y, ROOM_W, ROOM_H), PlaceholderArt.SUB_INTERIOR)
-	# Conning interior.
-	draw_rect(Rect2(-CONN_HALF, conn_ceil_y, CONN_HALF * 2.0, deck_y - conn_ceil_y),
-		PlaceholderArt.SUB_INTERIOR)
-
-	# Floor deck highlight.
-	draw_rect(Rect2(-HALF_W, 0, HALF_W * 2.0, 6.0), PlaceholderArt.SUB_FLOOR)
-
-	# Doorway headers (visual) + divider posts (just the header part).
-	var header_h := ROOM_H - DOOR_H
-	for sx in [-DIV_X, DIV_X]:
-		draw_rect(Rect2(sx - WALL_T * 0.5, CEIL_Y, WALL_T, header_h), PlaceholderArt.SUB_STRUCTURE)
-
-	# Conning deck (structure) across the conning floor, including the hatch.
-	draw_rect(Rect2(-CONN_HALF, CEIL_Y - WALL_T, CONN_HALF * 2.0, WALL_T),
-		PlaceholderArt.SUB_STRUCTURE)
-
-	# Ladder rails + rungs.
-	var rail_x := HOLE_HALF - 6.0
-	draw_rect(Rect2(-rail_x - 2.0, conn_ceil_y, 4.0, -conn_ceil_y), PlaceholderArt.LADDER_COLOR)
-	draw_rect(Rect2(rail_x - 2.0, conn_ceil_y, 4.0, -conn_ceil_y), PlaceholderArt.LADDER_COLOR)
-	var rung := conn_ceil_y + 8.0
-	while rung < 0.0:
-		draw_rect(Rect2(-rail_x, rung, rail_x * 2.0, 3.0), PlaceholderArt.LADDER_COLOR)
-		rung += 16.0
-
-func _draw_round_rect(rect: Rect2, radius: float, color: Color) -> void:
-	var r := minf(radius, minf(rect.size.x, rect.size.y) * 0.5)
-	draw_rect(Rect2(rect.position + Vector2(r, 0), Vector2(rect.size.x - 2.0 * r, rect.size.y)), color)
-	draw_rect(Rect2(rect.position + Vector2(0, r), Vector2(rect.size.x, rect.size.y - 2.0 * r)), color)
-	draw_circle(rect.position + Vector2(r, r), r, color)
-	draw_circle(rect.position + Vector2(rect.size.x - r, r), r, color)
-	draw_circle(rect.position + Vector2(r, rect.size.y - r), r, color)
-	draw_circle(rect.position + Vector2(rect.size.x - r, rect.size.y - r), r, color)
