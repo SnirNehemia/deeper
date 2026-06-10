@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://b8deepersubtest"]
+
+[ext_resource type="Script" path="res://scenes/sub_test.gd" id="1_subtest"]
+
+[node name="SubTest" type="Node2D"]
+script = ExtResource("1_subtest")

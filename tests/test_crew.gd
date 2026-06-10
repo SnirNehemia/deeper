@@ -59,6 +59,8 @@ func _test_physics() -> void:
 
 	# Floor with its top surface at y = 200.
 	var floor_body := StaticBody2D.new()
+	floor_body.collision_layer = Layers.INTERIOR
+	floor_body.collision_mask = 0
 	floor_body.position = Vector2(0, 260)
 	var col := CollisionShape2D.new()
 	var shape := RectangleShape2D.new()

@@ -37,6 +37,8 @@ func _build_level() -> void:
 ## Build a static collision box with a centered colored visual.
 func _make_box(center: Vector2, size: Vector2, color: Color) -> StaticBody2D:
 	var body := StaticBody2D.new()
+	body.collision_layer = Layers.INTERIOR  # crew collide with the INTERIOR layer
+	body.collision_mask = 0
 	body.position = center
 	var collider := CollisionShape2D.new()
 	var shape := RectangleShape2D.new()

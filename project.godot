@@ -12,8 +12,8 @@ config_version=5
 
 config/name="Deeper"
 config/features=PackedStringArray("4.4", "GL Compatibility")
-config/run/main_scene="res://scenes/sandbox.tscn"
 config/icon="res://icon.svg"
+run/main_scene="res://scenes/sub_test.tscn"
 
 [autoload]
 

@@ -15,6 +15,10 @@ const CREW_P2_COLOR := Color("3ac6e8")   ## cyan
 
 # --- Sub / hull ---
 const HULL_COLOR := Color("c8c8d0")
+const SUB_INTERIOR := Color("2a2f3a")     ## room background
+const SUB_STRUCTURE := Color("8a8f9c")    ## floors/walls/headers
+const SUB_FLOOR := Color("4a5160")        ## floor deck highlight
+const LADDER_COLOR := Color("e0c060")     ## ladder rails/rungs
 
 # --- Terrain ---
 const TERRAIN_SAND := Color("d8c27a")
