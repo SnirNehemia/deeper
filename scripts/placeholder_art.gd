@@ -30,3 +30,5 @@ const SKY_COLOR := Color("9fd3e8")
 const WATER_SURFACE := Color("2b6c8f")
 const DEEP_WATER := Color("0a1a2e")
 const SANDBOX_BG := Color("17202b")
+const CAVE_COLOR := Color("05080f")     ## dark recess
+const DOCK_COLOR := Color("7a5a3a")     ## wooden dock

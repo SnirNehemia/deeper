@@ -2,6 +2,8 @@
 .godot/
 /android/
 
-# Throwaway visual-capture output (see tests/capture_tilt.tscn)
+# Throwaway visual-capture output (see tests/capture_*.tscn)
 /tilt_capture.png
 /tilt_capture.png.import
+/world_capture.png
+/world_capture.png.import

@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://b8deepertestworld"]
+
+[ext_resource type="Script" path="res://tests/test_world.gd" id="1_testworld"]
+
+[node name="TestWorld" type="Node"]
+script = ExtResource("1_testworld")
