@@ -12,10 +12,12 @@ config_version=5
 
 config/name="Deeper"
 config/features=PackedStringArray("4.4", "GL Compatibility")
+config/run/main_scene="res://scenes/sandbox.tscn"
 config/icon="res://icon.svg"
 
 [autoload]
 
+GameFeel="*res://autoload/game_feel.gd"
 InputHub="*res://autoload/input_hub.gd"
 
 [display]
