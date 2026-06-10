@@ -25,9 +25,18 @@ const HOLE_HALF := 0.5 * PPM  # 24 — half-width of the ladder hole in the ceil
 const CEIL_Y := -ROOM_H       # -144 — ceiling bottom / room headroom
 const CONN_HALF := 1.5 * PPM  # 72 — half-width of the conning area
 const CONN_TOP := -ROOM_H - 2.0 * PPM  # -240-ish — conning ceiling region
+const CONN_HEIGHT := 2.0 * PPM         # 96 — conning area headroom
+const DECK_Y := CEIL_Y - WALL_T        # top of the ceiling segments
+const CONN_CEIL_Y := DECK_Y - CONN_HEIGHT
 
 # Divider x positions between the three rooms.
 const DIV_X := ROOM_W * 0.5   # 120
+
+## Water "rooms": engine (0), middle (1), helm (2), conning area (3).
+const ROOM_COUNT := 4
+## Connections water can flow through: engine<->middle, middle<->helm via the
+## doorways, middle<->conning via the ladder opening.
+const WATER_CONNECTIONS := [[0, 1], [1, 2], [1, 3]]
 
 # Helm seat location (helm/bow room, near the floor). Crew origin sits here.
 const HELM_X := HALF_W - ROOM_W * 0.5                          # 240 — helm room center
@@ -52,6 +61,10 @@ var water_surface_y: float = 0.0
 # gets heavier the further it emerges, and it can't lift its hull out of the water.
 const SURFACE_FLOAT_DEPTH := 150.0
 const _EMERGE_RANGE := 220.0
+
+## Per-room water level (0-1 fraction of room height), indexed by
+## room id: 0 = engine, 1 = middle, 2 = helm, 3 = conning area.
+var water_levels: Array[float] = [0.0, 0.0, 0.0, 0.0]
 
 var _visual: SubVisual
 var _hull_collision: CollisionPolygon2D
@@ -86,6 +99,10 @@ func _physics_process(delta: float) -> void:
 		var above := (water_surface_y + SURFACE_FLOAT_DEPTH) - global_position.y
 		var emergence := clampf(above / _EMERGE_RANGE, 0.0, 1.0)
 		velocity.y += feel.surface_gravity * ppm * emergence * delta
+
+	_update_water(delta)
+	velocity.y += GameFeel.water.weight_accel * ppm * total_fill_fraction() * delta
+
 	velocity.y = clampf(velocity.y, -max_v, max_v)
 
 	move_and_slide()
@@ -104,6 +121,45 @@ func _physics_process(delta: float) -> void:
 func depth_m() -> float:
 	var below := global_position.y - water_surface_y - SURFACE_FLOAT_DEPTH
 	return maxf(0.0, below / GameFeel.PIXELS_PER_METER)
+
+## Local-space rectangle of a water "room" (0=engine, 1=middle, 2=helm,
+## 3=conning area), floor-to-ceiling, used for both volume math and rendering.
+func room_rect(i: int) -> Rect2:
+	if i == 3:
+		return Rect2(-CONN_HALF, CONN_CEIL_Y, CONN_HALF * 2.0, CONN_HEIGHT)
+	var room_x := -HALF_W + i * ROOM_W
+	return Rect2(room_x, CEIL_Y, ROOM_W, ROOM_H)
+
+## Cross-sectional "volume" (area) of a water room, used to weight flow and the
+## overall fill fraction so the smaller conning area fills/drains faster.
+func room_volume(i: int) -> float:
+	var r := room_rect(i)
+	return r.size.x * r.size.y
+
+## Volume-weighted average fill across all rooms (0-1) — drives the water
+## weight effect and the implosion check.
+func total_fill_fraction() -> float:
+	var total_water := 0.0
+	var total_vol := 0.0
+	for i in ROOM_COUNT:
+		var vol := room_volume(i)
+		total_water += water_levels[i] * vol
+		total_vol += vol
+	return total_water / total_vol
+
+## Equalize water levels between connected rooms and clamp to [0, 1].
+## Conserves total water volume across each pairwise transfer.
+func _update_water(delta: float) -> void:
+	var w: GameFeel.WaterFeel = GameFeel.water
+	for pair in WATER_CONNECTIONS:
+		var i: int = pair[0]
+		var j: int = pair[1]
+		var diff: float = water_levels[i] - water_levels[j]
+		var d_level_i := w.flow_rate * diff * delta
+		water_levels[i] -= d_level_i
+		water_levels[j] += d_level_i * room_volume(i) / room_volume(j)
+	for i in ROOM_COUNT:
+		water_levels[i] = clampf(water_levels[i], 0.0, 1.0)
 
 func _build_helm() -> void:
 	var helm := HelmStation.new()

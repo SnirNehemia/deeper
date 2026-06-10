@@ -81,3 +81,42 @@ class SubFeel:
 
 ## The submarine feel currently in effect.
 var sub: SubFeel = SubFeel.new()
+
+## Water / flooding feel (Milestone 2). Per-room water_level (0-1) lives on Sub;
+## these numbers tune how it flows, weighs the sub down, drains, and how breaches
+## leak. All "rate" values are in level-fraction-per-second.
+class WaterFeel:
+	## Equalization rate constant between connected rooms (per second). Higher =
+	## faster equalizing. ~0.35 brings two rooms to within a few % in ~10-15s.
+	var flow_rate: float = 0.35
+	## A room with zero breaches drains fully in ~12s.
+	var drain_rate: float = 1.0 / 12.0
+	## Extra downward acceleration (m/s^2) applied at 100% total fill (weighted
+	## average of all rooms). Scales linearly with fill.
+	var weight_accel: float = 7.0
+	## Room water level (fraction) above which a station in that room ejects its
+	## occupant and refuses entry.
+	var seat_flood_threshold: float = 0.6
+	## Crew run-speed multiplier while submerged above the waist.
+	var swim_speed_mult: float = 0.5
+	## Crew jump strength multiplier while submerged above the waist.
+	var swim_jump_mult: float = 0.4
+	## Breach leak-rate range (level-fraction/s): slowest breach floods a room in
+	## ~90s, the worst single breach in ~20s. Multiple breaches stack.
+	var leak_rate_min: float = 1.0 / 90.0
+	var leak_rate_max: float = 1.0 / 20.0
+	## Drip-tier leak rate used by fish bites (small, slow).
+	var bite_leak_rate: float = 1.0 / 120.0
+	## Crew air supply while submerged (seconds) before drowning.
+	var air_time: float = 10.0
+	## Respawn delay after drowning (seconds).
+	var respawn_delay: float = 7.0
+	## Total water (volume-weighted average fill across all rooms) above this
+	## fraction triggers implosion.
+	var implosion_fraction: float = 0.7
+	## Impact speed (m/s) below which terrain hits are free (no breach).
+	var breach_speed_threshold: float = 2.0
+	## Impact speed (m/s) at which a hit produces the worst (leak_rate_max) breach.
+	var breach_speed_max: float = 6.0
+
+var water: WaterFeel = WaterFeel.new()
