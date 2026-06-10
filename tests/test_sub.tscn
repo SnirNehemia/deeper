@@ -1,4 +1,4 @@
-[gd_scene load_steps=2 format=3 uid="uid://b8deepertestsub"]
+[gd_scene load_steps=2 format=3 uid="uid://2o8dhirljfq4"]
 
 [ext_resource type="Script" path="res://tests/test_sub.gd" id="1_testsub"]
 

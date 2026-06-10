@@ -61,6 +61,11 @@ func _build_interior() -> void:
 	_add_static(Vector2(-(HOLE_HALF + left_w * 0.5), ceil_y), Vector2(left_w, WALL_T))
 	_add_static(Vector2(HOLE_HALF + left_w * 0.5, ceil_y), Vector2(left_w, WALL_T))
 
+	# Solid deck over the ladder hole (HATCH layer). Crew stand on it normally, so
+	# they don't auto-fall through the hatch; they pass it only while climbing the
+	# ladder (which drops the HATCH layer), i.e. only when pressing down/up.
+	_add_hatch(Vector2(0, ceil_y), Vector2(HOLE_HALF * 2.0, WALL_T))
+
 	# Doorway headers: short beams hanging from the ceiling between rooms, leaving
 	# a DOOR_H opening above the floor.
 	var header_h := ROOM_H - DOOR_H
@@ -98,8 +103,15 @@ func _build_ladder() -> void:
 
 ## Add an interior collision box (center, size) on the INTERIOR layer.
 func _add_static(center: Vector2, size: Vector2) -> void:
+	_add_box(center, size, Layers.INTERIOR)
+
+## Add the hatch deck box (center, size) on the HATCH layer.
+func _add_hatch(center: Vector2, size: Vector2) -> void:
+	_add_box(center, size, Layers.HATCH)
+
+func _add_box(center: Vector2, size: Vector2, layer: int) -> void:
 	var body := StaticBody2D.new()
-	body.collision_layer = Layers.INTERIOR
+	body.collision_layer = layer
 	body.collision_mask = 0
 	body.position = center
 	var col := CollisionShape2D.new()
@@ -137,6 +149,10 @@ func _draw() -> void:
 	var header_h := ROOM_H - DOOR_H
 	for sx in [-DIV_X, DIV_X]:
 		draw_rect(Rect2(sx - WALL_T * 0.5, CEIL_Y, WALL_T, header_h), PlaceholderArt.SUB_STRUCTURE)
+
+	# Conning deck (structure) across the conning floor, including the hatch.
+	draw_rect(Rect2(-CONN_HALF, CEIL_Y - WALL_T, CONN_HALF * 2.0, WALL_T),
+		PlaceholderArt.SUB_STRUCTURE)
 
 	# Ladder rails + rungs.
 	var rail_x := HOLE_HALF - 6.0

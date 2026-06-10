@@ -29,9 +29,14 @@ var _facing: float = 1.0
 var _run_phase: float = 0.0
 var _was_on_floor: bool = false
 
+# On foot we stand on the sub interior, the hatch deck, and bump other crew.
+# While climbing we drop HATCH so the ladder can carry us through the deck hole.
+const _MASK_FOOT := Layers.INTERIOR | Layers.HATCH | Layers.CREW
+const _MASK_CLIMB := Layers.INTERIOR | Layers.CREW
+
 func _ready() -> void:
 	collision_layer = Layers.CREW
-	collision_mask = Layers.INTERIOR
+	collision_mask = _MASK_FOOT
 
 	var ppm: float = GameFeel.PIXELS_PER_METER
 
@@ -74,10 +79,12 @@ func _physics_process(delta: float) -> void:
 	var move_y := input.move.y if input != null else 0.0
 	var jump_pressed := input.jump_pressed if input != null else false
 
-	# Grab a ladder when overlapping one and pushing up or down.
+	# Grab a ladder when overlapping one and deliberately pushing up or down.
+	# (Pressing down is also how you drop through the conning hatch.)
 	if not _on_ladder and _ladder_overlaps > 0 and absf(move_y) > 0.5:
 		_on_ladder = true
 
+	collision_mask = _MASK_CLIMB if _on_ladder else _MASK_FOOT
 	if _on_ladder:
 		_move_on_ladder(move_x, move_y, feel, ppm, delta)
 	else:
@@ -115,20 +122,20 @@ func _move_on_foot(move_x: float, jump_pressed: bool, feel: GameFeel.CrewFeel,
 
 func _move_on_ladder(move_x: float, move_y: float, feel: GameFeel.CrewFeel,
 		ppm: float, delta: float) -> void:
-	# Climb at a steady speed; no gravity while attached.
+	# Climb at a steady speed (no gravity), but keep full sideways control so you
+	# can climb and move at the same time. You stay on the ladder until you
+	# actually move out of its zone (or settle onto a floor below).
 	velocity.y = move_y * feel.climb_speed * ppm
-	velocity.x = move_toward(velocity.x, 0.0, feel.run_decel() * ppm * delta)
-
-	# Step off sideways.
-	if absf(move_x) > 0.5:
-		_on_ladder = false
+	var target_vx := move_x * feel.run_max_speed * ppm
+	var rate := feel.run_accel() if absf(target_vx) > 0.01 else feel.run_decel()
+	velocity.x = move_toward(velocity.x, target_vx, rate * ppm * delta)
 
 	move_and_slide()
 
-	# Detach when we leave the ladder zone, or settle onto a floor.
+	# Detach when we leave the ladder zone, or reach a floor without climbing up.
 	if _ladder_overlaps == 0:
 		_on_ladder = false
-	if is_on_floor() and move_y >= 0.0:
+	elif is_on_floor() and move_y >= 0.0:
 		_on_ladder = false
 	_was_on_floor = is_on_floor()
 

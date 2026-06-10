@@ -1,16 +1,22 @@
 extends Node
 
-## Headless test for the sub interior (Step 3).
+## Headless test for the sub interior + ladder/hatch behavior (Step 3, revised).
 ##
 ## Run: godot --headless res://tests/test_sub.tscn
-## Drops crew inside a real Sub and drives them through the live InputHub to
-## prove the geometry actually works: land on the floor, run through the doorways
-## across all three rooms, and climb the ladder up into the conning area.
+## Drives crew through the live InputHub to prove the geometry and the playtest
+## fixes: traverse all rooms, climb the ladder, crew block each other, and the
+## conning hatch is solid unless you press down.
 
 var _failures := 0
+var _hub: Node
 
 func _ready() -> void:
-	await _run()
+	_hub = get_node("/root/InputHub")
+	_test_dimensions()
+	await _test_traversal_and_ladder()
+	await _test_crew_collision()
+	await _test_hatch()
+
 	if _failures == 0:
 		print("SUB TESTS PASSED")
 		get_tree().quit(0)
@@ -31,56 +37,117 @@ func _key(keycode: Key, pressed: bool) -> InputEventKey:
 	e.pressed = pressed
 	return e
 
+func _press(keycode: Key) -> void:
+	_hub._input(_key(keycode, true))
+
+func _release(keycode: Key) -> void:
+	_hub._input(_key(keycode, false))
+
 func _frames(n: int) -> void:
 	for i in n:
 		await get_tree().physics_frame
 
-func _run() -> void:
-	print("[sub]")
-	var hub: Node = get_node("/root/InputHub")
-
+func _new_sub() -> Sub:
 	var sub := Sub.new()
 	add_child(sub)
+	return sub
 
-	# P1 starts in the stern (engine) room, on the left.
+func _test_dimensions() -> void:
+	print("[dimensions]")
+	# Crew shortened to 4/5 of the original 1.5 m.
+	_check(is_equal_approx(PlaceholderArt.CREW_HEIGHT_M, 1.2), "crew height is 1.2 m (4/5 of 1.5)")
+
+func _test_traversal_and_ladder() -> void:
+	print("[traversal + ladder]")
+	var sub := _new_sub()
 	var crew := Crew.new()
 	crew.player_index = 0
 	crew.position = Vector2(-240, -60)
 	sub.add_child(crew)
 
-	# Land.
 	await _frames(90)
 	_check(crew.is_on_floor(), "crew lands on the sub floor")
 
-	# Run all the way right (D) — through both doorways into the helm room.
-	hub._input(_key(KEY_D, true))
+	# Run all the way right through both doorways into the helm room.
+	_press(KEY_D)
 	await _frames(150)
-	hub._input(_key(KEY_D, false))
+	_release(KEY_D)
 	_check(crew.position.x > Sub.DIV_X + 20.0, "crew ran through doorways into the helm room")
-	_check(crew.is_on_floor(), "crew still on the floor after the run (not stuck on a header)")
+	_check(crew.is_on_floor(), "crew still on the floor after the run")
 
-	# Walk back to the ladder column (left) and stop near center.
-	hub._input(_key(KEY_A, true))
+	# Back to the ladder column and climb up.
+	_press(KEY_A)
 	await _frames(60)
-	hub._input(_key(KEY_A, false))
-	await _frames(30)
-
-	# Nudge onto the ladder x (~0) so the sensor overlaps the climb column.
+	_release(KEY_A)
+	await _frames(20)
 	crew.position.x = 0.0
 	crew.velocity = Vector2.ZERO
 	await _frames(5)
 	var floor_y := crew.position.y
 
-	# Climb up (W) into the conning area.
-	hub._input(_key(KEY_W, true))
+	_press(KEY_W)
 	await _frames(90)
-	hub._input(_key(KEY_W, false))
-	_check(crew.position.y < floor_y - Sub.ROOM_H * 0.5,
-		"crew climbed the ladder up toward the conning area")
+	_release(KEY_W)
+	_check(crew.position.y < floor_y - Sub.ROOM_H * 0.5, "crew climbed up the ladder")
 
-	# Climb back down (S) and land again.
-	hub._input(_key(KEY_S, true))
+	# Climb back down to the floor.
+	_press(KEY_S)
 	await _frames(120)
-	hub._input(_key(KEY_S, false))
+	_release(KEY_S)
 	await _frames(60)
-	_check(crew.is_on_floor(), "crew climbed back down and is on the floor")
+	_check(crew.is_on_floor(), "crew climbed back down to the floor")
+
+	sub.queue_free()
+	await _frames(2)
+
+func _test_crew_collision() -> void:
+	print("[crew collide]")
+	var sub := _new_sub()
+	# A (P1) to the left of a stationary B (P2); A runs right into B.
+	var a := Crew.new()
+	a.player_index = 0
+	a.position = Vector2(-300, -60)
+	sub.add_child(a)
+	var b := Crew.new()
+	b.player_index = 1
+	b.position = Vector2(-240, -60)
+	sub.add_child(b)
+
+	await _frames(60)  # let both settle on the floor
+	var b_x := b.position.x
+
+	_press(KEY_D)
+	await _frames(90)  # long enough to overtake B if there were no collision
+	_release(KEY_D)
+	_check(a.position.x > -300.0, "crew A actually moved right")
+	_check(a.position.x < b_x - 25.0, "crew A is blocked by crew B (can't pass through)")
+
+	sub.queue_free()
+	await _frames(2)
+
+func _test_hatch() -> void:
+	print("[conning hatch]")
+	var sub := _new_sub()
+	var crew := Crew.new()
+	crew.player_index = 0
+	# Drop onto the hatch deck at the top of the ladder (local deck top ~ y=-160).
+	crew.position = Vector2(0, -200)
+	sub.add_child(crew)
+
+	await _frames(60)
+	_check(crew.is_on_floor() and crew.position.y < -120.0,
+		"crew stands on the conning hatch (does not auto-fall through)")
+	var deck_y := crew.position.y
+
+	# No input for a moment: still standing, hasn't fallen.
+	await _frames(30)
+	_check(absf(crew.position.y - deck_y) < 10.0, "crew stays put on the hatch with no input")
+
+	# Press down: now it drops through the hatch and descends.
+	_press(KEY_S)
+	await _frames(90)
+	_release(KEY_S)
+	_check(crew.position.y > deck_y + Sub.ROOM_H * 0.5, "pressing down drops through the hatch")
+
+	sub.queue_free()
+	await _frames(2)

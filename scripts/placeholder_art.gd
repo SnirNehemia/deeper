@@ -9,7 +9,7 @@ extends RefCounted
 
 # --- Crew ---
 const CREW_WIDTH_M: float = 0.7
-const CREW_HEIGHT_M: float = 1.5
+const CREW_HEIGHT_M: float = 1.2
 const CREW_P1_COLOR := Color("e8833a")   ## orange
 const CREW_P2_COLOR := Color("3ac6e8")   ## cyan
 
