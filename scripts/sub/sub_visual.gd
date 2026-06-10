@@ -48,6 +48,12 @@ func _draw() -> void:
 		draw_rect(Rect2(-rail_x, rung, rail_x * 2.0, 3.0), PlaceholderArt.LADDER_COLOR)
 		rung += 16.0
 
+	# Helm console, sitting on the floor in the bow room (tilts with the hull).
+	var hx := Sub.HELM_X
+	draw_rect(Rect2(hx - 16.0, -24.0, 32.0, 24.0), PlaceholderArt.SUB_STRUCTURE)
+	draw_rect(Rect2(hx - 3.0, -40.0, 6.0, 16.0), PlaceholderArt.SUB_STRUCTURE)
+	draw_circle(Vector2(hx, -42.0), 7.0, PlaceholderArt.LADDER_COLOR)
+
 func _draw_round_rect(rect: Rect2, radius: float, color: Color) -> void:
 	var r := minf(radius, minf(rect.size.x, rect.size.y) * 0.5)
 	draw_rect(Rect2(rect.position + Vector2(r, 0), Vector2(rect.size.x - 2.0 * r, rect.size.y)), color)

@@ -203,11 +203,27 @@ func _update_visual(move_x: float, ppm: float, delta: float) -> void:
 	if running:
 		# Step cadence scales with speed so faster = quicker shuffle.
 		_run_phase += (absf(velocity.x) / ppm) * delta * 4.0
+
+	# Match the sub's cosmetic pitch: rotate the body art and slide it to where
+	# the tilted floor actually is, so we don't look sunk/floating at the ends.
+	# Physics stays upright; this is purely the drawing.
+	var theta := _sub_pitch()
+	var feet := position + Vector2(0.0, PlaceholderArt.CREW_HEIGHT_M * ppm * 0.5)
+	_visual.position = feet.rotated(theta) - position
+	_visual.rotation = theta
+
 	_visual.color = body_color
 	_visual.facing = _facing
 	_visual.running = running
 	_visual.run_phase = _run_phase
 	_visual.queue_redraw()
+
+## The cosmetic pitch of the sub we're riding (0 if we're not inside a sub).
+func _sub_pitch() -> float:
+	var parent := get_parent()
+	if parent is Sub:
+		return (parent as Sub).pitch
+	return 0.0
 
 func _squash() -> void:
 	_play_scale(Vector2(1.25, 0.7), 0.12, Tween.TRANS_BACK)

@@ -37,6 +37,10 @@ const HELM_SEAT_Y := -PlaceholderArt.CREW_HEIGHT_M * PPM * 0.5 # crew feet on th
 ## [-1, 1]). Zero when no one is steering — the sub then coasts to a stop.
 var drive_input: Vector2 = Vector2.ZERO
 
+## Current cosmetic pitch (radians). The hull art and the crew art both tilt by
+## this; the physics body stays upright. Read by crew to match the tilted floor.
+var pitch: float = 0.0
+
 var _visual: SubVisual
 
 func _ready() -> void:
@@ -65,10 +69,11 @@ func _physics_process(delta: float) -> void:
 	# No gravity: neutral buoyancy, so it holds depth when idle.
 	move_and_slide()
 
-	# Cosmetic pitch tilt proportional to horizontal speed (visual only — the
-	# body and crew stay upright so collisions and footing are unaffected).
+	# Cosmetic pitch tilt proportional to horizontal speed. Only the ART tilts
+	# (hull + crew); the physics body and footing stay upright, so nobody slides.
 	var t := clampf(velocity.x / (feel.max_speed_h * ppm), -1.0, 1.0)
-	_visual.rotation = deg_to_rad(feel.max_pitch_deg) * t
+	pitch = deg_to_rad(feel.max_pitch_deg) * t
+	_visual.rotation = pitch
 
 func _build_helm() -> void:
 	var helm := HelmStation.new()

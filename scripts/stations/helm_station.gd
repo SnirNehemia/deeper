@@ -16,10 +16,3 @@ func exit(crew: Crew) -> void:
 	super.exit(crew)
 	if sub != null:
 		sub.drive_input = Vector2.ZERO
-
-func _draw() -> void:
-	# Placeholder console: a small box, brighter when free, dim when occupied.
-	var color := PlaceholderArt.SUB_STRUCTURE if occupant == null else PlaceholderArt.SUB_FLOOR
-	draw_rect(Rect2(-16, -8, 32, 24), color)
-	draw_rect(Rect2(-3, -22, 6, 16), PlaceholderArt.SUB_STRUCTURE)  # control column
-	draw_circle(Vector2(0, -24), 7, PlaceholderArt.LADDER_COLOR)    # wheel

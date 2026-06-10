@@ -90,6 +90,12 @@ func _run() -> void:
 	var max_h := GameFeel.sub.max_speed_h * GameFeel.PIXELS_PER_METER
 	_check(v_late < max_h + 1.0, "sub never exceeds its max horizontal speed")
 
+	# Pitch: the sub leans, and the crew ART leans with it (physics stays upright).
+	_check(absf(sub.pitch) > 0.01, "sub pitches while driving")
+	_check(absf(driver._visual.rotation - sub.pitch) < 0.001, "driver art tilts to match the sub")
+	_check(absf(rider._visual.rotation - sub.pitch) < 0.001, "rider art tilts to match the sub")
+	_check(absf(driver.rotation) < 0.001, "driver physics body stays upright")
+
 	# The free rider stayed put inside the sub (rode along, no sliding).
 	_check(rider.position.distance_to(rider_local) < 8.0, "free crew rides along inside the sub")
 	_check(driver.global_position.distance_to(helm.seat_global_position()) < 2.0,
