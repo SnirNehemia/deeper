@@ -33,6 +33,12 @@ both decks, still alternating sides): claw ladder now near the engine/middle
 divider (claw room's left wall), storage ladder now near the outer hull
 (storage room's left wall). Re-tested, all 14 suites green.
 
+**Follow-up #2 (next day):** ladders shortened to one deck tall (just the
+lower room's height + a small overlap into the main deck for grabbing from
+the hatch), instead of stretching up through the main-deck room above —
+matches the reference image where ladders read as confined to the lower deck.
+Re-tested, all 14 suites green.
+
 Next: Snir plays this revision; if it holds up, Module B (salvage items,
 carry, storage, banking, save) is next.
 
@@ -136,7 +142,8 @@ session.
 4. **Storage ladder (near the outer/left wall of the engine room):** walk to
    it, press down to climb into the storage room below; press up to climb
    back to the engine room. Should grab cleanly from a normal standing
-   position, both directions.
+   position, both directions. The ladder should now look like it's confined
+   to the storage room below, not poking up through the engine room.
 5. **Claw ladder (near the engine/middle divider, left side of the middle
    room):** same check — down to the claw room, up back to the middle room.
 6. **Run past a ladder while jumping:** run through the engine/middle rooms

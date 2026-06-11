@@ -128,6 +128,14 @@
   on a ladder" bug from playtest #1 — reverted in favor of the single
   repositioned shaft per deck pair.
 
+## Settled (2026-06-12, Milestone 3 Module A — playtest #1 revision #3)
+- **Lower-deck ladders are one deck tall, not floor-to-ceiling-of-room-above:**
+  each shaft now spans just the lower room's height plus a 40px overlap above
+  the floor hatch (enough for a crew member standing on the hatch on the main
+  deck to grab it). Visually the ladder now reads as confined to the lower
+  room, matching Snir's reference image, instead of visibly poking up through
+  the main-deck room above it.
+
 ## Parked
 - Snappy Overcooked-style crew movement (kept as switchable preset; playtest against weighty)
 - Phone-as-controller via WebSocket (post-MVP, only if gamepads aren't enough)
