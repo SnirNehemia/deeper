@@ -39,6 +39,10 @@ the hatch), instead of stretching up through the main-deck room above —
 matches the reference image where ladders read as confined to the lower deck.
 Re-tested, all 14 suites green.
 
+**Follow-up #3 (same day):** the main-deck grab overlap was halved to 20px
+(was 40px) — the ladders now poke up just a little less into the room above.
+Re-tested, all 14 suites green.
+
 Next: Snir plays this revision; if it holds up, Module B (salvage items,
 carry, storage, banking, save) is next.
 

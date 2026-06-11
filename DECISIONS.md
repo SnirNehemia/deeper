@@ -135,6 +135,9 @@
   deck to grab it). Visually the ladder now reads as confined to the lower
   room, matching Snir's reference image, instead of visibly poking up through
   the main-deck room above it.
+- **Overlap halved to 20px** per follow-up request — still enough for the
+  crew's ladder sensor to overlap the shaft from a standing position on the
+  hatch (verified by `test_lower_deck`), while poking less into the main deck.
 
 ## Parked
 - Snappy Overcooked-style crew movement (kept as switchable preset; playtest against weighty)
