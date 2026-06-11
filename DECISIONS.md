@@ -63,6 +63,16 @@
 - **Fish:** Area2D, 4 states (patrol/chase/recover/return), territory ~10 m, bite = drip-tier breach + ~3s circling pass; one torpedo kill; death is hide-not-free so `reset_fish()` revives at home. Placement: cave mouth + two pillars.
 - **Tooling:** after adding a `class_name` script, run `--headless --import` once or headless test runs fail with stale class-cache parse errors.
 
+## Settled (2026-06-11, Milestone 2 playtest #1 — solo)
+- **Breaches are tiered, not continuous:** one breach per hit; leak rate is a discrete step (small `1/90`s / medium `1/45`s / big `1/20`s) by impact speed bands (2 / 3.5 / 5 m/s). Total flood rate grows by *stacking* breaches, not by a single bigger leak. (Supersedes M2's continuous speed→leak curve.)
+- **Door sills (overflow flooding):** each room holds water up to a knee-high floor lip (`door_sill_m = 0.5`) before it spills to the neighbour; the conning tower floods only when the middle room is near-full (`0.95` sill). Makes single-room flooding a contained drama before it spreads.
+- **Crew water slowdown triggers on feet contact** (any depth), not waist; jumping clear of the surface restores full speed. Jump strength only weakens at waist depth (so you can hop out of a puddle).
+- **Repair progress PERSISTS** (reverses the M2 "no partial credit" call): the bar stays on the breach when you leave, resume from where you left off, second crew can take over. Patch kits / cost still deferred to the repair-bay module.
+- **Turret aim is continuous + holds:** W/S sweep the barrel (vertical bow mount; A/D ignored), it stays where you leave it, clamped to a **±60°** cone (widened from 45°). Steering still matters for aiming.
+- **Torpedo cadence:** fire cooldown 1.0s (was 1.2).
+- **Tilt:** breaches and the gun barrel are children of the hull visual and pitch with the sub; torpedoes fire along the tilted barrel.
+- **Parked (playtester ideas for later):** map feels empty → swarms of fish in deeper zones instead of lone fish (post-MVP content). The "fish swims in front of the sub / 3D depth feel" was a happy accident worth keeping.
+
 ## Open
 - **Solo play:** is "lock station" enough, or does solo need an AI helper (Lovers-style pet)? Answer via solo playtests during MVP.
 - **Pitch direction/strength:** confirm the lean feels right in playtest (one-number tweak).

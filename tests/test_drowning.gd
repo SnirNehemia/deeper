@@ -45,7 +45,10 @@ func _test_drown_and_respawn() -> void:
 
 	var sub := Sub.new()
 	add_child(sub)
-	sub.water_levels = [1.0, 1.0, 0.0, 0.0]  # engine + middle flooded to the ceiling
+	# Flood only the engine room: the victim drowns there, but the helm room
+	# (the respawn point) stays dry long enough to verify full-air respawn —
+	# water creeps toward it only slowly over two door sills.
+	sub.water_levels = [1.0, 0.0, 0.0, 0.0]
 
 	var victim := Crew.new()
 	victim.player_index = 0

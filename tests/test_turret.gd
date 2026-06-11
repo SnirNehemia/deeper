@@ -82,28 +82,36 @@ func _test_seat_and_aim() -> void:
 
 	var cone := deg_to_rad(GameFeel.turret.cone_half_angle_deg)
 
-	# Aim down-forward: inside the cone.
-	_press(KEY_D)
+	# Continuous aim: holding S sweeps the barrel down and it clamps to +cone.
 	_press(KEY_S)
-	await _frames(5)
-	_release(KEY_D)
+	await _frames(120)  # 2s at 75 deg/s = 150 deg, well past the 60 deg edge
 	_release(KEY_S)
-	_check(absf(turret.aim_angle - PI / 4.0) < 0.05,
-		"down-forward input aims 45 deg down (cone edge)")
+	_check(absf(turret.aim_angle - cone) < 0.05,
+		"holding S sweeps the barrel down to the +60 cone edge")
 
-	# Aim straight up: outside the cone, clamps to the upper edge.
+	# Released, the barrel holds its angle (no recenter).
+	var held := turret.aim_angle
+	await _frames(30)
+	_check(absf(turret.aim_angle - held) < 0.001, "barrel holds its angle with no input")
+
+	# Holding W sweeps up and clamps to -cone.
 	_press(KEY_W)
-	await _frames(5)
+	await _frames(120)
 	_release(KEY_W)
 	_check(absf(turret.aim_angle - (-cone)) < 0.05,
-		"straight-up input clamps to the cone's upper edge")
+		"holding W sweeps up to the -60 cone edge")
 
-	# Aim backwards (left): clamps to a cone edge, never fires backwards.
-	_press(KEY_A)
-	await _frames(5)
-	_release(KEY_A)
-	_check(absf(turret.aim_angle) <= cone + 0.01,
-		"backward input stays clamped inside the forward cone")
+	# Nudge to a mid angle, then confirm A/D (move.x) do NOT move the barrel —
+	# the bow tube is on a vertical wall, aimed only by W/S.
+	_press(KEY_S)
+	await _frames(20)
+	_release(KEY_S)
+	var mid := turret.aim_angle
+	_check(mid > -cone + 0.05 and mid < cone - 0.05, "barrel parked mid-cone for the A/D check")
+	_press(KEY_D)
+	await _frames(20)
+	_release(KEY_D)
+	_check(absf(turret.aim_angle - mid) < 0.001, "A/D do not move the barrel (vertical-wall gun)")
 
 	# Leave the seat.
 	_press(KEY_E)
@@ -144,12 +152,13 @@ func _test_fire_and_despawn() -> void:
 	_release(KEY_E)
 	await _frames(2)
 
-	# Hold fire for ~2s: the 1.2s cooldown allows exactly 2 shots.
+	# Hold fire for ~1.5s: with the 1.0s cooldown that's exactly 2 shots
+	# (t=0 and t=1.0), with margin before a third at t=2.0.
 	_press(KEY_Q)
-	await _frames(120)
+	await _frames(90)
 	_release(KEY_Q)
 	var fired := _count_torpedoes()
-	_check(fired == 2, "holding use for 2s fires exactly 2 torpedoes (1.2s cooldown), got %d" % fired)
+	_check(fired == 2, "holding use for 1.5s fires exactly 2 torpedoes (1.0s cooldown), got %d" % fired)
 
 	var torpedo: Torpedo = null
 	for child in get_children():

@@ -16,6 +16,7 @@ func _ready() -> void:
 	_test_equalization()
 	_test_conning_connection()
 	_test_weight()
+	_test_door_sill()
 
 	if _failures == 0:
 		print("WATER TESTS PASSED")
@@ -71,6 +72,30 @@ func _test_conning_connection() -> void:
 	_check(sub.room_volume(3) < sub.room_volume(1), "conning area volume is smaller than a main room")
 
 	sub.queue_free()
+	await _frames(2)
+
+func _test_door_sill() -> void:
+	print("[door sill / overflow]")
+	var sill: float = GameFeel.water.door_sill_m / GameFeel.water.room_height_m
+
+	# A puddle below the sill pools in its room and does NOT leak to a neighbour.
+	var sub := _new_sub()
+	sub.water_levels = [sill * 0.5, 0.0, 0.0, 0.0]  # engine, below knee height
+	await _frames(120)
+	_check(sub.water_levels[1] < 0.001,
+		"water below the door sill stays pooled (no leak to the middle room)")
+	_check(sub.water_levels[0] > sill * 0.4,
+		"the pooled water is still there in the breached room")
+	sub.queue_free()
+	await _frames(2)
+
+	# Above the sill, it spills over into the neighbour.
+	var sub2 := _new_sub()
+	sub2.water_levels = [sill + 0.3, 0.0, 0.0, 0.0]
+	await _frames(120)
+	_check(sub2.water_levels[1] > 0.01,
+		"water above the door sill spills into the adjacent room")
+	sub2.queue_free()
 	await _frames(2)
 
 func _test_weight() -> void:

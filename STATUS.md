@@ -1,10 +1,19 @@
 # STATUS — DEEPER
 
-_Read this at session start. Last updated: 2026-06-11._
+_Read this at session start. Last updated: 2026-06-11 (post playtest #1)._
 
 ## Where we are
-**Milestone 2 (Water, Torpedoes, and First Blood) is code-complete — awaiting
-the playtest.** The sub can get hurt, flood, and die, and fight back: terrain
+**Milestone 2 is built AND its first playtest pass is folded in.** Snir solo-
+tested the build and gave 8 change requests (see PLAYTEST_LOG.md); all are
+implemented and headless-tested. Notable shifts from the original M2 spec:
+breaches now leak in discrete tiers (one per hit, stack for more), rooms have
+knee-high door sills so flooding pools then overflows, crew slow the moment
+their feet touch water, repair progress persists across trips for air, the gun
+sweeps continuously (W/S, ±60° cone), torpedoes fire 20% faster, and breaches +
+gun now tilt with the hull. Next is a re-test for feel.
+
+_(Original M2 summary:)_
+**Milestone 2 (Water, Torpedoes, and First Blood)** The sub can get hurt, flood, and die, and fight back: terrain
 impacts breach the hull, rooms flood and weigh the sub down, crew patch
 breaches under pressure and can drown trying, too much water imploses the sub
 (clean reset at the dock), and a bow torpedo turret kills the 3 territorial
@@ -27,7 +36,7 @@ beat. All placeholder art.
 ## File map
 - `autoload/`
   - `input_hub.gd` — central input registry (autoload **InputHub**); owns providers, polls each frame.
-  - `game_feel.gd` — all tunables (autoload **GameFeel**): crew, sub, **water** (flow/drain/leak/air/implosion), **turret**, **fish**.
+  - `game_feel.gd` — all tunables (autoload **GameFeel**): crew, sub, **water** (flow/drain/leak tiers/**door sill**/air/implosion), **turret** (cone 60°, aim sweep, 1.0s cooldown), **fish**.
 - `scripts/`
   - `collision_layers.gd` — named layers (TERRAIN/SUB_HULL/CREW/INTERIOR/LADDER/HATCH/STATION/**PROJECTILE/FISH**).
   - `placeholder_art.gd` — all colors + dimensions (single art-swap point). BREACH_COLOR is the reserved danger hue.
@@ -69,9 +78,10 @@ beat. All placeholder art.
 - Equalizing flow runs even between a flooded room and a draining neighbor —
   so patching one room while a neighbor is breached still leaves water sloshing
   in. That's the co-op pressure, not a bug.
-- The turret's aim line and tube are drawn by the station (untilted); the hull
-  art tilts ±5°, so at full speed the tube can look ~a tube-width off the hull
-  line. Cosmetic; fix only if a playtester notices.
+- The turret tube + barrel and the breach markers are now drawn under the hull
+  visual, so they pitch with the sub (playtest #1 fix). Torpedoes launch along
+  the tilted barrel. The water rects also live on the hull visual, so they tilt
+  with the ±5° pitch too — minor and pre-existing; revisit only if it reads odd.
 - Torpedoes ignore the own hull by collision mask (PROJECTILE vs TERRAIN|FISH),
   so point-blank backward shots fly through the sub harmlessly. Accepted for M2.
 - Fish are Area2D (no physics body): they can drift into terrain while chasing.

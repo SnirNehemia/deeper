@@ -4,8 +4,8 @@ extends Node
 ##
 ## Run: godot --headless res://tests/test_repair.tscn
 ## A crew stands at a breach and holds `use` (Q for P1): progress fills over
-## ~3s, releasing resets it with no partial credit, completing removes the
-## breach, and a breach-free room auto-drains.
+## ~3s, releasing PERSISTS the progress (playtest #5 — leave for air, resume),
+## completing removes the breach, and a breach-free room auto-drains.
 
 var _failures := 0
 var _hub: Node
@@ -46,7 +46,7 @@ func _frames(n: int) -> void:
 		await get_tree().physics_frame
 
 func _test_hold_release_hold() -> void:
-	print("[hold / release / hold]")
+	print("[hold / leave / resume]")
 	var sub := Sub.new()
 	add_child(sub)
 	var crew := Crew.new()
@@ -67,16 +67,18 @@ func _test_hold_release_hold() -> void:
 	_check(is_instance_valid(breach) and not sub.breaches.is_empty(),
 		"half a hold does not patch the breach")
 
-	# Release: progress resets to zero (no partial credit).
+	# Release and wait: progress PERSISTS (leave for air, come back).
 	_release(KEY_Q)
-	await _frames(5)
-	_check(breach.repair_progress == 0.0, "releasing use resets progress to zero")
+	var saved := breach.repair_progress
+	await _frames(60)
+	_check(absf(breach.repair_progress - saved) < 0.001,
+		"releasing use keeps the repair progress where it was")
 
-	# Hold to completion: breach removed.
+	# Resume: a short top-up finishes it from where it left off.
 	_press(KEY_Q)
-	await _frames(200)  # > 3s
+	await _frames(120)  # ~2s — more than the <1.5s remaining
 	_release(KEY_Q)
-	_check(sub.breaches.is_empty(), "a full 3s hold patches the breach")
+	_check(sub.breaches.is_empty(), "resuming the hold patches the breach from where it left off")
 	_check(not is_instance_valid(breach) or breach.is_queued_for_deletion(),
 		"patched breach node is removed")
 

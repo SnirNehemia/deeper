@@ -13,6 +13,7 @@ func _ready() -> void:
 	_hub = get_node("/root/InputHub")
 	await _test_flooded_helm_ejects()
 	await _test_swim_dampening()
+	await _test_feet_vs_waist()
 
 	if _failures == 0:
 		print("STATION FLOOD TESTS PASSED")
@@ -117,3 +118,24 @@ func _test_swim_dampening() -> void:
 	dry_sub.queue_free()
 	wet_sub.queue_free()
 	await _frames(2)
+
+func _test_feet_vs_waist() -> void:
+	print("[feet-touch vs waist]")
+	# A shallow puddle: deep enough to wet the feet, too shallow to reach the
+	# waist. Movement is slowed, but the jump is NOT (playtest #4).
+	GameFeel.water.drain_rate = 0.0  # keep the puddle from draining mid-test
+	var sub := Sub.new()
+	add_child(sub)
+	sub.water_levels[0] = 0.1  # ~0.3 m in a 3 m room — ankle-deep
+	var crew := Crew.new()
+	crew.player_index = 0
+	crew.position = Vector2(-Sub.HALF_W + Sub.ROOM_W * 0.5, -60)  # engine room
+	sub.add_child(crew)
+
+	await _frames(20)  # settle onto the floor, into the puddle
+	_check(crew.is_touching_water(), "feet are in the shallow puddle")
+	_check(not crew.is_submerged(), "but the waist is above the shallow puddle")
+
+	sub.queue_free()
+	await _frames(2)
+	GameFeel.water.drain_rate = 1.0 / 12.0  # restore for any later runs

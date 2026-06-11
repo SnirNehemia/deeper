@@ -30,9 +30,48 @@
 
 ## Entries
 
-### (first entry goes here after the Milestone 1 playtest)
-Suggested focus for playtest #1:
-- Does running/jumping/climbing feel good at "slightly weighty"? Try the snappy preset for comparison.
-- Does the sub feel like a heavy vehicle? Is the 3s spin-up fun or frustrating?
-- Is the fixed camera framing enough, or do you immediately crave zoom?
-- The shelf-edge moment: does driving over the drop feel like *something*? (This is the game's signature beat — if it's flat, we redesign the approach.)
+### 2026-06-10 — Milestone 2 playtest
+**Players:** solo
+**What was played:** M2 - breaches, gun and first fish
+
+**Feel notes (raw, in player words):**
+
+ - the map feels a little empty, I think later on we will make swarm of fish instead of single one here and there.
+
+ - it was good overall, I have some issues I will elaborate about here
+
+**Top problems:**
+1. make it so when hit, there is a breach, and it starts leaking water inside slowly, it gets faster as there are more breaches.
+
+2. heavier hits makes more breaches
+
+3. add a little "wall step" at each room (like the one connected to the ceiling) - so that when there is a breach, the room slowly gets filled with water and when the it gets higher than the step, it leaks to the adjacent rooms.
+
+4. make players move slower even if there is a small amount of water in the room - this slow them down only if they touch the water (if they can jump above it, they move faster)
+
+5. if a player starts to fix a breach, the bar remains there (so he can start repair it, go out for air and then return from where hw left off.
+
+6. the gun has currently 3 discrete aims. make it continuous, controlled by a/d or w/s, depending if the gun is on vertical wall (like it is currently - here use w/s to aim) or horizontal one.
+
+7. make torpedo rate faster by 20%
+
+8. both gun and breaches does not tilt with the sub - fix it.
+
+**Surprises / fun moments:**
+ - the breaches fix is pretty fun and the fish that go over the sub (which I first thought was a bug) gives a 3d feeling (as if the fish is between the camera and the sub) and may make the player move so to get the fish in the gun's range
+
+**Tuning changes made afterward (Claude Code fills in):**
+All 8 issues implemented 2026-06-11 (commits "M2 polish …"). Clarified 4 ambiguous points with Snir first (see below).
+1. **Breach leak tiers** — replaced the continuous speed→leak curve with one breach per hit at a discrete tier: small `1/90`s (light hit, ≥2 m/s), medium `1/45`s (≥3.5 m/s), big `1/20`s (full ram, ≥5 m/s). Multiple breaches still stack, so total inflow grows with count. *(Snir chose "1 breach per hit, count-driven tiers" over "more breach points per hit".)*
+2. **Heavier hits** — folded into #1 (bigger tier, not more points).
+3. **Door sill / overflow** — new `door_sill_m = 0.5` (knee height, chosen by Snir). Water pools in a room and only spills to a neighbour once it clears the sill; the ladder→conning opening uses a near-full `0.95` sill so the tower floods only when the middle room is full.
+4. **Feet-touch slowdown** — movement now slows whenever the crew's *feet* touch water (any depth); jumping clear restores full speed. Weak-jump stays tied to waist-deep so you can still hop out of a puddle. *(Snir: "feet touch = slow".)*
+5. **Persistent repair** — removed the reset-on-release. `repair_progress` now stays on the breach; leave for air and resume, or a second crew can take over. (Reverses the earlier "no partial credit" call.)
+6. **Continuous gun aim** — W/S now sweep the barrel at `aim_speed_deg = 75`/s and it holds its angle; A/D ignored (vertical bow mount). Cone widened `45°→60°` (Snir's tweak).
+7. **Torpedo rate +20%** — `fire_cooldown 1.2 → 1.0`s.
+8. **Tilt fix** — breaches and the gun barrel are now drawn under the hull visual, so they pitch with the sub. Torpedoes launch along the tilted barrel line.
+
+**Verdict:** changes implemented; re-test the same build (next playtest) for feel.
+
+---
+

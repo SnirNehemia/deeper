@@ -14,9 +14,13 @@ func _ready() -> void:
 	for i in 30:
 		await get_tree().physics_frame
 
-	# Flood + breach so the water rects, spray marker, and gauge show.
+	# Drive so the hull pitches — confirms breaches + gun tilt with it (#8).
+	sub.drive_input = Vector2(1, 0)
+	# Flood + breach so the water rects, spray marker, and gauge show. A breach
+	# on the bow wall makes the tilt obvious.
 	sub.water_levels = [0.55, 0.3, 0.1, 0.0]
 	sub.spawn_breach(0, GameFeel.water.leak_rate_max)
+	sub.spawn_breach(2, GameFeel.water.leak_rate_mid, Vector2(Sub.HALF_W - 20.0, -90.0))
 
 	var p1 := Crew.new()
 	p1.player_index = 99
@@ -52,7 +56,7 @@ func _ready() -> void:
 	await _capture()
 
 func _capture() -> void:
-	for i in 30:
+	for i in 120:  # let it build up speed so the pitch tilt is visible
 		await get_tree().physics_frame
 	await RenderingServer.frame_post_draw
 	var img := get_viewport().get_texture().get_image()
