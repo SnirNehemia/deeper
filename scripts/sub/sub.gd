@@ -44,16 +44,16 @@ const LOWER_ROOM_H := 2.5 * PPM       # 120 — claw & storage room height
 const LOWER_FLOOR_Y := LOWER_ROOM_H   # 120 — lower deck floor (top surface)
 const LOWER_BOTTOM_Y := LOWER_FLOOR_Y + WALL_T  # 136 — bottom of the lower-deck floor slab
 const HOLE_W := HOLE_HALF * 2.0       # 48 — floor-opening width (matches the conning hole)
-## x positions of the floor openings down to the lower deck. Ladders alternate
-## sides floor-to-floor so climbing through multiple decks needs lateral
-## movement, not just holding "up" (playtest #1 of Module A): the conning
-## ladder sits at the middle room's center (x=0); the claw ladder sits on the
-## middle room's left side, and the storage ladder on the engine room's right
-## side (away from x=0, so the two lower-deck ladders are separate shafts).
-## Both are kept clear of the door-step grab zones (a crew hopping a door step
-## presses "up", which would otherwise also grab a nearby ladder).
-const CLAW_LADDER_X := -65.0
-const STORAGE_LADDER_X := -170.0
+## x positions of the floor openings down to the lower deck (playtest #1
+## revision #2): each lower-deck room's ladder sits near that room's own LEFT
+## wall — the claw ladder near the engine/middle divider (claw room's left
+## wall), the storage ladder near the outer hull (storage room's left wall).
+## Both shafts span the full main-deck room above too (alternating sides
+## floor-to-floor, as before) and are kept clear of the door-step grab zones (a
+## crew hopping a door step presses "up", which would otherwise also grab a
+## nearby ladder).
+const CLAW_LADDER_X := -84.0
+const STORAGE_LADDER_X := -330.0
 
 ## Water "rooms": engine (0), middle (1), helm (2), conning area (3),
 ## claw room (4, below middle), storage room (5, below engine).
@@ -450,12 +450,12 @@ func _set_hull_rotation(angle: float) -> void:
 func _build_interior() -> void:
 	# Floor across all three rooms (top surface at y = 0), with two openings
 	# (HATCH-covered) dropping to the storage room (under the engine room) and
-	# the claw room (under the middle room). Both holes sit off-center, away
-	# from the conning ladder above (x = 0), so all three ladders are separate
-	# shafts (playtest #1 of Module A: alternating sides floor-to-floor).
-	_add_static(Vector2(-281.0, WALL_T * 0.5), Vector2(174.0, WALL_T))
-	_add_static(Vector2(-117.5, WALL_T * 0.5), Vector2(57.0, WALL_T))
-	_add_static(Vector2(163.5, WALL_T * 0.5), Vector2(409.0, WALL_T))
+	# the claw room (under the middle room). Each hole sits near its lower
+	# room's left wall (playtest #1 revision #2), clear of the conning ladder
+	# above (x = 0) and the door-step zones at the room dividers (x = +-DIV_X).
+	_add_static(Vector2(-361.0, WALL_T * 0.5), Vector2(14.0, WALL_T))
+	_add_static(Vector2(-207.0, WALL_T * 0.5), Vector2(198.0, WALL_T))
+	_add_static(Vector2(154.0, WALL_T * 0.5), Vector2(428.0, WALL_T))
 	_add_hatch(Vector2(STORAGE_LADDER_X, WALL_T * 0.5), Vector2(HOLE_W, WALL_T))
 	_add_hatch(Vector2(CLAW_LADDER_X, WALL_T * 0.5), Vector2(HOLE_W, WALL_T))
 
