@@ -72,6 +72,12 @@ var breaches: Array[Breach] = []
 ## Fired when a new breach opens (HUD listens for the alert flash).
 signal breach_spawned(breach: Breach)
 
+## Fired once when total water crosses the implosion threshold. The world
+## runs the crunch-and-fade sequence and then resets the run.
+signal imploded
+
+var _implosion_fired: bool = false
+
 var _visual: SubVisual
 var _hull_collision: CollisionPolygon2D
 # Grace period between impact-spawned breaches so one scrape along the rocks
@@ -112,6 +118,11 @@ func _physics_process(delta: float) -> void:
 
 	_update_water(delta)
 	velocity.y += GameFeel.water.weight_accel * ppm * total_fill_fraction() * delta
+
+	if not _implosion_fired \
+			and total_fill_fraction() >= GameFeel.water.implosion_fraction:
+		_implosion_fired = true
+		imploded.emit()
 
 	velocity.y = clampf(velocity.y, -max_v, max_v)
 
@@ -250,6 +261,33 @@ func spawn_breach(room: int, rate: float, local_pos := Vector2.INF) -> Breach:
 func remove_breach(breach: Breach) -> void:
 	breaches.erase(breach)
 	breach.queue_free()
+
+## Implosion crunch (visual only): a quick crumple-squash + danger flash on the
+## hull art. The world pairs this with camera shake and the fade-out.
+func play_implosion_crunch() -> void:
+	var tween := create_tween()
+	_visual.modulate = PlaceholderArt.BREACH_COLOR
+	tween.tween_property(_visual, "scale", Vector2(0.92, 0.8), 0.25) \
+		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.parallel().tween_property(_visual, "modulate", Color.WHITE, 0.5)
+
+## Full reset to a fresh-run state: dry rooms, no breaches, dead stop, level
+## hull. The world moves the sub back to the dock and resets the crew.
+func reset_state() -> void:
+	for i in ROOM_COUNT:
+		water_levels[i] = 0.0
+	for breach in breaches:
+		breach.queue_free()
+	breaches.clear()
+	velocity = Vector2.ZERO
+	drive_input = Vector2.ZERO
+	pitch = 0.0
+	_impact_cooldown = 0.0
+	_implosion_fired = false
+	_visual.scale = Vector2.ONE
+	_visual.modulate = Color.WHITE
+	_visual.rotation = 0.0
+	_hull_collision.rotation = 0.0
 
 ## Which water room is closest to a local-space point (for impacts that land
 ## on the hull shell, outside every room rectangle).

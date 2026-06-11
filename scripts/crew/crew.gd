@@ -251,6 +251,25 @@ func _respawn() -> void:
 		_respawn_label.queue_free()
 		_respawn_label = null
 
+## Snap this crew to a fresh-run state at a position inside the sub: alive,
+## full air, on foot, out of any station (used by the world-level run reset).
+func reset_at(local_pos: Vector2) -> void:
+	if _station != null:
+		_exit_station()
+	is_dead = false
+	air_seconds = GameFeel.water.air_time
+	position = local_pos
+	velocity = Vector2.ZERO
+	collision_layer = Layers.CREW
+	collision_mask = _MASK_FOOT
+	_on_ladder = false
+	_repair_target = null
+	_visual.visible = true
+	_visual.scale = Vector2.ONE
+	if _respawn_label != null:
+		_respawn_label.queue_free()
+		_respawn_label = null
+
 func _show_respawn_label() -> void:
 	_respawn_label = Label.new()
 	_respawn_label.add_theme_font_size_override("font_size", 20)
