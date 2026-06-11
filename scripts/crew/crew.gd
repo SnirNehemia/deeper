@@ -154,8 +154,9 @@ func _physics_process(delta: float) -> void:
 	_update_visual(move_x, ppm, delta)
 
 ## Hold `use` within range of a breach to patch it: progress fills over
-## GameFeel.water.repair_time and fully resets the moment the hold breaks
-## (released, walked away, or grabbed a ladder).
+## GameFeel.water.repair_time. Progress PERSISTS on the breach when you stop
+## (playtest #5) — leave for air and resume from where you left off; a second
+## crew can even take over the same breach.
 func _update_repair(repairing: bool, delta: float) -> void:
 	var sub := get_parent() as Sub
 	var target: Breach = null
@@ -167,9 +168,6 @@ func _update_repair(repairing: bool, delta: float) -> void:
 			if d <= best:
 				best = d
 				target = b
-	if _repair_target != null and _repair_target != target \
-			and is_instance_valid(_repair_target):
-		_repair_target.repair_progress = 0.0
 	_repair_target = target
 	if target != null:
 		target.repair_progress += delta / GameFeel.water.repair_time
@@ -200,6 +198,19 @@ func is_head_submerged() -> bool:
 	if room < 0:
 		return false
 	return head.y >= sub.room_water_surface_y(room)
+
+## True if the crew's FEET are in water — even a shallow puddle. This is what
+## slows movement (playtest #4): jump clear of the surface and it's false again.
+func is_touching_water() -> bool:
+	var sub := get_parent() as Sub
+	if sub == null:
+		return false
+	var feet := position + Vector2(0,
+		PlaceholderArt.CREW_HEIGHT_M * GameFeel.PIXELS_PER_METER * 0.5)
+	var room := sub.room_index_at(position)
+	if room < 0:
+		return false
+	return feet.y >= sub.room_water_surface_y(room)
 
 ## Air timer: drains while the head is underwater, refills fast on surfacing.
 ## Hitting zero drowns the crew (cartoon pop, then a respawn countdown).
@@ -283,10 +294,11 @@ func _move_on_foot(move_x: float, jump_pressed: bool, feel: GameFeel.CrewFeel,
 		ppm: float, delta: float) -> void:
 	var on_floor := is_on_floor()
 	var water: GameFeel.WaterFeel = GameFeel.water
-	var swim_mult := water.swim_speed_mult if is_submerged() else 1.0
+	# Feet in any water slow you (even a puddle); jumping clear restores speed.
+	var swim_mult := water.swim_speed_mult if is_touching_water() else 1.0
 
 	# Horizontal: accelerate toward target, decelerate to a stop. Dampened
-	# while submerged above the waist.
+	# whenever the feet are in water.
 	var target_vx := move_x * feel.run_max_speed * ppm * swim_mult
 	var rate := feel.run_accel() if absf(target_vx) > 0.01 else feel.run_decel()
 	velocity.x = move_toward(velocity.x, target_vx, rate * ppm * delta)
@@ -298,6 +310,8 @@ func _move_on_foot(move_x: float, jump_pressed: bool, feel: GameFeel.CrewFeel,
 	_coyote = feel.coyote_time if on_floor else _coyote - delta
 	_jump_buffer = feel.jump_buffer_time if jump_pressed else _jump_buffer - delta
 	if _jump_buffer > 0.0 and _coyote > 0.0:
+		# Only deep (waist-high) water saps the jump, so you can still hop out
+		# of a shallow puddle.
 		var jump_mult := water.swim_jump_mult if is_submerged() else 1.0
 		velocity.y = -feel.jump_velocity() * ppm * jump_mult
 		_jump_buffer = 0.0

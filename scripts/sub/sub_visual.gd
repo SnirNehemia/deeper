@@ -5,6 +5,10 @@ extends Node2D
 ## a cosmetic pitch tilt (rotate this) while the physics body and the crew stay
 ## perfectly upright. Reads the geometry constants from Sub.
 
+## The turret station, set by Sub. Its bow tube + barrel are drawn here (rather
+## than on the station node) so they tilt with the hull's pitch (playtest #8).
+var turret: TurretStation = null
+
 func _draw() -> void:
 	var deck_y := Sub.CEIL_Y - Sub.WALL_T
 	var conn_ceil_y := deck_y - 2.0 * Sub.PPM
@@ -54,13 +58,28 @@ func _draw() -> void:
 	draw_rect(Rect2(hx - 3.0, -40.0, 6.0, 16.0), PlaceholderArt.SUB_STRUCTURE)
 	draw_circle(Vector2(hx, -42.0), 7.0, PlaceholderArt.LADDER_COLOR)
 
-	# Gunner console in the middle flex room (the tube itself is drawn by the
-	# TurretStation at the bow).
+	# Gunner console in the middle flex room.
 	var tx := Sub.TURRET_SEAT_X
 	draw_rect(Rect2(tx - 14.0, -22.0, 28.0, 22.0), PlaceholderArt.SUB_STRUCTURE)
 	draw_circle(Vector2(tx, -30.0), 6.0, PlaceholderArt.HULL_COLOR)
 
+	_draw_turret()
 	_draw_water()
+
+## The bow torpedo tube + aimed barrel, drawn in hull-local space so it pitches
+## with the sub. Reads the live aim angle + occupancy from the turret station.
+func _draw_turret() -> void:
+	if turret == null:
+		return
+	var tube := TurretStation.TUBE_LOCAL
+	draw_rect(Rect2(tube + Vector2(-18.0, -10.0), Vector2(28.0, 20.0)),
+		PlaceholderArt.SUB_STRUCTURE)
+	var dir := Vector2.from_angle(turret.aim_angle)
+	draw_line(tube, tube + dir * 34.0, PlaceholderArt.SUB_STRUCTURE, 8.0)
+	if turret.occupant != null:
+		draw_line(tube + dir * 34.0, tube + dir * 150.0, Color(1.0, 1.0, 1.0, 0.35), 2.0)
+		if turret.is_ready_to_fire():
+			draw_circle(tube + dir * 150.0, 4.0, Color(1.0, 1.0, 1.0, 0.6))
 
 ## Flooding water: a flat rect rising from the floor of each room, clipped to
 ## the room rectangle. Drawn last so it sits over the interior/structure.

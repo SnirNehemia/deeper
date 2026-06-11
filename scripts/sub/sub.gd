@@ -34,9 +34,10 @@ const DIV_X := ROOM_W * 0.5   # 120
 
 ## Water "rooms": engine (0), middle (1), helm (2), conning area (3).
 const ROOM_COUNT := 4
-## Connections water can flow through: engine<->middle, middle<->helm via the
-## doorways, middle<->conning via the ladder opening.
-const WATER_CONNECTIONS := [[0, 1], [1, 2], [1, 3]]
+## Sill fraction for the ladder opening (middle<->conning): the conning tower
+## sits above the rooms, so water only spills up into it once the middle room
+## is nearly full.
+const LADDER_SILL_FRACTION := 0.95
 
 # Helm seat location (helm/bow room, near the floor). Crew origin sits here.
 const HELM_X := HALF_W - ROOM_W * 0.5                          # 240 — helm room center
@@ -190,8 +191,21 @@ func room_water_surface_y(room: int) -> float:
 	var r := room_rect(room)
 	return r.position.y + r.size.y * (1.0 - water_levels[room])
 
+## Connections water can flow through, each with a floor-sill fraction it must
+## clear before spilling: engine<->middle and middle<->helm over knee-high
+## doorway sills, middle<->conning up through the ladder opening (near-full).
+func _water_connections() -> Array:
+	var door_sill: float = GameFeel.water.door_sill_m / GameFeel.water.room_height_m
+	return [
+		{"a": 0, "b": 1, "sill": door_sill},
+		{"a": 1, "b": 2, "sill": door_sill},
+		{"a": 1, "b": 3, "sill": LADDER_SILL_FRACTION},
+	]
+
 ## Equalize water levels between connected rooms and clamp to [0, 1].
-## Conserves total water volume across each pairwise transfer.
+## Conserves total water volume across each pairwise transfer. Water only
+## crosses a connection once the higher room's level clears the door sill —
+## so a breached room pools up to knee height before flooding its neighbours.
 func _update_water(delta: float) -> void:
 	var w: GameFeel.WaterFeel = GameFeel.water
 	# Breaches leak into their rooms; fully patched rooms auto-drain.
@@ -202,15 +216,29 @@ func _update_water(delta: float) -> void:
 	for i in ROOM_COUNT:
 		if not room_breached[i]:
 			water_levels[i] -= w.drain_rate * delta
-	for pair in WATER_CONNECTIONS:
-		var i: int = pair[0]
-		var j: int = pair[1]
-		var diff: float = water_levels[i] - water_levels[j]
-		var d_level_i := w.flow_rate * diff * delta
-		water_levels[i] -= d_level_i
-		water_levels[j] += d_level_i * room_volume(i) / room_volume(j)
+	for conn in _water_connections():
+		_flow_over_sill(conn["a"], conn["b"], conn["sill"], w.flow_rate, delta)
 	for i in ROOM_COUNT:
 		water_levels[i] = clampf(water_levels[i], 0.0, 1.0)
+
+## Spill water from the higher of two rooms into the lower, but only the part
+## standing above the connection's sill. Volume-conserving.
+func _flow_over_sill(a: int, b: int, sill: float, rate: float, delta: float) -> void:
+	if maxf(water_levels[a], water_levels[b]) <= sill:
+		return  # both below the lip — no path between them
+	var hi := a
+	var lo := b
+	if water_levels[b] > water_levels[a]:
+		hi = b
+		lo = a
+	# How much the high room stands above the spill point (the sill, or the low
+	# room's surface if it's already higher than the sill).
+	var effective: float = water_levels[hi] - maxf(sill, water_levels[lo])
+	if effective <= 0.0:
+		return
+	var transfer: float = rate * effective * delta
+	water_levels[hi] -= transfer
+	water_levels[lo] += transfer * room_volume(hi) / room_volume(lo)
 
 ## Inspect this frame's slide collisions for terrain hits hard enough to
 ## breach the hull. Impact speed is the pre-collision velocity into the
@@ -226,16 +254,19 @@ func _check_terrain_impacts(pre_velocity: Vector2, delta: float) -> void:
 			_impact_cooldown = _IMPACT_COOLDOWN_TIME
 			break
 
-## Apply a terrain impact at the given speed (m/s) and global point. Spawns a
-## breach (leak rate scaled by speed) when above the free-bump threshold.
-## Returns true if a breach was created. Exposed for headless tests.
+## Apply a terrain impact at the given speed (m/s) and global point. Opens one
+## breach whose leak rate is a discrete tier (small/medium/big) by impact force
+## when above the free-bump threshold. Returns true if a breach was created.
+## Exposed for headless tests.
 func register_impact(speed_mps: float, global_point: Vector2) -> bool:
 	var w: GameFeel.WaterFeel = GameFeel.water
 	if speed_mps < w.breach_speed_threshold:
 		return false
-	var severity := clampf(inverse_lerp(w.breach_speed_threshold, w.breach_speed_max,
-		speed_mps), 0.0, 1.0)
-	var rate := lerpf(w.leak_rate_min, w.leak_rate_max, severity)
+	var rate := w.leak_rate_min
+	if speed_mps >= w.breach_speed_high:
+		rate = w.leak_rate_max
+	elif speed_mps >= w.breach_speed_mid:
+		rate = w.leak_rate_mid
 	var local := to_local(global_point)
 	spawn_breach(nearest_room(local), rate, local)
 	return true
@@ -254,7 +285,9 @@ func spawn_breach(room: int, rate: float, local_pos := Vector2.INF) -> Breach:
 	# wall of that room" even if the impact point was out on the hull shell.
 	breach.position = local_pos.clamp(r.position, r.position + r.size)
 	breaches.append(breach)
-	add_child(breach)
+	# Parented under the hull visual so the spray marker tilts with the sub's
+	# cosmetic pitch (playtest #8).
+	_visual.add_child(breach)
 	breach_spawned.emit(breach)
 	return breach
 
@@ -323,6 +356,9 @@ func _build_turret() -> void:
 	turret.room_index = 1  # middle flex room
 	turret.position = Vector2(TURRET_SEAT_X, HELM_SEAT_Y)
 	add_child(turret)
+	# The bow tube + barrel are drawn by the hull visual so they tilt with the
+	# sub's pitch (playtest #8); the station itself just holds the seat + logic.
+	_visual.turret = turret
 
 ## Outer-shell collider (vs terrain), shaped to match the hull silhouette (the
 ## old rough rectangle hung ~1.5 m below the art, causing a visible gap). Tilts

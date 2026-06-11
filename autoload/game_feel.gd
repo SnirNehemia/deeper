@@ -91,24 +91,38 @@ class WaterFeel:
 	var flow_rate: float = 0.35
 	## A room with zero breaches drains fully in ~12s.
 	var drain_rate: float = 1.0 / 12.0
-	## Holding `use` this long at a breach patches it (release = full reset).
+	## Holding `use` this long at a breach patches it. Progress PERSISTS on the
+	## breach if you leave (playtest #5): walk off for air, come back, resume.
 	var repair_time: float = 3.0
 	## How close (m) a crew must stand to a breach to repair it.
 	var repair_range_m: float = 1.2
+	## Height of the floor sill at each doorway (m): water pools in a room and
+	## only spills to a neighbour once it rises above this lip (playtest #3).
+	var door_sill_m: float = 0.5
+	## Main rooms are 3 m tall — used to convert door_sill_m to a level fraction.
+	var room_height_m: float = 3.0
 	## Extra downward acceleration (m/s^2) applied at 100% total fill (weighted
 	## average of all rooms). Scales linearly with fill.
 	var weight_accel: float = 7.0
 	## Room water level (fraction) above which a station in that room ejects its
 	## occupant and refuses entry.
 	var seat_flood_threshold: float = 0.6
-	## Crew run-speed multiplier while submerged above the waist.
+	## Crew run-speed multiplier while their feet touch water — even a shallow
+	## puddle slows you; jump clear of the surface and you're fast again
+	## (playtest #4).
 	var swim_speed_mult: float = 0.5
 	## Crew jump strength multiplier while submerged above the waist.
 	var swim_jump_mult: float = 0.4
-	## Breach leak-rate range (level-fraction/s): slowest breach floods a room in
-	## ~90s, the worst single breach in ~20s. Multiple breaches stack.
-	var leak_rate_min: float = 1.0 / 90.0
-	var leak_rate_max: float = 1.0 / 20.0
+	## Breach leak tiers (level-fraction/s). Each hit opens ONE breach whose
+	## rate is a discrete step by impact force (playtest #1/#2): a light scrape
+	## drips (~90s to flood a room), a solid hit leaks (~45s), a full-speed ram
+	## gushes (~20s). More breaches stack, so total inflow grows with count.
+	var leak_rate_min: float = 1.0 / 90.0   ## small (light hit)
+	var leak_rate_mid: float = 1.0 / 45.0   ## medium hit
+	var leak_rate_max: float = 1.0 / 20.0   ## big (full-speed ram)
+	## Impact-speed (m/s) band edges separating the small/medium/big tiers.
+	var breach_speed_mid: float = 3.5
+	var breach_speed_high: float = 5.0
 	## Drip-tier leak rate used by fish bites (small, slow).
 	var bite_leak_rate: float = 1.0 / 120.0
 	## Crew air supply while submerged (seconds) before drowning.
@@ -122,8 +136,6 @@ class WaterFeel:
 	var implosion_fraction: float = 0.7
 	## Impact speed (m/s) below which terrain hits are free (no breach).
 	var breach_speed_threshold: float = 2.0
-	## Impact speed (m/s) at which a hit produces the worst (leak_rate_max) breach.
-	var breach_speed_max: float = 6.0
 
 var water: WaterFeel = WaterFeel.new()
 
@@ -131,8 +143,11 @@ var water: WaterFeel = WaterFeel.new()
 ## the sub — leading a moving fish is the skill.
 class TurretFeel:
 	var torpedo_speed: float = 10.0     ## m/s, travels straight
-	var fire_cooldown: float = 1.2      ## s between shots (infinite ammo)
-	var cone_half_angle_deg: float = 45.0  ## aim cone around the bow's forward
+	var fire_cooldown: float = 1.0      ## s between shots (playtest #7: +20% rate)
+	var cone_half_angle_deg: float = 60.0  ## aim cone around the bow's forward (playtest #6)
+	## Continuous-aim sweep speed (deg/s): W/S nudge the barrel and it holds
+	## its angle, clamped to the cone (playtest #6).
+	var aim_speed_deg: float = 75.0
 	var torpedo_lifetime: float = 8.0   ## s before a miss fizzles out
 
 var turret: TurretFeel = TurretFeel.new()
