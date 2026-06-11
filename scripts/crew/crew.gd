@@ -30,6 +30,10 @@ var _on_ladder: bool = false
 var _nearby_station: Station = null
 var _station: Station = null
 
+# The breach we're currently holding `use` at (repair resets if we release or
+# step out of range — no partial credit).
+var _repair_target: Breach = null
+
 var _facing: float = 1.0
 var _run_phase: float = 0.0
 var _was_on_floor: bool = false
@@ -127,7 +131,34 @@ func _physics_process(delta: float) -> void:
 	else:
 		_move_on_foot(move_x, jump_pressed, feel, ppm, delta)
 
+	var use_held := input.use_held if input != null else false
+	_update_repair(use_held and not _on_ladder, delta)
+
 	_update_visual(move_x, ppm, delta)
+
+## Hold `use` within range of a breach to patch it: progress fills over
+## GameFeel.water.repair_time and fully resets the moment the hold breaks
+## (released, walked away, or grabbed a ladder).
+func _update_repair(repairing: bool, delta: float) -> void:
+	var sub := get_parent() as Sub
+	var target: Breach = null
+	if repairing and sub != null:
+		var range_px := GameFeel.water.repair_range_m * GameFeel.PIXELS_PER_METER
+		var best := range_px
+		for b in sub.breaches:
+			var d := position.distance_to(b.position)
+			if d <= best:
+				best = d
+				target = b
+	if _repair_target != null and _repair_target != target \
+			and is_instance_valid(_repair_target):
+		_repair_target.repair_progress = 0.0
+	_repair_target = target
+	if target != null:
+		target.repair_progress += delta / GameFeel.water.repair_time
+		if target.repair_progress >= 1.0:
+			sub.remove_breach(target)
+			_repair_target = null
 
 ## True if the crew's waist (its origin) is below the local water surface of
 ## the sub room it's standing in.

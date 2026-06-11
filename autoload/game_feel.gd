@@ -91,6 +91,10 @@ class WaterFeel:
 	var flow_rate: float = 0.35
 	## A room with zero breaches drains fully in ~12s.
 	var drain_rate: float = 1.0 / 12.0
+	## Holding `use` this long at a breach patches it (release = full reset).
+	var repair_time: float = 3.0
+	## How close (m) a crew must stand to a breach to repair it.
+	var repair_range_m: float = 1.2
 	## Extra downward acceleration (m/s^2) applied at 100% total fill (weighted
 	## average of all rooms). Scales linearly with fill.
 	var weight_accel: float = 7.0

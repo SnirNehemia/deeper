@@ -182,9 +182,14 @@ func room_water_surface_y(room: int) -> float:
 ## Conserves total water volume across each pairwise transfer.
 func _update_water(delta: float) -> void:
 	var w: GameFeel.WaterFeel = GameFeel.water
-	# Breaches leak into their rooms.
+	# Breaches leak into their rooms; fully patched rooms auto-drain.
+	var room_breached: Array[bool] = [false, false, false, false]
 	for breach in breaches:
 		water_levels[breach.room] += breach.leak_rate * delta
+		room_breached[breach.room] = true
+	for i in ROOM_COUNT:
+		if not room_breached[i]:
+			water_levels[i] -= w.drain_rate * delta
 	for pair in WATER_CONNECTIONS:
 		var i: int = pair[0]
 		var j: int = pair[1]

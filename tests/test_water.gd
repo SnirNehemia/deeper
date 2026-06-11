@@ -10,6 +10,9 @@ extends Node
 var _failures := 0
 
 func _ready() -> void:
+	# This suite tests pure equalization/weight; rooms with no breaches
+	# auto-drain (Module D), which would empty them mid-test, so turn it off.
+	GameFeel.water.drain_rate = 0.0
 	_test_equalization()
 	_test_conning_connection()
 	_test_weight()
