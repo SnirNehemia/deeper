@@ -31,6 +31,10 @@ const BREACH_BIG := Color("ff3030")       ## gusher (red)
 const FISH_COLOR := Color("7a4ae8")       ## chunky territorial fish (purple)
 const FISH_LENGTH_M: float = 1.0
 
+# --- Salvage ---
+const SCRAP_COLOR := Color("c8a050")      ## scrap crate (warm metal)
+const CARCASS_COLOR := Color("9a7ab8")    ## sunken fish carcass (faded fish purple)
+
 # --- Terrain ---
 const TERRAIN_SAND := Color("d8c27a")
 const TERRAIN_ROCK := Color("6b6b78")

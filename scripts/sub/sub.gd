@@ -111,6 +111,15 @@ var water_levels: Array[float] = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 ## Live hull breaches, each leaking into its room (see Breach).
 var breaches: Array[Breach] = []
 
+## On-board salvage storage (Module B): scrap and fish carcasses collected by
+## the hull, held until the sub returns to dock and banks them (see try_bank).
+## Lost (reset to 0) on implosion — the risk in "push your luck".
+var storage_scrap: int = 0
+var storage_fish: int = 0
+
+## Fired whenever the collector sucks in a piece of salvage.
+signal salvage_collected(kind: int)
+
 ## Fired when a new breach opens (HUD listens for the alert flash).
 signal breach_spawned(breach: Breach)
 
@@ -143,6 +152,7 @@ func _ready() -> void:
 	_build_ladder()
 	_build_helm()
 	_build_turret()
+	_build_salvage_collector()
 
 func _physics_process(delta: float) -> void:
 	var feel: GameFeel.SubFeel = GameFeel.sub
@@ -374,6 +384,9 @@ func reset_state() -> void:
 	for breach in breaches:
 		breach.queue_free()
 	breaches.clear()
+	# Unbanked salvage is the risk in "push your luck" — lost on implosion.
+	storage_scrap = 0
+	storage_fish = 0
 	velocity = Vector2.ZERO
 	drive_input = Vector2.ZERO
 	pitch = 0.0
@@ -420,6 +433,56 @@ func _build_turret() -> void:
 	# The bow tube + barrel are drawn by the hull visual so they tilt with the
 	# sub's pitch (playtest #8); the station itself just holds the seat + logic.
 	_visual.turret = turret
+
+## A magnet-ish collector zone covering the hull's bounding box (with a small
+## margin): any SalvageItem (scrap crate or fish carcass) that touches it is
+## sucked into on-board storage. Placeholder for the future claw arm — for now
+## salvage is collected just by driving the hull into it.
+const _COLLECTOR_MARGIN := 0.5 * PPM
+
+func _build_salvage_collector() -> void:
+	var bounds := HULL_MAIN_RECT.merge(HULL_LOWER_RECT).merge(HULL_CONN_RECT)
+	bounds = bounds.grow(_COLLECTOR_MARGIN)
+	var area := Area2D.new()
+	area.collision_layer = 0
+	area.collision_mask = Layers.SALVAGE
+	area.monitoring = true
+	area.monitorable = false
+	var shape := CollisionShape2D.new()
+	var rect := RectangleShape2D.new()
+	rect.size = bounds.size
+	shape.shape = rect
+	shape.position = bounds.position + bounds.size * 0.5
+	area.add_child(shape)
+	add_child(area)
+	area.area_entered.connect(_on_salvage_area_entered)
+
+func _on_salvage_area_entered(area: Area2D) -> void:
+	if area is SalvageItem:
+		deposit_salvage(area.kind)
+		area.queue_free()
+
+## Add one piece of salvage to on-board storage and notify listeners (HUD).
+func deposit_salvage(kind: int) -> void:
+	match kind:
+		SalvageItem.Kind.SCRAP:
+			storage_scrap += 1
+		SalvageItem.Kind.FISH:
+			storage_fish += 1
+	salvage_collected.emit(kind)
+
+## If the sub is within `radius` of `dock_pos`, bank everything in storage
+## (Module B: returning to the shore dock is what makes salvage safe) and
+## empty storage. Returns true if anything was banked.
+func try_bank(dock_pos: Vector2, radius: float) -> bool:
+	if global_position.distance_to(dock_pos) > radius:
+		return false
+	if storage_scrap <= 0 and storage_fish <= 0:
+		return false
+	SaveData.bank(storage_scrap, storage_fish)
+	storage_scrap = 0
+	storage_fish = 0
+	return true
 
 ## Outer-shell collider (vs terrain), shaped to match the hull silhouette (the
 ## old rough rectangle hung ~1.5 m below the art, causing a visible gap). Tilts

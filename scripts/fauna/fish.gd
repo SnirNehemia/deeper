@@ -116,7 +116,9 @@ func _on_area_entered(area: Area2D) -> void:
 	area.queue_free()
 	die()
 
-## Cartoon pop + bubbles; the fish stays gone until reset_fish().
+## Cartoon pop + bubbles; the fish stays gone until reset_fish(). Leaves
+## behind a sinking carcass (Module B: a "fish" salvage currency) at the kill
+## site for the sub to collect.
 func die() -> void:
 	is_dead = true
 	visible = false
@@ -125,6 +127,7 @@ func die() -> void:
 	var pop := Torpedo.Puff.new()
 	pop.global_position = global_position
 	get_parent().add_child(pop)
+	get_parent().add_child(SalvageItem.make_carcass(global_position))
 
 ## Back home, alive — the world's run reset calls this on the "fish" group.
 func reset_fish() -> void:

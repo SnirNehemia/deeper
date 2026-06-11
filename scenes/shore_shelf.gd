@@ -19,6 +19,7 @@ func _ready() -> void:
 	_build_terrain()
 	_build_dock()
 	_build_cave_marker()
+	_build_salvage_pickups()
 
 func _v(mx: float, my: float) -> Vector2:
 	return Vector2(mx * M, my * M)
@@ -129,6 +130,19 @@ func _build_cave_marker() -> void:
 	marker.position = _v(53.0, 68.0)  # by the cave's back wall
 	marker.z_index = -75               # over the cave fill, under the sub
 	add_child(marker)
+
+## Module B: a handful of scrap crates scattered through the shallows, basin,
+## and cave for the sub to drive into and collect.
+func _build_salvage_pickups() -> void:
+	var spots := [
+		_v(35.0, 17.0),   # shallows plateau
+		_v(93.0, 48.0),   # by the first pillar
+		_v(120.0, 32.0),  # by the second pillar
+		_v(141.0, 56.0),  # by the third pillar
+		_v(50.0, 65.0),   # inside the cave
+	]
+	for spot in spots:
+		add_child(SalvageItem.make_scrap(spot))
 
 ## A pulsing placeholder lamp/star (visual only).
 class CaveMarker extends Node2D:

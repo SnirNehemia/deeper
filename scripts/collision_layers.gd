@@ -16,3 +16,4 @@ const HATCH := 1 << 5      ## solid deck over the ladder hole; crew pass it only
 const STATION := 1 << 6    ## station interaction zones (helm, etc.)
 const PROJECTILE := 1 << 7 ## torpedoes (hit terrain and fish, never the own hull)
 const FISH := 1 << 8       ## enemy fauna bodies
+const SALVAGE := 1 << 9    ## scrap pickups and fish carcasses, collected by the hull

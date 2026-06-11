@@ -139,6 +139,26 @@
   crew's ladder sensor to overlap the shaft from a standing position on the
   hatch (verified by `test_lower_deck`), while poking less into the main deck.
 
+## Settled (2026-06-12, Milestone 3 Module B — salvage/storage/banking/save)
+- **Module A confirmed good:** Snir played the playtest #1 revision #3 build
+  (smaller map, hull silhouette, lower-deck ladders) and it holds up — no
+  further changes requested.
+- **Salvage source:** both scattered scrap crates placed around the map
+  (shallows, each pillar, inside the cave) AND fish carcasses, which spawn
+  where a killed territorial fish dies and slowly sink before settling.
+  Carcasses are a **separate currency** ("fish") from scrap, not converted.
+- **Pickup method (no claw arm yet):** the sub's **hull auto-collects** any
+  salvage item that touches its hull bounding box (placeholder for the future
+  claw module) and adds it to on-board storage. Crew don't carry items by
+  hand in this module.
+- **Banking trigger:** returning the sub within ~15 m of its dock spawn point
+  banks all on-board storage into the persistent save and empties storage.
+- **Risk:** unbanked on-board storage is lost on implosion (reset to 0) —
+  the push-your-luck stakes the design doc calls for, pending real checkpoint
+  buoys later.
+- **Save:** a real first save file (`user://save.json` via the new `SaveData`
+  autoload) persists `banked_scrap`/`banked_fish` across game launches.
+
 ## Parked
 - Snappy Overcooked-style crew movement (kept as switchable preset; playtest against weighty)
 - Phone-as-controller via WebSocket (post-MVP, only if gamepads aren't enough)

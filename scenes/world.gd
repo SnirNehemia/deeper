@@ -12,6 +12,10 @@ const SUB_SPAWN := Vector2(45.0 * M, Sub.SURFACE_FLOAT_DEPTH)
 const P1_SPAWN := Vector2(-240, -60)
 const P2_SPAWN := Vector2(40, -60)
 
+## Module B: how close to the dock spawn point the sub must be to bank
+## on-board salvage into the persistent save.
+const DOCK_BANK_RADIUS := 15.0 * M
+
 var _sub: Sub
 var _cam: Camera2D
 var _crew: Array[Crew] = []
@@ -66,6 +70,10 @@ func _ready() -> void:
 	add_child(alerts)
 	alerts.watch(_sub)
 
+	var salvage_hud := SalvageHud.new()
+	salvage_hud.sub = _sub
+	add_child(salvage_hud)
+
 	# Implosion fade overlay (above everything; transparent until needed).
 	var fade_layer := CanvasLayer.new()
 	fade_layer.layer = 10
@@ -87,6 +95,10 @@ func _physics_process(delta: float) -> void:
 			_cam.offset = Vector2(randf_range(-1, 1), randf_range(-1, 1)) * 14.0
 		else:
 			_cam.offset = Vector2.ZERO
+
+	# Module B: returning to the dock banks whatever's on board.
+	if _sub != null:
+		_sub.try_bank(SUB_SPAWN, DOCK_BANK_RADIUS)
 
 ## Lose condition: too much water. Crunch (~1.5s of shake + hull crumple +
 ## fade to dark), then a clean reset back at the dock. One guard flag keeps
@@ -119,6 +131,7 @@ func reset_run() -> void:
 	_crew[0].reset_at(P1_SPAWN)
 	_crew[1].reset_at(P2_SPAWN)
 	get_tree().call_group("fish", "reset_fish")
+	get_tree().call_group("salvage_carcass", "queue_free")
 	_cam.reset_smoothing()
 
 func _add_fish(pos: Vector2) -> void:
