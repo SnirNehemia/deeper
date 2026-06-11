@@ -1,0 +1,148 @@
+extends Node
+
+## Headless test for territorial fish (Milestone 2, Module H).
+##
+## Run: godot --headless res://tests/test_fish.tscn
+## State machine by distance: patrol at home, chase when the sub enters the
+## territory, return when it leaves. Hull contact bites a drip-tier breach
+## (with a pause between bites), one torpedo kills, and reset_fish revives.
+
+var _failures := 0
+
+func _ready() -> void:
+	await _test_territory_states()
+	await _test_bite()
+	await _test_torpedo_kill_and_reset()
+
+	if _failures == 0:
+		print("FISH TESTS PASSED")
+		get_tree().quit(0)
+	else:
+		push_error("FISH TESTS FAILED: %d failing check(s)" % _failures)
+		get_tree().quit(1)
+
+func _check(cond: bool, msg: String) -> void:
+	if cond:
+		print("  ok:   ", msg)
+	else:
+		push_error("  FAIL: " + msg)
+		_failures += 1
+
+func _frames(n: int) -> void:
+	for i in n:
+		await get_tree().physics_frame
+
+func _ppm() -> float:
+	return GameFeel.PIXELS_PER_METER
+
+func _test_territory_states() -> void:
+	print("[territory states]")
+	var sub := Sub.new()
+	sub.position = Vector2(-100.0 * _ppm(), 0)  # far away
+	add_child(sub)
+
+	var fish := Fish.new()
+	fish.sub = sub
+	fish.position = Vector2.ZERO
+	add_child(fish)
+	await _frames(10)
+
+	_check(fish.state == Fish.State.PATROL, "fish patrols while the sub is far away")
+	_check(fish.global_position.distance_to(fish.home)
+		< GameFeel.fish.territory_radius_m * _ppm(),
+		"patrolling fish stays inside its territory")
+
+	# Sub enters the territory: chase. (Center 9.5 m out: inside the 10 m
+	# territory but the ~8.3 m-wide hull doesn't touch the fish yet, so we see
+	# pure chasing, not an instant bite.)
+	sub.global_position = fish.home + Vector2(9.5 * _ppm(), 0)
+	await _frames(5)
+	_check(fish.state == Fish.State.CHASE, "fish chases when the sub enters its territory")
+	var d0 := fish.global_position.distance_to(sub.global_position)
+	await _frames(10)
+	var d1 := fish.global_position.distance_to(sub.global_position)
+	_check(d1 < d0, "chasing fish closes the distance")
+
+	# Sub leaves: the fish breaks off and swims home.
+	sub.global_position = fish.home + Vector2(40.0 * _ppm(), 0)
+	await _frames(30)
+	_check(fish.state == Fish.State.RETURN or fish.state == Fish.State.PATROL,
+		"fish breaks off when the sub leaves the territory")
+	var made_it_home := false
+	for i in 900:  # up to 15s — plenty at 2 m/s, then it resumes patrolling
+		await get_tree().physics_frame
+		if fish.state == Fish.State.PATROL:
+			made_it_home = true
+			break
+	_check(made_it_home, "fish swims home and resumes patrolling")
+
+	fish.queue_free()
+	sub.queue_free()
+	await _frames(2)
+
+func _test_bite() -> void:
+	print("[bite]")
+	var sub := Sub.new()
+	add_child(sub)
+	await _frames(2)
+
+	# Fish right at the hull's bow edge, inside its own territory.
+	var fish := Fish.new()
+	fish.sub = sub
+	fish.position = Vector2(Sub.HALF_W + 30.0, -72.0)
+	add_child(fish)
+	await _frames(30)  # overlap registers; chase + bite
+
+	_check(not sub.breaches.is_empty(), "hull contact produces a bite breach")
+	if not sub.breaches.is_empty():
+		var breach: Breach = sub.breaches[0]
+		_check(absf(breach.leak_rate - GameFeel.water.bite_leak_rate) < 0.0001,
+			"bite breach is drip-tier")
+		_check(breach.room == 2, "bow bite breaches the helm (bow) room")
+	var bites_after_first: int = sub.breaches.size()
+	_check(bites_after_first == 1, "no rapid-fire bites (one per pass)")
+
+	# Within the 3s bite interval there is no second bite even if it touches.
+	await _frames(60)  # 1s
+	_check(sub.breaches.size() == bites_after_first,
+		"bite cooldown holds for the recover pass")
+
+	fish.queue_free()
+	sub.queue_free()
+	await _frames(2)
+
+func _test_torpedo_kill_and_reset() -> void:
+	print("[torpedo kill + reset]")
+	var sub := Sub.new()
+	sub.position = Vector2(-100.0 * _ppm(), 0)
+	add_child(sub)
+
+	var fish := Fish.new()
+	fish.sub = sub
+	fish.position = Vector2.ZERO
+	add_child(fish)
+	await _frames(5)
+
+	# A torpedo flying straight at the fish.
+	var torpedo := Torpedo.new()
+	torpedo.velocity = Vector2.RIGHT * GameFeel.turret.torpedo_speed * _ppm()
+	add_child(torpedo)
+	torpedo.global_position = fish.global_position + Vector2(-3.0 * _ppm(), 0)
+
+	await _frames(40)  # ~0.7s of flight covers the 3 m
+	_check(fish.is_dead, "one torpedo hit kills the fish")
+	_check(not fish.visible, "dead fish is gone (pop + bubbles)")
+	_check(not is_instance_valid(torpedo) or torpedo.is_queued_for_deletion(),
+		"the torpedo is spent on the kill")
+
+	# The run reset brings it back home.
+	get_tree().call_group("fish", "reset_fish")
+	await _frames(5)
+	_check(not fish.is_dead and fish.visible, "reset_fish revives the fish")
+	_check(fish.global_position.distance_to(fish.home) < 24.0,
+		"revived fish is back at its home point (small patrol drift allowed)")
+	_check(fish.state == Fish.State.PATROL, "revived fish goes back to patrolling")
+
+	fish.queue_free()
+	sub.queue_free()
+	await _frames(2)

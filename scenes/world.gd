@@ -42,6 +42,12 @@ func _ready() -> void:
 	_sub.add_child(p2)
 	_crew = [p1, p2]
 
+	# Territorial fish: one guarding the cave mouth, two around the basin
+	# pillars. They reset home via the "fish" group on implosion.
+	_add_fish(Vector2(168.0 * M, 67.0 * M))   # cave mouth
+	_add_fish(Vector2(206.0 * M, 47.0 * M))   # first pillar
+	_add_fish(Vector2(266.0 * M, 54.0 * M))   # third pillar
+
 	# Fixed-zoom follow camera: ~60 m visible width, smoothed.
 	_cam = Camera2D.new()
 	var visible_width_m := 60.0
@@ -114,6 +120,12 @@ func reset_run() -> void:
 	_crew[1].reset_at(P2_SPAWN)
 	get_tree().call_group("fish", "reset_fish")
 	_cam.reset_smoothing()
+
+func _add_fish(pos: Vector2) -> void:
+	var fish := Fish.new()
+	fish.sub = _sub
+	fish.position = pos
+	add_child(fish)
 
 func _add_hint_label() -> void:
 	var layer := CanvasLayer.new()

@@ -237,7 +237,7 @@ func register_impact(speed_mps: float, global_point: Vector2) -> bool:
 		speed_mps), 0.0, 1.0)
 	var rate := lerpf(w.leak_rate_min, w.leak_rate_max, severity)
 	var local := to_local(global_point)
-	spawn_breach(_nearest_room(local), rate, local)
+	spawn_breach(nearest_room(local), rate, local)
 	return true
 
 ## Open a breach leaking into `room` at `rate` (level-fraction/s). If no local
@@ -290,9 +290,9 @@ func reset_state() -> void:
 	_visual.rotation = 0.0
 	_hull_collision.rotation = 0.0
 
-## Which water room is closest to a local-space point (for impacts that land
-## on the hull shell, outside every room rectangle).
-func _nearest_room(local_pos: Vector2) -> int:
+## Which water room is closest to a local-space point (for impacts and fish
+## bites that land on the hull shell, outside every room rectangle).
+func nearest_room(local_pos: Vector2) -> int:
 	var direct := room_index_at(local_pos)
 	if direct >= 0:
 		return direct

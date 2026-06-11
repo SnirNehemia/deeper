@@ -136,3 +136,14 @@ class TurretFeel:
 	var torpedo_lifetime: float = 8.0   ## s before a miss fizzles out
 
 var turret: TurretFeel = TurretFeel.new()
+
+## Territorial fish feel (Milestone 2). Small fauna: avoidable by careful
+## piloting — they only chase inside their territory and always swim home.
+class FishFeel:
+	var territory_radius_m: float = 10.0  ## chase trigger around the home point
+	var patrol_speed: float = 1.2         ## m/s wandering at home
+	var chase_speed: float = 3.5          ## m/s chasing the sub
+	var return_speed: float = 2.0         ## m/s swimming home after breaking off
+	var bite_interval: float = 3.0        ## s between bites per fish
+
+var fish: FishFeel = FishFeel.new()

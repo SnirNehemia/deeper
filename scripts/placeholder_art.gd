@@ -22,6 +22,10 @@ const LADDER_COLOR := Color("e0c060")     ## ladder rails/rungs
 const INTERIOR_WATER := Color(0.16, 0.42, 0.58, 0.75)  ## flooding water in a room
 const BREACH_COLOR := Color("ff8c3a")     ## hull breach spark/spray + danger alerts
 
+# --- Fauna ---
+const FISH_COLOR := Color("7a4ae8")       ## chunky territorial fish (purple)
+const FISH_LENGTH_M: float = 1.0
+
 # --- Terrain ---
 const TERRAIN_SAND := Color("d8c27a")
 const TERRAIN_ROCK := Color("6b6b78")
