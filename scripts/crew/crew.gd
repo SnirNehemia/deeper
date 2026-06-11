@@ -21,8 +21,8 @@ var _squash_tween: Tween
 var _coyote: float = 0.0
 var _jump_buffer: float = 0.0
 
-# Ladder state: how many ladder zones we overlap, and whether we're climbing.
-var _ladder_overlaps: int = 0
+# Ladder state: which ladder shafts we overlap, and whether we're climbing.
+var _ladder_areas: Array[Area2D] = []
 var _on_ladder: bool = false
 
 # Station state: a station we're standing in range of, and the one we're seated
@@ -85,9 +85,8 @@ func _add_ladder_sensor() -> void:
 	shape.shape = rect
 	sensor.add_child(shape)
 	add_child(sensor)
-	sensor.area_entered.connect(func(_a: Area2D) -> void: _ladder_overlaps += 1)
-	sensor.area_exited.connect(func(_a: Area2D) -> void:
-		_ladder_overlaps = maxi(0, _ladder_overlaps - 1))
+	sensor.area_entered.connect(func(a: Area2D) -> void: _ladder_areas.append(a))
+	sensor.area_exited.connect(func(a: Area2D) -> void: _ladder_areas.erase(a))
 
 func _add_station_sensor() -> void:
 	var sensor := Area2D.new()
@@ -137,9 +136,13 @@ func _physics_process(delta: float) -> void:
 		_update_visual(0.0, ppm, delta)
 		return
 
-	# Grab a ladder when overlapping one and deliberately pushing up or down.
-	# (Pressing down is also how you drop through the conning hatch.)
-	if not _on_ladder and _ladder_overlaps > 0 and absf(move_y) > 0.5:
+	# Grab a ladder when standing in front of one and deliberately pushing up or
+	# down. (Pressing down is also how you drop through the conning hatch.)
+	# Checking against the ladder's own column (not the wider sensor-overlap
+	# band) keeps a player who's just running and jumping past a ladder from
+	# being snagged by it (playtest #1: lower-deck ladders sit in the main
+	# traffic path, and "up" doubles as the jump button).
+	if not _on_ladder and absf(move_y) > 0.5 and _centered_on_ladder():
 		_on_ladder = true
 
 	collision_mask = _MASK_CLIMB if _on_ladder else _MASK_FOOT
@@ -339,12 +342,22 @@ func _move_on_ladder(move_x: float, move_y: float, feel: GameFeel.CrewFeel,
 
 	move_and_slide()
 
-	# Detach when we leave the ladder zone, or reach a floor without climbing up.
-	if _ladder_overlaps == 0:
+	# Detach when we leave the ladder column (including drifting off it
+	# sideways), or reach a floor without climbing up.
+	if not _centered_on_ladder():
 		_on_ladder = false
 	elif is_on_floor() and move_y >= 0.0:
 		_on_ladder = false
 	_was_on_floor = is_on_floor()
+
+## True if we're horizontally aligned with the column of a ladder we're
+## overlapping (within the ladder's own width, not the wider sensor band).
+func _centered_on_ladder() -> bool:
+	for area in _ladder_areas:
+		var shape: Node2D = area.get_child(0)
+		if absf(global_position.x - shape.global_position.x) <= Sub.HOLE_W * 0.5:
+			return true
+	return false
 
 func _be_seated(input: PlayerInput, interact_pressed: bool) -> void:
 	# A flooded station ejects its occupant immediately.

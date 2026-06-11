@@ -1,21 +1,25 @@
 extends Node
 
-## Headless test for the lower deck (Milestone 3, Module A).
+## Headless test for the lower deck (Milestone 3, Module A + playtest #1
+## revision).
 ##
 ## Run: godot --headless res://tests/test_lower_deck.tscn
 ## Verifies the claw room (below middle) and storage room (below engine) are
 ## reachable rooms with their own water levels, connected to each other by a
-## doorway, and that floor-opening flow fills the bottom deck first and drains
-## it last.
+## doorway (water spills between them but does NOT flow up through the
+## ladders), and that both lower-deck ladders can be climbed down and back up
+## from a normal standing position.
 
 var _failures := 0
+var _hub: Node
 
 func _ready() -> void:
+	_hub = get_node("/root/InputHub")
 	GameFeel.water.drain_rate = 0.0
 	await _test_room_geometry()
-	await _test_floor_opening_fills_bottom_first()
-	await _test_drains_last()
 	await _test_door_step_connectivity()
+	await _test_ladder_climb(Sub.CLAW_LADDER_X, "claw")
+	await _test_ladder_climb(Sub.STORAGE_LADDER_X, "storage")
 
 	if _failures == 0:
 		print("LOWER DECK TESTS PASSED")
@@ -39,6 +43,18 @@ func _new_sub() -> Sub:
 	var sub := Sub.new()
 	add_child(sub)
 	return sub
+
+func _key(keycode: Key, pressed: bool) -> InputEventKey:
+	var e := InputEventKey.new()
+	e.physical_keycode = keycode
+	e.pressed = pressed
+	return e
+
+func _press(keycode: Key) -> void:
+	_hub._input(_key(keycode, true))
+
+func _release(keycode: Key) -> void:
+	_hub._input(_key(keycode, false))
 
 func _test_room_geometry() -> void:
 	print("[lower deck geometry]")
@@ -74,41 +90,6 @@ func _test_room_geometry() -> void:
 	sub.queue_free()
 	await _frames(2)
 
-func _test_floor_opening_fills_bottom_first() -> void:
-	print("[bottom deck floods first]")
-	var sub := _new_sub()
-	# Flood the middle room; the claw room below starts dry.
-	sub.water_levels = [0.0, 1.0, 0.0, 0.0, 0.0, 0.0]
-
-	await _frames(2)
-	_check(sub.water_levels[4] > 0.0, "claw room gains water from the middle room above")
-
-	await _frames(900)  # ~15s
-	_check(sub.water_levels[4] > sub.water_levels[1],
-		"the claw room (bottom deck) is fuller than the middle room above it")
-
-	sub.queue_free()
-	await _frames(2)
-
-func _test_drains_last() -> void:
-	print("[bottom deck drains last]")
-	var sub := _new_sub()
-	GameFeel.water.drain_rate = 1.0 / 12.0  # restore canon drain for this check
-	# Engine room and storage room start equally flooded; let the pumps drain
-	# both at the same rate while the floor opening keeps pushing water down.
-	sub.water_levels = [0.5, 0.0, 0.0, 0.0, 0.0, 0.5]
-
-	await _frames(60)  # ~1s
-	var storage_remaining: float = sub.water_levels[5]
-	var engine_remaining: float = sub.water_levels[0]
-	_check(storage_remaining > 0.0, "storage room (bottom deck) still holds water")
-	_check(storage_remaining >= engine_remaining - 0.001,
-		"the bottom deck retains at least as much water as the room above it")
-
-	GameFeel.water.drain_rate = 0.0
-	sub.queue_free()
-	await _frames(2)
-
 func _test_door_step_connectivity() -> void:
 	print("[claw <-> storage doorway]")
 	var sub := _new_sub()
@@ -120,6 +101,39 @@ func _test_door_step_connectivity() -> void:
 	await _frames(120)
 	_check(sub.water_levels[4] > 0.01,
 		"water above the lower-deck door sill spills from storage into the claw room")
+
+	sub.queue_free()
+	await _frames(2)
+
+## Drives a crew member down a lower-deck ladder from a normal standing
+## position on the main deck, then back up (playtest #1: ladders were too
+## fiddly to grab and the storage one couldn't be climbed down at all).
+func _test_ladder_climb(ladder_x: float, label: String) -> void:
+	print("[%s ladder]" % label)
+	var sub := _new_sub()
+	var crew := Crew.new()
+	crew.player_index = 0
+	crew.position = Vector2(ladder_x, -100.0)
+	sub.add_child(crew)
+
+	await _frames(90)
+	_check(crew.is_on_floor(), "%s ladder: crew lands on the main deck floor" % label)
+
+	# Press down: grab the ladder and descend to the lower deck.
+	_press(KEY_S)
+	await _frames(90)
+	_release(KEY_S)
+	await _frames(30)
+	_check(crew.position.y > Sub.LOWER_FLOOR_Y * 0.5,
+		"%s ladder: crew climbs down to the lower deck" % label)
+
+	# Press up: climb back to the main deck.
+	_press(KEY_W)
+	await _frames(90)
+	_release(KEY_W)
+	await _frames(30)
+	_check(crew.position.y < Sub.LOWER_FLOOR_Y * 0.5,
+		"%s ladder: crew climbs back up to the main deck" % label)
 
 	sub.queue_free()
 	await _frames(2)

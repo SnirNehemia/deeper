@@ -13,17 +13,12 @@ func _draw() -> void:
 	var deck_y := Sub.CEIL_Y - Sub.WALL_T
 	var conn_ceil_y := deck_y - 2.0 * Sub.PPM
 
-	# Outer hull silhouette (rounded), behind everything.
-	_draw_round_rect(Rect2(-Sub.HALF_W - 40.0, -Sub.ROOM_H - 24.0,
-		Sub.HALF_W * 2.0 + 80.0, Sub.ROOM_H + 24.0 + 1.5 * Sub.PPM),
-		48.0, PlaceholderArt.HULL_COLOR)
-	# Conning tower bump on top.
-	_draw_round_rect(Rect2(-Sub.CONN_HALF - 18.0, conn_ceil_y - 18.0,
-		Sub.CONN_HALF * 2.0 + 36.0, deck_y - conn_ceil_y + 24.0),
-		18.0, PlaceholderArt.HULL_COLOR)
-	# Lower deck bump (claw + storage rooms) below the engine/middle rooms.
-	_draw_round_rect(Rect2(-368.0, 72.0, 504.0, Sub.LOWER_BOTTOM_Y + 32.0),
-		24.0, PlaceholderArt.HULL_COLOR)
+	# Outer hull silhouette: one continuous shape, drawn as three overlapping
+	# rounded rects (main deck, lower deck, conning tower) — each room block
+	# expanded by a uniform margin (Sub.HULL_*_RECT), so it reads as a single
+	# hull rather than separate "blobs" (playtest #1 of Module A).
+	for r in [Sub.HULL_MAIN_RECT, Sub.HULL_LOWER_RECT, Sub.HULL_CONN_RECT]:
+		_draw_round_rect(r, 24.0, PlaceholderArt.HULL_COLOR)
 
 	# Room interiors.
 	for i in 3:
@@ -56,8 +51,8 @@ func _draw() -> void:
 	_draw_ladder(0.0, conn_ceil_y, 0.0)
 	# Lower-deck ladders: middle room down to the claw room, engine room down
 	# to the storage room.
-	_draw_ladder(Sub.CLAW_LADDER_X, 0.0, Sub.LOWER_FLOOR_Y)
-	_draw_ladder(Sub.STORAGE_LADDER_X, 0.0, Sub.LOWER_FLOOR_Y)
+	_draw_ladder(Sub.CLAW_LADDER_X, Sub.CEIL_Y, Sub.LOWER_FLOOR_Y)
+	_draw_ladder(Sub.STORAGE_LADDER_X, Sub.CEIL_Y, Sub.LOWER_FLOOR_Y)
 
 	# Doorway between storage and the claw room (lower deck), with its header
 	# and door step.

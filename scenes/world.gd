@@ -44,9 +44,9 @@ func _ready() -> void:
 
 	# Territorial fish: one guarding the cave mouth, two around the basin
 	# pillars. They reset home via the "fish" group on implosion.
-	_add_fish(Vector2(168.0 * M, 67.0 * M))   # cave mouth
-	_add_fish(Vector2(206.0 * M, 47.0 * M))   # first pillar
-	_add_fish(Vector2(266.0 * M, 54.0 * M))   # third pillar
+	_add_fish(Vector2(70.0 * M, 64.0 * M))    # cave mouth
+	_add_fish(Vector2(96.0 * M, 47.0 * M))    # first pillar
+	_add_fish(Vector2(138.0 * M, 54.0 * M))   # third pillar
 
 	# Fixed-zoom follow camera: ~60 m visible width, smoothed.
 	_cam = Camera2D.new()

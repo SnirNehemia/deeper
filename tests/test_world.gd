@@ -73,7 +73,7 @@ func _test_buoyancy_and_floor() -> void:
 func _test_cave() -> void:
 	print("[cave]")
 	var sub := Sub.new()
-	sub.position = Vector2(185.0 * 48.0, 66.0 * 48.0)  # in the basin, at cave height
+	sub.position = Vector2(78.0 * 48.0, 66.0 * 48.0)  # in the basin gap before the cave, at cave height
 	add_child(sub)
 
 	await _frames(10)
@@ -81,7 +81,7 @@ func _test_cave() -> void:
 		sub.drive_input = Vector2(-1, 0)
 		await get_tree().physics_frame
 	print("    cave x(m)=", sub.global_position.x / 48.0)
-	_check(sub.global_position.x < 150.0 * 48.0, "sub can drive into the cave (past the cliff line)")
+	_check(sub.global_position.x < 65.0 * 48.0, "sub can drive into the cave (past the cliff line)")
 
 	sub.queue_free()
 	await _frames(2)

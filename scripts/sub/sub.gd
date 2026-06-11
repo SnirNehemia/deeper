@@ -44,20 +44,39 @@ const LOWER_ROOM_H := 2.5 * PPM       # 120 — claw & storage room height
 const LOWER_FLOOR_Y := LOWER_ROOM_H   # 120 — lower deck floor (top surface)
 const LOWER_BOTTOM_Y := LOWER_FLOOR_Y + WALL_T  # 136 — bottom of the lower-deck floor slab
 const HOLE_W := HOLE_HALF * 2.0       # 48 — floor-opening width (matches the conning hole)
-## x positions of the floor openings down to the lower deck. The claw hole
-## sits off-center in the middle room (away from x=0, the conning ladder
-## above) so the two ladders are separate shafts. The storage hole is centered
-## under the engine room.
-const CLAW_LADDER_X := -48.0
-const STORAGE_LADDER_X := -240.0
+## x positions of the floor openings down to the lower deck. Ladders alternate
+## sides floor-to-floor so climbing through multiple decks needs lateral
+## movement, not just holding "up" (playtest #1 of Module A): the conning
+## ladder sits at the middle room's center (x=0); the claw ladder sits on the
+## middle room's left side, and the storage ladder on the engine room's right
+## side (away from x=0, so the two lower-deck ladders are separate shafts).
+## Both are kept clear of the door-step grab zones (a crew hopping a door step
+## presses "up", which would otherwise also grab a nearby ladder).
+const CLAW_LADDER_X := -65.0
+const STORAGE_LADDER_X := -170.0
 
 ## Water "rooms": engine (0), middle (1), helm (2), conning area (3),
 ## claw room (4, below middle), storage room (5, below engine).
 const ROOM_COUNT := 6
+## Outer hull silhouette (Milestone 3, playtest #1): one continuous hull shape
+## built as three overlapping rounded rectangles, each the matching interior
+## room block (main deck, lower deck, conning tower) expanded outward by a
+## uniform margin. Shared by the collision shape and the visual silhouette so
+## they always match, replacing the old "two separate blobs" look.
+const HULL_MARGIN := 32.0
+const HULL_MAIN_RECT := Rect2(
+	-HALF_W - HULL_MARGIN, CEIL_Y - HULL_MARGIN,
+	HALF_W * 2.0 + HULL_MARGIN * 2.0, ROOM_H + HULL_MARGIN * 2.0)
+const HULL_LOWER_RECT := Rect2(
+	-HALF_W - HULL_MARGIN, -HULL_MARGIN,
+	HALF_W + DIV_X + HULL_MARGIN * 2.0, LOWER_FLOOR_Y + HULL_MARGIN * 2.0)
+const HULL_CONN_RECT := Rect2(
+	-CONN_HALF - HULL_MARGIN, CONN_CEIL_Y - HULL_MARGIN,
+	CONN_HALF * 2.0 + HULL_MARGIN * 2.0, CONN_HEIGHT + HULL_MARGIN * 2.0)
+
 ## Sill fraction for the ladder opening (middle<->conning): the conning tower
 ## sits above the rooms, so water only spills up into it once the middle room
-## is nearly full. Reused for the lower-deck floor openings (bottom deck floods
-## first, drains last).
+## is nearly full.
 const LADDER_SILL_FRACTION := 0.95
 
 # Helm seat location (helm/bow room, near the floor). Crew origin sits here.
@@ -102,7 +121,13 @@ signal imploded
 var _implosion_fired: bool = false
 
 var _visual: SubVisual
-var _hull_collision: CollisionPolygon2D
+# Hull collision shapes (vs terrain) and their unrotated centers, kept as
+# direct children of the Sub body (CollisionShape2D only registers as a
+# collision shape when parented directly to a CollisionObject2D — a Node2D
+# wrapper does not work). To tilt the whole hull as one rigid shape around the
+# sub's origin, each shape's position and rotation are recomputed together.
+var _hull_shapes: Array[CollisionShape2D] = []
+var _hull_shape_centers: Array[Vector2] = []
 # Grace period between impact-spawned breaches so one scrape along the rocks
 # doesn't open a breach every physics frame.
 var _impact_cooldown: float = 0.0
@@ -160,7 +185,7 @@ func _physics_process(delta: float) -> void:
 	var t := clampf(velocity.x / (feel.max_speed_h * ppm), -1.0, 1.0)
 	pitch = deg_to_rad(feel.max_pitch_deg) * t
 	_visual.rotation = pitch
-	_hull_collision.rotation = pitch
+	_set_hull_rotation(pitch)
 	_visual.queue_redraw()
 
 ## Depth shown to the player: metres below the surface. Reads 0 while the sub
@@ -224,6 +249,9 @@ func room_water_surface_y(room: int) -> float:
 ## level must clear before spilling. engine<->middle and middle<->helm over
 ## knee-high doorway sills, middle<->conning up through the ladder opening
 ## (near-full), claw<->storage over their own (squatter-room) doorway sill.
+## The lower-deck rooms have no other connection to the rooms above them —
+## water that floods them stays put except for this one doorway (playtest #1
+## of Module A: no need for a separate floor-opening flow model).
 func _door_connections() -> Array:
 	var door_sill: float = GameFeel.water.door_sill_m / GameFeel.water.room_height_m
 	var lower_door_sill: float = GameFeel.water.door_sill_m / GameFeel.water.lower_room_height_m
@@ -232,15 +260,6 @@ func _door_connections() -> Array:
 		{"a": 1, "b": 2, "sill": door_sill},
 		{"a": 1, "b": 3, "sill": LADDER_SILL_FRACTION},
 		{"a": 5, "b": 4, "sill": lower_door_sill},
-	]
-
-## Floor-opening connections (lower deck ladders): water falls down freely
-## into the lower room, but only pushes back up once the lower room is full
-## past the sill — the bottom deck floods first and drains last.
-func _floor_openings() -> Array:
-	return [
-		{"upper": 1, "lower": 4, "rise_sill": LADDER_SILL_FRACTION},  # middle -> claw
-		{"upper": 0, "lower": 5, "rise_sill": LADDER_SILL_FRACTION},  # engine -> storage
 	]
 
 ## Equalize water levels between connected rooms and clamp to [0, 1].
@@ -260,8 +279,6 @@ func _update_water(delta: float) -> void:
 			water_levels[i] -= w.drain_rate * delta
 	for conn in _door_connections():
 		_flow_over_sill(conn["a"], conn["b"], conn["sill"], w.flow_rate, delta)
-	for opening in _floor_openings():
-		_flow_floor_opening(opening["upper"], opening["lower"], opening["rise_sill"], w.floor_opening_flow_rate, delta)
 	for i in ROOM_COUNT:
 		water_levels[i] = clampf(water_levels[i], 0.0, 1.0)
 
@@ -283,25 +300,6 @@ func _flow_over_sill(a: int, b: int, sill: float, rate: float, delta: float) -> 
 	var transfer: float = rate * effective * delta
 	water_levels[hi] -= transfer
 	water_levels[lo] += transfer * room_volume(hi) / room_volume(lo)
-
-## Floor-opening connection (lower-deck ladder hole): water always falls from
-## `upper` into `lower`'s free space (no sill — gravity), but only pushes back
-## up into `upper` once `lower` rises past `rise_sill`. Net effect: the bottom
-## deck fills first and is the last to drain.
-func _flow_floor_opening(upper: int, lower: int, rise_sill: float, rate: float, delta: float) -> void:
-	# Down: drains the upper room into the lower room's remaining headroom.
-	var down: float = rate * water_levels[upper] * (1.0 - water_levels[lower]) * delta
-	if down > 0.0:
-		down = minf(down, water_levels[upper])
-		water_levels[upper] -= down
-		water_levels[lower] += down * room_volume(upper) / room_volume(lower)
-	# Up: once the lower room is full past the sill, the excess spills upward.
-	if water_levels[lower] > rise_sill:
-		var effective: float = water_levels[lower] - maxf(rise_sill, water_levels[upper])
-		if effective > 0.0:
-			var up: float = rate * effective * delta
-			water_levels[lower] -= up
-			water_levels[upper] += up * room_volume(lower) / room_volume(upper)
 
 ## Inspect this frame's slide collisions for terrain hits hard enough to
 ## breach the hull. Impact speed is the pre-collision velocity into the
@@ -384,7 +382,7 @@ func reset_state() -> void:
 	_visual.scale = Vector2.ONE
 	_visual.modulate = Color.WHITE
 	_visual.rotation = 0.0
-	_hull_collision.rotation = 0.0
+	_set_hull_rotation(0.0)
 
 ## Which water room is closest to a local-space point (for impacts and fish
 ## bites that land on the hull shell, outside every room rectangle).
@@ -427,24 +425,37 @@ func _build_turret() -> void:
 ## old rough rectangle hung ~1.5 m below the art, causing a visible gap). Tilts
 ## with the cosmetic pitch so the collision matches what you see.
 func _build_hull_collision() -> void:
-	_hull_collision = CollisionPolygon2D.new()
-	_hull_collision.polygon = PackedVector2Array([
-		Vector2(-352, -168), Vector2(-90, -168), Vector2(-90, -274), Vector2(90, -274),
-		Vector2(90, -168), Vector2(352, -168), Vector2(400, -120), Vector2(400, 24),
-		Vector2(352, 72), Vector2(136, 72), Vector2(136, 168), Vector2(-368, 168),
-		Vector2(-368, 72), Vector2(-352, 72), Vector2(-400, 24), Vector2(-400, -120),
-	])
-	add_child(_hull_collision)
+	for r in [HULL_MAIN_RECT, HULL_LOWER_RECT, HULL_CONN_RECT]:
+		_add_hull_rect(r)
+
+## A single rectangular collider, part of the unified hull silhouette (see
+## HULL_*_RECT above).
+func _add_hull_rect(r: Rect2) -> void:
+	var shape := CollisionShape2D.new()
+	var rect := RectangleShape2D.new()
+	rect.size = r.size
+	shape.shape = rect
+	shape.position = r.position + r.size * 0.5
+	add_child(shape)
+	_hull_shapes.append(shape)
+	_hull_shape_centers.append(shape.position)
+
+## Tilt the hull collision shapes together, as one rigid shape rotating around
+## the sub's origin (rather than each rect spinning in place).
+func _set_hull_rotation(angle: float) -> void:
+	for i in _hull_shapes.size():
+		_hull_shapes[i].position = _hull_shape_centers[i].rotated(angle)
+		_hull_shapes[i].rotation = angle
 
 func _build_interior() -> void:
 	# Floor across all three rooms (top surface at y = 0), with two openings
-	# (HATCH-covered) dropping to the claw room (under the middle room) and
-	# the storage room (under the engine room). The claw hole sits off-center
-	# (x = -48) so it's a separate shaft from the conning ladder above (x = 0)
-	# rather than stacking into one long conning-to-claw shaft.
-	_add_static(Vector2(-316.0, WALL_T * 0.5), Vector2(104.0, WALL_T))
-	_add_static(Vector2(-144.0, WALL_T * 0.5), Vector2(144.0, WALL_T))
-	_add_static(Vector2(172.0, WALL_T * 0.5), Vector2(392.0, WALL_T))
+	# (HATCH-covered) dropping to the storage room (under the engine room) and
+	# the claw room (under the middle room). Both holes sit off-center, away
+	# from the conning ladder above (x = 0), so all three ladders are separate
+	# shafts (playtest #1 of Module A: alternating sides floor-to-floor).
+	_add_static(Vector2(-281.0, WALL_T * 0.5), Vector2(174.0, WALL_T))
+	_add_static(Vector2(-117.5, WALL_T * 0.5), Vector2(57.0, WALL_T))
+	_add_static(Vector2(163.5, WALL_T * 0.5), Vector2(409.0, WALL_T))
 	_add_hatch(Vector2(STORAGE_LADDER_X, WALL_T * 0.5), Vector2(HOLE_W, WALL_T))
 	_add_hatch(Vector2(CLAW_LADDER_X, WALL_T * 0.5), Vector2(HOLE_W, WALL_T))
 
@@ -507,9 +518,14 @@ func _build_lower_deck() -> void:
 	_add_static(Vector2(-DIV_X, LOWER_FLOOR_Y - DOOR_STEP_H * 0.5), Vector2(WALL_T, DOOR_STEP_H))
 
 	# Ladders down from the middle room (to the claw room) and the engine
-	# room (to the storage room), through the floor openings above.
-	_add_ladder_shaft(CLAW_LADDER_X, 0.0, LOWER_FLOOR_Y)
-	_add_ladder_shaft(STORAGE_LADDER_X, 0.0, LOWER_FLOOR_Y)
+	# room (to the storage room), through the floor openings above. Each shaft
+	# extends all the way up to the ceiling of the room above (not just to its
+	# floor) so a crew member standing anywhere in that room overlaps the
+	# ladder's grab zone — matching how the conning ladder spans nearly the
+	# whole room below it (playtest #1: lower-deck ladders were too fiddly to
+	# grab and couldn't be climbed down).
+	_add_ladder_shaft(CLAW_LADDER_X, CEIL_Y, LOWER_FLOOR_Y)
+	_add_ladder_shaft(STORAGE_LADDER_X, CEIL_Y, LOWER_FLOOR_Y)
 
 func _build_ladder() -> void:
 	var deck_y := CEIL_Y - WALL_T

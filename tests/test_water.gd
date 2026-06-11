@@ -17,7 +17,6 @@ func _ready() -> void:
 	_test_conning_connection()
 	_test_weight()
 	_test_door_sill()
-	_test_floor_opening()
 
 	if _failures == 0:
 		print("WATER TESTS PASSED")
@@ -96,31 +95,6 @@ func _test_door_sill() -> void:
 	await _frames(120)
 	_check(sub2.water_levels[1] > 0.01,
 		"water above the door sill spills into the adjacent room")
-	sub2.queue_free()
-	await _frames(2)
-
-func _test_floor_opening() -> void:
-	print("[lower deck floor openings]")
-
-	# Water in the middle room falls freely down into the (empty) claw room
-	# below it, with no sill to clear first.
-	var sub := _new_sub()
-	sub.water_levels = [0.0, 1.0, 0.0, 0.0, 0.0, 0.0]
-	await _frames(2)
-	_check(sub.water_levels[4] > 0.0,
-		"the claw room gains water from the middle room on the first tick")
-	await _frames(600)  # ~10s
-	_check(sub.water_levels[4] > sub.water_levels[1],
-		"the claw room (bottom deck) ends up fuller than the middle room above it")
-	sub.queue_free()
-	await _frames(2)
-
-	# A full bottom deck pushes water back up into the room above it.
-	var sub2 := _new_sub()
-	sub2.water_levels = [0.0, 0.05, 0.0, 0.0, 0.0, 1.0]  # storage room full
-	await _frames(120)
-	_check(sub2.water_levels[0] > 0.05,
-		"a full storage room pushes excess water back up into the engine room")
 	sub2.queue_free()
 	await _frames(2)
 
