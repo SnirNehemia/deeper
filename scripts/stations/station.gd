@@ -15,6 +15,13 @@ extends Area2D
 ## The crew currently seated here, or null.
 var occupant: Crew = null
 
+## The sub this station belongs to and which water "room" it sits in (see
+## Sub.room_rect/water_levels). Set by the sub when it builds the station.
+## Used to eject the occupant and refuse entry once that room floods past
+## the seat-flood threshold.
+var sub: Sub = null
+var room_index: int = -1
+
 func _ready() -> void:
 	collision_layer = Layers.STATION
 	collision_mask = 0
@@ -27,7 +34,13 @@ func _ready() -> void:
 	add_child(shape)
 
 func can_enter() -> bool:
-	return occupant == null
+	return occupant == null and not is_flooded()
+
+## True once this station's room has flooded past the seat-flood threshold.
+func is_flooded() -> bool:
+	if sub == null or room_index < 0:
+		return false
+	return sub.water_levels[room_index] > GameFeel.water.seat_flood_threshold
 
 func enter(crew: Crew) -> void:
 	occupant = crew

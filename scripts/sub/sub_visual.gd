@@ -54,6 +54,23 @@ func _draw() -> void:
 	draw_rect(Rect2(hx - 3.0, -40.0, 6.0, 16.0), PlaceholderArt.SUB_STRUCTURE)
 	draw_circle(Vector2(hx, -42.0), 7.0, PlaceholderArt.LADDER_COLOR)
 
+	_draw_water()
+
+## Flooding water: a flat rect rising from the floor of each room, clipped to
+## the room rectangle. Drawn last so it sits over the interior/structure.
+func _draw_water() -> void:
+	var sub := get_parent() as Sub
+	if sub == null:
+		return
+	for i in Sub.ROOM_COUNT:
+		var level: float = sub.water_levels[i]
+		if level <= 0.0:
+			continue
+		var r := sub.room_rect(i)
+		var height := r.size.y * level
+		draw_rect(Rect2(r.position.x, r.position.y + r.size.y - height, r.size.x, height),
+			PlaceholderArt.INTERIOR_WATER)
+
 func _draw_round_rect(rect: Rect2, radius: float, color: Color) -> void:
 	var r := minf(radius, minf(rect.size.x, rect.size.y) * 0.5)
 	draw_rect(Rect2(rect.position + Vector2(r, 0), Vector2(rect.size.x - 2.0 * r, rect.size.y)), color)

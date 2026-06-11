@@ -114,6 +114,7 @@ func _physics_process(delta: float) -> void:
 	pitch = deg_to_rad(feel.max_pitch_deg) * t
 	_visual.rotation = pitch
 	_hull_collision.rotation = pitch
+	_visual.queue_redraw()
 
 ## Depth shown to the player: metres below the surface. Reads 0 while the sub
 ## floats at rest (its keel sits SURFACE_FLOAT_DEPTH down, which we treat as the
@@ -147,6 +148,24 @@ func total_fill_fraction() -> float:
 		total_vol += vol
 	return total_water / total_vol
 
+## Which water "room" a local-space point falls in, or -1 if it's outside all
+## of them (e.g. inside a doorway/header). Used by crew to find their water
+## level and by stations to know which room floods them.
+func room_index_at(local_pos: Vector2) -> int:
+	for i in ROOM_COUNT:
+		var r := room_rect(i)
+		if r.has_point(local_pos):
+			return i
+	return -1
+
+## Water surface y (local space) for a given room, or +INF if the room index
+## is invalid (treated as "no water here").
+func room_water_surface_y(room: int) -> float:
+	if room < 0 or room >= ROOM_COUNT:
+		return INF
+	var r := room_rect(room)
+	return r.position.y + r.size.y * (1.0 - water_levels[room])
+
 ## Equalize water levels between connected rooms and clamp to [0, 1].
 ## Conserves total water volume across each pairwise transfer.
 func _update_water(delta: float) -> void:
@@ -164,6 +183,7 @@ func _update_water(delta: float) -> void:
 func _build_helm() -> void:
 	var helm := HelmStation.new()
 	helm.sub = self
+	helm.room_index = 2  # helm/bow room
 	helm.position = Vector2(HELM_X, HELM_SEAT_Y)
 	add_child(helm)
 

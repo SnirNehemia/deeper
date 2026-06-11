@@ -19,6 +19,8 @@ const SUB_INTERIOR := Color("2a2f3a")     ## room background
 const SUB_STRUCTURE := Color("8a8f9c")    ## floors/walls/headers
 const SUB_FLOOR := Color("4a5160")        ## floor deck highlight
 const LADDER_COLOR := Color("e0c060")     ## ladder rails/rungs
+const INTERIOR_WATER := Color(0.16, 0.42, 0.58, 0.75)  ## flooding water in a room
+const BREACH_COLOR := Color("ff8c3a")     ## hull breach spark/spray + danger alerts
 
 # --- Terrain ---
 const TERRAIN_SAND := Color("d8c27a")

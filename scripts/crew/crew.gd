@@ -129,23 +129,38 @@ func _physics_process(delta: float) -> void:
 
 	_update_visual(move_x, ppm, delta)
 
+## True if the crew's waist (its origin) is below the local water surface of
+## the sub room it's standing in.
+func is_submerged() -> bool:
+	var sub := get_parent() as Sub
+	if sub == null:
+		return false
+	var room := sub.room_index_at(position)
+	if room < 0:
+		return false
+	return position.y >= sub.room_water_surface_y(room)
+
 func _move_on_foot(move_x: float, jump_pressed: bool, feel: GameFeel.CrewFeel,
 		ppm: float, delta: float) -> void:
 	var on_floor := is_on_floor()
+	var water: GameFeel.WaterFeel = GameFeel.water
+	var swim_mult := water.swim_speed_mult if is_submerged() else 1.0
 
-	# Horizontal: accelerate toward target, decelerate to a stop.
-	var target_vx := move_x * feel.run_max_speed * ppm
+	# Horizontal: accelerate toward target, decelerate to a stop. Dampened
+	# while submerged above the waist.
+	var target_vx := move_x * feel.run_max_speed * ppm * swim_mult
 	var rate := feel.run_accel() if absf(target_vx) > 0.01 else feel.run_decel()
 	velocity.x = move_toward(velocity.x, target_vx, rate * ppm * delta)
 
 	# Gravity.
 	velocity.y += feel.gravity() * ppm * delta
 
-	# Jump with coyote time + input buffer.
+	# Jump with coyote time + input buffer. A submerged jump is weak.
 	_coyote = feel.coyote_time if on_floor else _coyote - delta
 	_jump_buffer = feel.jump_buffer_time if jump_pressed else _jump_buffer - delta
 	if _jump_buffer > 0.0 and _coyote > 0.0:
-		velocity.y = -feel.jump_velocity() * ppm
+		var jump_mult := water.swim_jump_mult if is_submerged() else 1.0
+		velocity.y = -feel.jump_velocity() * ppm * jump_mult
 		_jump_buffer = 0.0
 		_coyote = 0.0
 		_stretch()
@@ -177,6 +192,10 @@ func _move_on_ladder(move_x: float, move_y: float, feel: GameFeel.CrewFeel,
 	_was_on_floor = is_on_floor()
 
 func _be_seated(input: PlayerInput, interact_pressed: bool) -> void:
+	# A flooded station ejects its occupant immediately.
+	if _station.is_flooded():
+		_exit_station()
+		return
 	# Locked in the seat (which rides with the sub); feed input to the station.
 	velocity = Vector2.ZERO
 	global_position = _station.seat_global_position()
