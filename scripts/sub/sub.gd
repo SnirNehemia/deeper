@@ -94,6 +94,7 @@ func _ready() -> void:
 	_build_interior()
 	_build_ladder()
 	_build_helm()
+	_build_turret()
 
 func _physics_process(delta: float) -> void:
 	var feel: GameFeel.SubFeel = GameFeel.sub
@@ -311,6 +312,17 @@ func _build_helm() -> void:
 	helm.room_index = 2  # helm/bow room
 	helm.position = Vector2(HELM_X, HELM_SEAT_Y)
 	add_child(helm)
+
+## Gunner seat in the middle flex room (right side, clear of the ladder);
+## the tube itself is bow-mounted (see TurretStation.TUBE_LOCAL).
+const TURRET_SEAT_X := 70.0
+
+func _build_turret() -> void:
+	var turret := TurretStation.new()
+	turret.sub = self
+	turret.room_index = 1  # middle flex room
+	turret.position = Vector2(TURRET_SEAT_X, HELM_SEAT_Y)
+	add_child(turret)
 
 ## Outer-shell collider (vs terrain), shaped to match the hull silhouette (the
 ## old rough rectangle hung ~1.5 m below the art, causing a visible gap). Tilts

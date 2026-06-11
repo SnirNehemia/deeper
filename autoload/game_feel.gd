@@ -126,3 +126,13 @@ class WaterFeel:
 	var breach_speed_max: float = 6.0
 
 var water: WaterFeel = WaterFeel.new()
+
+## Turret / torpedo feel (Milestone 2). Torpedoes are slow and weighty like
+## the sub — leading a moving fish is the skill.
+class TurretFeel:
+	var torpedo_speed: float = 10.0     ## m/s, travels straight
+	var fire_cooldown: float = 1.2      ## s between shots (infinite ammo)
+	var cone_half_angle_deg: float = 45.0  ## aim cone around the bow's forward
+	var torpedo_lifetime: float = 8.0   ## s before a miss fizzles out
+
+var turret: TurretFeel = TurretFeel.new()

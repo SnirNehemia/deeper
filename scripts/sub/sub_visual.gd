@@ -54,6 +54,12 @@ func _draw() -> void:
 	draw_rect(Rect2(hx - 3.0, -40.0, 6.0, 16.0), PlaceholderArt.SUB_STRUCTURE)
 	draw_circle(Vector2(hx, -42.0), 7.0, PlaceholderArt.LADDER_COLOR)
 
+	# Gunner console in the middle flex room (the tube itself is drawn by the
+	# TurretStation at the bow).
+	var tx := Sub.TURRET_SEAT_X
+	draw_rect(Rect2(tx - 14.0, -22.0, 28.0, 22.0), PlaceholderArt.SUB_STRUCTURE)
+	draw_circle(Vector2(tx, -30.0), 6.0, PlaceholderArt.HULL_COLOR)
+
 	_draw_water()
 
 ## Flooding water: a flat rect rising from the floor of each room, clipped to

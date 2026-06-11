@@ -14,3 +14,5 @@ const INTERIOR := 1 << 3   ## sub interior floors/walls the crew stand on
 const LADDER := 1 << 4     ## ladder climb zones
 const HATCH := 1 << 5      ## solid deck over the ladder hole; crew pass it only while climbing
 const STATION := 1 << 6    ## station interaction zones (helm, etc.)
+const PROJECTILE := 1 << 7 ## torpedoes (hit terrain and fish, never the own hull)
+const FISH := 1 << 8       ## enemy fauna bodies
