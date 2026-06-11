@@ -71,6 +71,13 @@ All 8 issues implemented 2026-06-11 (commits "M2 polish …"). Clarified 4 ambig
 7. **Torpedo rate +20%** — `fire_cooldown 1.2 → 1.0`s.
 8. **Tilt fix** — breaches and the gun barrel are now drawn under the hull visual, so they pitch with the sub. Torpedoes launch along the tilted barrel line.
 
+**Follow-up refinements (2026-06-11, same playtest, second pass):**
+1. **Respawn at the conning tower** — drowning respawn moved from the helm room to the conning-tower deck (safest, last-to-flood spot).
+2. **Physical door steps** — a low lip (`DOOR_STEP_H = 0.3 m`) on the floor at each doorway; crew now do a small hop to cross between rooms. (Separate from the abstract water lip in #5.)
+3. **Breach severity is colour + size coded** — small = yellow & small, medium = orange, big = red & large, so the crew can see which leak to patch first.
+4. **Jump shrinks only in deep water** — confirmed the jump only weakens once water covers more than half the crew's height (waist/centre underwater); a shallow puddle slows movement but not the jump. (Already in place from the first pass; locked with a test.)
+5. **Lowered the water overflow lip 75%** — `door_sill_m 0.5 → 0.125`; water spreads to neighbours much sooner.
+
 **Verdict:** changes implemented; re-test the same build (next playtest) for feel.
 
 ---

@@ -12,6 +12,12 @@ their feet touch water, repair progress persists across trips for air, the gun
 sweeps continuously (W/S, ±60° cone), torpedoes fire 20% faster, and breaches +
 gun now tilt with the hull. Next is a re-test for feel.
 
+A second refinement pass on the same playtest then added: drowning respawns
+in the **conning tower** (not the helm), **physical door steps** you hop over
+between rooms, breach severity shown by **colour + size** (yellow/orange/red),
+the water overflow lip **lowered to 0.125 m**, and a locked-in test confirming
+the jump only weakens once water is past half the crew's height.
+
 _(Original M2 summary:)_
 **Milestone 2 (Water, Torpedoes, and First Blood)** The sub can get hurt, flood, and die, and fight back: terrain
 impacts breach the hull, rooms flood and weigh the sub down, crew patch

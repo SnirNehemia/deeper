@@ -75,7 +75,7 @@ func _test_drown_and_respawn() -> void:
 	await _seconds(1.4)
 	_check(not victim.is_dead, "victim respawns after the delay")
 	_check(victim._visual.visible, "respawned crew is visible again")
-	_check(sub.room_index_at(victim.position) == 2, "respawn lands in the helm room")
+	_check(sub.room_index_at(victim.position) == 3, "respawn lands in the conning tower")
 	_check(victim.air_seconds >= GameFeel.water.air_time - 0.1, "respawn restores full air")
 	_check(not buddy.is_dead, "buddy still fine after the respawn")
 

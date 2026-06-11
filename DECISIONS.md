@@ -73,6 +73,13 @@
 - **Tilt:** breaches and the gun barrel are children of the hull visual and pitch with the sub; torpedoes fire along the tilted barrel.
 - **Parked (playtester ideas for later):** map feels empty → swarms of fish in deeper zones instead of lone fish (post-MVP content). The "fish swims in front of the sub / 3D depth feel" was a happy accident worth keeping.
 
+## Settled (2026-06-11, playtest #1 — second refinement pass)
+- **Drowning respawn moved to the conning tower** (was the helm room): the tower is the last place to flood, so respawning there is the safe, sensible spot.
+- **Physical door steps:** a low floor lip (`DOOR_STEP_H = 0.3 m`) at each doorway — crew must do a small hop to move between rooms. This is a *separate* thing from the abstract water overflow lip (below): the step is a collision obstacle, the water lip is a flow threshold.
+- **Water overflow lip lowered to 0.125 m** (was 0.5 m / knee): flooding spreads to neighbouring rooms much sooner. (Knee height held water back too long.)
+- **Breach severity is read by colour + size:** small = yellow & small, medium = orange, big = red & large. The reserved danger hue is now a yellow→red gradient; `BREACH_COLOR` (orange) stays the generic alert-flash colour.
+- **Jump only weakens in deep water:** confirmed the in-water jump penalty triggers only once water covers more than half the crew height (waist/centre submerged); shallow water slows movement but not the jump.
+
 ## Open
 - **Solo play:** is "lock station" enough, or does solo need an AI helper (Lovers-style pet)? Answer via solo playtests during MVP.
 - **Pitch direction/strength:** confirm the lean feels right in playtest (one-number tweak).

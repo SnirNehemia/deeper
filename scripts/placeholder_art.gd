@@ -20,7 +20,12 @@ const SUB_STRUCTURE := Color("8a8f9c")    ## floors/walls/headers
 const SUB_FLOOR := Color("4a5160")        ## floor deck highlight
 const LADDER_COLOR := Color("e0c060")     ## ladder rails/rungs
 const INTERIOR_WATER := Color(0.16, 0.42, 0.58, 0.75)  ## flooding water in a room
-const BREACH_COLOR := Color("ff8c3a")     ## hull breach spark/spray + danger alerts
+const BREACH_COLOR := Color("ff8c3a")     ## generic danger hue (alert flash)
+# Breach severity tiers (playtest #3): distinct colour + size so the crew can
+# tell at a glance which leak to patch first. A danger gradient yellow->red.
+const BREACH_SMALL := Color("f5d020")     ## slow drip (yellow)
+const BREACH_MED := Color("ff8c3a")       ## steady leak (orange)
+const BREACH_BIG := Color("ff3030")       ## gusher (red)
 
 # --- Fauna ---
 const FISH_COLOR := Color("7a4ae8")       ## chunky territorial fish (purple)

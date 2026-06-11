@@ -32,6 +32,10 @@ const CONN_CEIL_Y := DECK_Y - CONN_HEIGHT
 # Divider x positions between the three rooms.
 const DIV_X := ROOM_W * 0.5   # 120
 
+# A low step on the floor in each doorway: crew must do a small hop to cross
+# between rooms (playtest #2). Kept well under jump height.
+const DOOR_STEP_H := 0.3 * PPM  # ~14 px
+
 ## Water "rooms": engine (0), middle (1), helm (2), conning area (3).
 const ROOM_COUNT := 4
 ## Sill fraction for the ladder opening (middle<->conning): the conning tower
@@ -398,6 +402,11 @@ func _build_interior() -> void:
 	var header_y := CEIL_Y + header_h * 0.5
 	_add_static(Vector2(-DIV_X, header_y), Vector2(WALL_T, header_h))
 	_add_static(Vector2(DIV_X, header_y), Vector2(WALL_T, header_h))
+
+	# Door steps: a low lip on the floor at each doorway so crew hop between
+	# rooms (playtest #2). Sits on the floor (top at -DOOR_STEP_H).
+	_add_static(Vector2(-DIV_X, -DOOR_STEP_H * 0.5), Vector2(WALL_T, DOOR_STEP_H))
+	_add_static(Vector2(DIV_X, -DOOR_STEP_H * 0.5), Vector2(WALL_T, DOOR_STEP_H))
 
 	# Conning area walls and ceiling, sitting on the middle ceiling segments.
 	var deck_y := CEIL_Y - WALL_T              # top of the ceiling segments

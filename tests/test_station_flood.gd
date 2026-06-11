@@ -14,6 +14,7 @@ func _ready() -> void:
 	await _test_flooded_helm_ejects()
 	await _test_swim_dampening()
 	await _test_feet_vs_waist()
+	await _test_jump_reduced_when_deep()
 
 	if _failures == 0:
 		print("STATION FLOOD TESTS PASSED")
@@ -139,3 +140,57 @@ func _test_feet_vs_waist() -> void:
 	sub.queue_free()
 	await _frames(2)
 	GameFeel.water.drain_rate = 1.0 / 12.0  # restore for any later runs
+
+## Playtest #4: the jump only shrinks once water covers more than half the
+## crew's height (i.e. the waist/centre is underwater) — a shallow puddle
+## doesn't sap it, but waist-deep water does.
+func _test_jump_reduced_when_deep() -> void:
+	print("[deep water saps the jump]")
+	GameFeel.water.drain_rate = 0.0
+
+	# Dry crew (reference jump).
+	var dry_sub := Sub.new()
+	add_child(dry_sub)
+	var dry_crew := Crew.new()
+	dry_crew.player_index = 0
+	dry_crew.position = Vector2(-Sub.HALF_W + Sub.ROOM_W * 0.5, -60)
+	dry_sub.add_child(dry_crew)
+
+	# Wet crew, waist-deep (0.7 > half height).
+	var wet_sub := Sub.new()
+	wet_sub.position = Vector2(6000, 0)
+	add_child(wet_sub)
+	wet_sub.water_levels[0] = 0.7
+	var wet_crew := Crew.new()
+	wet_crew.player_index = 1
+	wet_crew.position = Vector2(-Sub.HALF_W + Sub.ROOM_W * 0.5, -60)
+	wet_sub.add_child(wet_crew)
+
+	await _frames(20)  # settle on the floor
+	_check(wet_crew.is_submerged(), "waist-deep water submerges the crew (>half height)")
+	_check(not dry_crew.is_submerged(), "the dry crew is not submerged")
+	var dry_y0: float = dry_crew.position.y
+	var wet_y0: float = wet_crew.position.y
+
+	# Both jump.
+	_press(KEY_W)   # P1 jump
+	_press(KEY_UP)  # P2 jump
+	await _frames(2)
+	_release(KEY_W)
+	_release(KEY_UP)
+
+	# Track the highest point each reaches (smallest y).
+	var dry_peak: float = dry_y0
+	var wet_peak: float = wet_y0
+	for i in 45:
+		await get_tree().physics_frame
+		dry_peak = minf(dry_peak, dry_crew.position.y)
+		wet_peak = minf(wet_peak, wet_crew.position.y)
+	var dry_rise: float = dry_y0 - dry_peak
+	var wet_rise: float = wet_y0 - wet_peak
+	_check(wet_rise < dry_rise * 0.7, "submerged jump rises far less than a dry jump")
+
+	dry_sub.queue_free()
+	wet_sub.queue_free()
+	await _frames(2)
+	GameFeel.water.drain_rate = 1.0 / 12.0

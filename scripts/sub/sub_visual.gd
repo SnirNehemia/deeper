@@ -38,6 +38,9 @@ func _draw() -> void:
 	for sx in [-Sub.DIV_X, Sub.DIV_X]:
 		draw_rect(Rect2(sx - Sub.WALL_T * 0.5, Sub.CEIL_Y, Sub.WALL_T, header_h),
 			PlaceholderArt.SUB_STRUCTURE)
+		# Door step on the floor (the little lip crew hop over).
+		draw_rect(Rect2(sx - Sub.WALL_T * 0.5, -Sub.DOOR_STEP_H, Sub.WALL_T, Sub.DOOR_STEP_H),
+			PlaceholderArt.SUB_STRUCTURE)
 
 	# Conning deck (structure) across the conning floor, including the hatch.
 	draw_rect(Rect2(-Sub.CONN_HALF, Sub.CEIL_Y - Sub.WALL_T, Sub.CONN_HALF * 2.0, Sub.WALL_T),

@@ -68,12 +68,18 @@ func _test_traversal_and_ladder() -> void:
 	await _frames(90)
 	_check(crew.is_on_floor(), "crew lands on the sub floor")
 
-	# Run all the way right through both doorways into the helm room.
+	# Run right through both doorways into the helm room, hopping the door steps
+	# (playtest #2): pulse a jump every so often while running.
 	_press(KEY_D)
-	await _frames(150)
+	for i in 240:
+		if i % 25 == 0:
+			_press(KEY_W)
+		elif i % 25 == 3:
+			_release(KEY_W)
+		await get_tree().physics_frame
 	_release(KEY_D)
-	_check(crew.position.x > Sub.DIV_X + 20.0, "crew ran through doorways into the helm room")
-	_check(crew.is_on_floor(), "crew still on the floor after the run")
+	_release(KEY_W)
+	_check(crew.position.x > Sub.DIV_X + 20.0, "crew hops the door steps into the helm room")
 
 	# Back to the ladder column and climb up.
 	_press(KEY_A)

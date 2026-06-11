@@ -64,10 +64,20 @@ func _test_leak_rate_scaling() -> void:
 	sub.register_impact(6.0, sub.global_position)
 	_check(sub.breaches.size() == 3, "three impacts made three breaches")
 
-	var r_soft: float = sub.breaches[0].leak_rate
-	var r_mid: float = sub.breaches[1].leak_rate
-	var r_hard: float = sub.breaches[2].leak_rate
-	_check(r_soft < r_mid and r_mid < r_hard, "leak rate grows with impact speed")
+	var soft: Breach = sub.breaches[0]
+	var mid: Breach = sub.breaches[1]
+	var hard: Breach = sub.breaches[2]
+	_check(soft.leak_rate < mid.leak_rate and mid.leak_rate < hard.leak_rate,
+		"leak rate grows with impact speed")
+	# Each tier reads as a distinct colour + size (playtest #3).
+	_check(soft._tier_color() != mid._tier_color()
+		and mid._tier_color() != hard._tier_color(),
+		"small/medium/big breaches are different colours")
+	_check(soft._tier_scale() < mid._tier_scale()
+		and mid._tier_scale() < hard._tier_scale(),
+		"small/medium/big breaches are different sizes")
+	var r_soft: float = soft.leak_rate
+	var r_hard: float = hard.leak_rate
 	_check(absf(r_hard - GameFeel.water.leak_rate_max) < 0.001,
 		"full-speed ram gives the worst leak rate")
 	_check(r_soft >= GameFeel.water.leak_rate_min - 0.001,

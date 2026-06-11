@@ -96,9 +96,10 @@ class WaterFeel:
 	var repair_time: float = 3.0
 	## How close (m) a crew must stand to a breach to repair it.
 	var repair_range_m: float = 1.2
-	## Height of the floor sill at each doorway (m): water pools in a room and
-	## only spills to a neighbour once it rises above this lip (playtest #3).
-	var door_sill_m: float = 0.5
+	## Height of the water overflow lip at each doorway (m): water pools in a
+	## room and only spills to a neighbour once it rises above this lip
+	## (playtest #3; lowered 75% in playtest #2 from 0.5 to 0.125).
+	var door_sill_m: float = 0.125
 	## Main rooms are 3 m tall — used to convert door_sill_m to a level fraction.
 	var room_height_m: float = 3.0
 	## Extra downward acceleration (m/s^2) applied at 100% total fill (weighted

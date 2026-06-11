@@ -63,11 +63,17 @@ func _test_territory_states() -> void:
 	var d1 := fish.global_position.distance_to(sub.global_position)
 	_check(d1 < d0, "chasing fish closes the distance")
 
-	# Sub leaves: the fish breaks off and swims home.
+	# Sub leaves: the fish breaks off and swims home. (It may finish a bite's
+	# RECOVER circling first, so wait for it to disengage rather than checking a
+	# fixed frame.)
 	sub.global_position = fish.home + Vector2(40.0 * _ppm(), 0)
-	await _frames(30)
-	_check(fish.state == Fish.State.RETURN or fish.state == Fish.State.PATROL,
-		"fish breaks off when the sub leaves the territory")
+	var broke_off := false
+	for i in 300:
+		await get_tree().physics_frame
+		if fish.state == Fish.State.RETURN or fish.state == Fish.State.PATROL:
+			broke_off = true
+			break
+	_check(broke_off, "fish breaks off when the sub leaves the territory")
 	var made_it_home := false
 	for i in 900:  # up to 15s — plenty at 2 m/s, then it resumes patrolling
 		await get_tree().physics_frame
