@@ -89,6 +89,10 @@ class WaterFeel:
 	## Equalization rate constant between connected rooms (per second). Higher =
 	## faster equalizing. ~0.35 brings two rooms to within a few % in ~10-15s.
 	var flow_rate: float = 0.35
+	## Flow rate constant for the lower-deck floor openings (a narrow ladder
+	## hole, not a full doorway) — slower than `flow_rate` so a flooded room
+	## doesn't drain itself dry through the hole in a couple of seconds.
+	var floor_opening_flow_rate: float = 0.15
 	## A room with zero breaches drains fully in ~12s.
 	var drain_rate: float = 1.0 / 12.0
 	## Holding `use` this long at a breach patches it. Progress PERSISTS on the
@@ -102,6 +106,8 @@ class WaterFeel:
 	var door_sill_m: float = 0.125
 	## Main rooms are 3 m tall — used to convert door_sill_m to a level fraction.
 	var room_height_m: float = 3.0
+	## Lower-deck rooms (claw, storage) are squatter — 2.5 m tall.
+	var lower_room_height_m: float = 2.5
 	## Extra downward acceleration (m/s^2) applied at 100% total fill (weighted
 	## average of all rooms). Scales linearly with fill.
 	var weight_accel: float = 7.0

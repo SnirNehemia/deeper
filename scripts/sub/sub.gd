@@ -36,11 +36,28 @@ const DIV_X := ROOM_W * 0.5   # 120
 # between rooms (playtest #2). Kept well under jump height.
 const DOOR_STEP_H := 0.3 * PPM  # ~14 px
 
-## Water "rooms": engine (0), middle (1), helm (2), conning area (3).
-const ROOM_COUNT := 4
+## Lower deck (Milestone 3): claw room (below the middle room) and storage
+## room (below the engine room), squatter than the main deck. The main floor
+## (y = 0) is their ceiling; floor openings (with HATCH covers) drop down to
+## them, mirroring the conning ladder hole.
+const LOWER_ROOM_H := 2.5 * PPM       # 120 — claw & storage room height
+const LOWER_FLOOR_Y := LOWER_ROOM_H   # 120 — lower deck floor (top surface)
+const LOWER_BOTTOM_Y := LOWER_FLOOR_Y + WALL_T  # 136 — bottom of the lower-deck floor slab
+const HOLE_W := HOLE_HALF * 2.0       # 48 — floor-opening width (matches the conning hole)
+## x positions of the floor openings down to the lower deck. The claw hole
+## sits off-center in the middle room (away from x=0, the conning ladder
+## above) so the two ladders are separate shafts. The storage hole is centered
+## under the engine room.
+const CLAW_LADDER_X := -48.0
+const STORAGE_LADDER_X := -240.0
+
+## Water "rooms": engine (0), middle (1), helm (2), conning area (3),
+## claw room (4, below middle), storage room (5, below engine).
+const ROOM_COUNT := 6
 ## Sill fraction for the ladder opening (middle<->conning): the conning tower
 ## sits above the rooms, so water only spills up into it once the middle room
-## is nearly full.
+## is nearly full. Reused for the lower-deck floor openings (bottom deck floods
+## first, drains last).
 const LADDER_SILL_FRACTION := 0.95
 
 # Helm seat location (helm/bow room, near the floor). Crew origin sits here.
@@ -68,8 +85,9 @@ const SURFACE_FLOAT_DEPTH := 150.0
 const _EMERGE_RANGE := 220.0
 
 ## Per-room water level (0-1 fraction of room height), indexed by
-## room id: 0 = engine, 1 = middle, 2 = helm, 3 = conning area.
-var water_levels: Array[float] = [0.0, 0.0, 0.0, 0.0]
+## room id: 0 = engine, 1 = middle, 2 = helm, 3 = conning area,
+## 4 = claw room, 5 = storage room.
+var water_levels: Array[float] = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 
 ## Live hull breaches, each leaking into its room (see Breach).
 var breaches: Array[Breach] = []
@@ -153,12 +171,19 @@ func depth_m() -> float:
 	return maxf(0.0, below / GameFeel.PIXELS_PER_METER)
 
 ## Local-space rectangle of a water "room" (0=engine, 1=middle, 2=helm,
-## 3=conning area), floor-to-ceiling, used for both volume math and rendering.
+## 3=conning area, 4=claw room, 5=storage room), floor-to-ceiling, used for
+## both volume math and rendering.
 func room_rect(i: int) -> Rect2:
-	if i == 3:
-		return Rect2(-CONN_HALF, CONN_CEIL_Y, CONN_HALF * 2.0, CONN_HEIGHT)
-	var room_x := -HALF_W + i * ROOM_W
-	return Rect2(room_x, CEIL_Y, ROOM_W, ROOM_H)
+	match i:
+		3:
+			return Rect2(-CONN_HALF, CONN_CEIL_Y, CONN_HALF * 2.0, CONN_HEIGHT)
+		4:  # claw room, directly below the middle room
+			return Rect2(-DIV_X, 0.0, ROOM_W, LOWER_ROOM_H)
+		5:  # storage room, directly below the engine room
+			return Rect2(-HALF_W, 0.0, ROOM_W, LOWER_ROOM_H)
+		_:
+			var room_x := -HALF_W + i * ROOM_W
+			return Rect2(room_x, CEIL_Y, ROOM_W, ROOM_H)
 
 ## Cross-sectional "volume" (area) of a water room, used to weight flow and the
 ## overall fill fraction so the smaller conning area fills/drains faster.
@@ -195,33 +220,48 @@ func room_water_surface_y(room: int) -> float:
 	var r := room_rect(room)
 	return r.position.y + r.size.y * (1.0 - water_levels[room])
 
-## Connections water can flow through, each with a floor-sill fraction it must
-## clear before spilling: engine<->middle and middle<->helm over knee-high
-## doorway sills, middle<->conning up through the ladder opening (near-full).
-func _water_connections() -> Array:
+## Door-style connections: each has a floor-sill fraction the higher room's
+## level must clear before spilling. engine<->middle and middle<->helm over
+## knee-high doorway sills, middle<->conning up through the ladder opening
+## (near-full), claw<->storage over their own (squatter-room) doorway sill.
+func _door_connections() -> Array:
 	var door_sill: float = GameFeel.water.door_sill_m / GameFeel.water.room_height_m
+	var lower_door_sill: float = GameFeel.water.door_sill_m / GameFeel.water.lower_room_height_m
 	return [
 		{"a": 0, "b": 1, "sill": door_sill},
 		{"a": 1, "b": 2, "sill": door_sill},
 		{"a": 1, "b": 3, "sill": LADDER_SILL_FRACTION},
+		{"a": 5, "b": 4, "sill": lower_door_sill},
+	]
+
+## Floor-opening connections (lower deck ladders): water falls down freely
+## into the lower room, but only pushes back up once the lower room is full
+## past the sill — the bottom deck floods first and drains last.
+func _floor_openings() -> Array:
+	return [
+		{"upper": 1, "lower": 4, "rise_sill": LADDER_SILL_FRACTION},  # middle -> claw
+		{"upper": 0, "lower": 5, "rise_sill": LADDER_SILL_FRACTION},  # engine -> storage
 	]
 
 ## Equalize water levels between connected rooms and clamp to [0, 1].
 ## Conserves total water volume across each pairwise transfer. Water only
-## crosses a connection once the higher room's level clears the door sill —
+## crosses a door connection once the higher room's level clears its sill —
 ## so a breached room pools up to knee height before flooding its neighbours.
 func _update_water(delta: float) -> void:
 	var w: GameFeel.WaterFeel = GameFeel.water
 	# Breaches leak into their rooms; fully patched rooms auto-drain.
-	var room_breached: Array[bool] = [false, false, false, false]
+	var room_breached: Array[bool] = []
+	room_breached.resize(ROOM_COUNT)
 	for breach in breaches:
 		water_levels[breach.room] += breach.leak_rate * delta
 		room_breached[breach.room] = true
 	for i in ROOM_COUNT:
 		if not room_breached[i]:
 			water_levels[i] -= w.drain_rate * delta
-	for conn in _water_connections():
+	for conn in _door_connections():
 		_flow_over_sill(conn["a"], conn["b"], conn["sill"], w.flow_rate, delta)
+	for opening in _floor_openings():
+		_flow_floor_opening(opening["upper"], opening["lower"], opening["rise_sill"], w.floor_opening_flow_rate, delta)
 	for i in ROOM_COUNT:
 		water_levels[i] = clampf(water_levels[i], 0.0, 1.0)
 
@@ -243,6 +283,25 @@ func _flow_over_sill(a: int, b: int, sill: float, rate: float, delta: float) -> 
 	var transfer: float = rate * effective * delta
 	water_levels[hi] -= transfer
 	water_levels[lo] += transfer * room_volume(hi) / room_volume(lo)
+
+## Floor-opening connection (lower-deck ladder hole): water always falls from
+## `upper` into `lower`'s free space (no sill — gravity), but only pushes back
+## up into `upper` once `lower` rises past `rise_sill`. Net effect: the bottom
+## deck fills first and is the last to drain.
+func _flow_floor_opening(upper: int, lower: int, rise_sill: float, rate: float, delta: float) -> void:
+	# Down: drains the upper room into the lower room's remaining headroom.
+	var down: float = rate * water_levels[upper] * (1.0 - water_levels[lower]) * delta
+	if down > 0.0:
+		down = minf(down, water_levels[upper])
+		water_levels[upper] -= down
+		water_levels[lower] += down * room_volume(upper) / room_volume(lower)
+	# Up: once the lower room is full past the sill, the excess spills upward.
+	if water_levels[lower] > rise_sill:
+		var effective: float = water_levels[lower] - maxf(rise_sill, water_levels[upper])
+		if effective > 0.0:
+			var up: float = rate * effective * delta
+			water_levels[lower] -= up
+			water_levels[upper] += up * room_volume(lower) / room_volume(upper)
 
 ## Inspect this frame's slide collisions for terrain hits hard enough to
 ## breach the hull. Impact speed is the pre-collision velocity into the
@@ -372,13 +431,22 @@ func _build_hull_collision() -> void:
 	_hull_collision.polygon = PackedVector2Array([
 		Vector2(-352, -168), Vector2(-90, -168), Vector2(-90, -274), Vector2(90, -274),
 		Vector2(90, -168), Vector2(352, -168), Vector2(400, -120), Vector2(400, 24),
-		Vector2(352, 72), Vector2(-352, 72), Vector2(-400, 24), Vector2(-400, -120),
+		Vector2(352, 72), Vector2(136, 72), Vector2(136, 168), Vector2(-368, 168),
+		Vector2(-368, 72), Vector2(-352, 72), Vector2(-400, 24), Vector2(-400, -120),
 	])
 	add_child(_hull_collision)
 
 func _build_interior() -> void:
-	# Floor across all three rooms (top surface at y = 0).
-	_add_static(Vector2(0, WALL_T * 0.5), Vector2(HALF_W * 2.0 + WALL_T, WALL_T))
+	# Floor across all three rooms (top surface at y = 0), with two openings
+	# (HATCH-covered) dropping to the claw room (under the middle room) and
+	# the storage room (under the engine room). The claw hole sits off-center
+	# (x = -48) so it's a separate shaft from the conning ladder above (x = 0)
+	# rather than stacking into one long conning-to-claw shaft.
+	_add_static(Vector2(-316.0, WALL_T * 0.5), Vector2(104.0, WALL_T))
+	_add_static(Vector2(-144.0, WALL_T * 0.5), Vector2(144.0, WALL_T))
+	_add_static(Vector2(172.0, WALL_T * 0.5), Vector2(392.0, WALL_T))
+	_add_hatch(Vector2(STORAGE_LADDER_X, WALL_T * 0.5), Vector2(HOLE_W, WALL_T))
+	_add_hatch(Vector2(CLAW_LADDER_X, WALL_T * 0.5), Vector2(HOLE_W, WALL_T))
 
 	# End walls (stern / bow), floor up past the ceiling.
 	_add_static(Vector2(-HALF_W - WALL_T * 0.5, -ROOM_H * 0.5 - 8.0), Vector2(WALL_T, ROOM_H + WALL_T + 32.0))
@@ -418,9 +486,41 @@ func _build_interior() -> void:
 	_add_static(Vector2(0, conn_ceil_y - WALL_T * 0.5),
 		Vector2(CONN_HALF * 2.0 + WALL_T * 2.0, WALL_T))
 
+	_build_lower_deck()
+
+func _build_lower_deck() -> void:
+	# Lower deck floor: spans the claw room (under middle) + storage room
+	# (under engine), bottom surface at LOWER_BOTTOM_Y.
+	_add_static(Vector2(-DIV_X, LOWER_FLOOR_Y + WALL_T * 0.5), Vector2(496.0, WALL_T))
+
+	# Outer side walls of the lower deck (the main-deck end walls stop at the
+	# main floor, y = 16).
+	_add_static(Vector2(-HALF_W - WALL_T * 0.5, (16.0 + LOWER_BOTTOM_Y) * 0.5),
+		Vector2(WALL_T, LOWER_BOTTOM_Y - 16.0))
+	_add_static(Vector2(DIV_X + WALL_T * 0.5, LOWER_BOTTOM_Y * 0.5),
+		Vector2(WALL_T, LOWER_BOTTOM_Y))
+
+	# Doorway between storage and the claw room: a header dropping from the
+	# main floor (DOOR_H clearance) plus the standard door step on the floor.
+	var lower_header_h := LOWER_ROOM_H - DOOR_H
+	_add_static(Vector2(-DIV_X, lower_header_h * 0.5), Vector2(WALL_T, lower_header_h))
+	_add_static(Vector2(-DIV_X, LOWER_FLOOR_Y - DOOR_STEP_H * 0.5), Vector2(WALL_T, DOOR_STEP_H))
+
+	# Ladders down from the middle room (to the claw room) and the engine
+	# room (to the storage room), through the floor openings above.
+	_add_ladder_shaft(CLAW_LADDER_X, 0.0, LOWER_FLOOR_Y)
+	_add_ladder_shaft(STORAGE_LADDER_X, 0.0, LOWER_FLOOR_Y)
+
 func _build_ladder() -> void:
 	var deck_y := CEIL_Y - WALL_T
 	var conn_ceil_y := deck_y - 2.0 * PPM
+	# Climb column from the middle-room floor up to just under the conning ceiling.
+	var top := conn_ceil_y + WALL_T
+	_add_ladder_shaft(0.0, top, 0.0)
+
+## Add a ladder climb zone (LADDER layer): a vertical column centered on
+## `center_x`, spanning local-y from `top_y` to `bottom_y` (top_y < bottom_y).
+func _add_ladder_shaft(center_x: float, top_y: float, bottom_y: float) -> void:
 	var ladder := Area2D.new()
 	ladder.collision_layer = Layers.LADDER
 	ladder.collision_mask = 0
@@ -428,11 +528,9 @@ func _build_ladder() -> void:
 	ladder.monitoring = false
 	var shape := CollisionShape2D.new()
 	var rect := RectangleShape2D.new()
-	# Climb column from the middle-room floor up to just under the conning ceiling.
-	var top := conn_ceil_y + WALL_T
-	rect.size = Vector2(HOLE_HALF * 2.0, -top)
+	rect.size = Vector2(HOLE_W, bottom_y - top_y)
 	shape.shape = rect
-	shape.position = Vector2(0, top * 0.5)
+	shape.position = Vector2(center_x, (top_y + bottom_y) * 0.5)
 	ladder.add_child(shape)
 	add_child(ladder)
 

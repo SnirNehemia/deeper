@@ -17,6 +17,7 @@ func _ready() -> void:
 	_test_conning_connection()
 	_test_weight()
 	_test_door_sill()
+	_test_floor_opening()
 
 	if _failures == 0:
 		print("WATER TESTS PASSED")
@@ -44,7 +45,7 @@ func _new_sub() -> Sub:
 func _test_equalization() -> void:
 	print("[equalization]")
 	var sub := _new_sub()
-	sub.water_levels = [1.0, 0.0, 0.0, 0.0]
+	sub.water_levels = [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 
 	await _frames(2)
 	_check(sub.water_levels[0] < 1.0, "flooded engine room loses water on the first tick")
@@ -62,7 +63,7 @@ func _test_equalization() -> void:
 func _test_conning_connection() -> void:
 	print("[conning connection]")
 	var sub := _new_sub()
-	sub.water_levels = [0.0, 1.0, 0.0, 0.0]
+	sub.water_levels = [0.0, 1.0, 0.0, 0.0, 0.0, 0.0]
 
 	await _frames(2)
 	_check(sub.water_levels[3] > 0.0, "conning area gains water from the flooded middle room")
@@ -80,7 +81,7 @@ func _test_door_sill() -> void:
 
 	# A puddle below the sill pools in its room and does NOT leak to a neighbour.
 	var sub := _new_sub()
-	sub.water_levels = [sill * 0.5, 0.0, 0.0, 0.0]  # engine, below knee height
+	sub.water_levels = [sill * 0.5, 0.0, 0.0, 0.0, 0.0, 0.0]  # engine, below knee height
 	await _frames(120)
 	_check(sub.water_levels[1] < 0.001,
 		"water below the door sill stays pooled (no leak to the middle room)")
@@ -91,10 +92,35 @@ func _test_door_sill() -> void:
 
 	# Above the sill, it spills over into the neighbour.
 	var sub2 := _new_sub()
-	sub2.water_levels = [sill + 0.3, 0.0, 0.0, 0.0]
+	sub2.water_levels = [sill + 0.3, 0.0, 0.0, 0.0, 0.0, 0.0]
 	await _frames(120)
 	_check(sub2.water_levels[1] > 0.01,
 		"water above the door sill spills into the adjacent room")
+	sub2.queue_free()
+	await _frames(2)
+
+func _test_floor_opening() -> void:
+	print("[lower deck floor openings]")
+
+	# Water in the middle room falls freely down into the (empty) claw room
+	# below it, with no sill to clear first.
+	var sub := _new_sub()
+	sub.water_levels = [0.0, 1.0, 0.0, 0.0, 0.0, 0.0]
+	await _frames(2)
+	_check(sub.water_levels[4] > 0.0,
+		"the claw room gains water from the middle room on the first tick")
+	await _frames(600)  # ~10s
+	_check(sub.water_levels[4] > sub.water_levels[1],
+		"the claw room (bottom deck) ends up fuller than the middle room above it")
+	sub.queue_free()
+	await _frames(2)
+
+	# A full bottom deck pushes water back up into the room above it.
+	var sub2 := _new_sub()
+	sub2.water_levels = [0.0, 0.05, 0.0, 0.0, 0.0, 1.0]  # storage room full
+	await _frames(120)
+	_check(sub2.water_levels[0] > 0.05,
+		"a full storage room pushes excess water back up into the engine room")
 	sub2.queue_free()
 	await _frames(2)
 
@@ -102,7 +128,7 @@ func _test_weight() -> void:
 	print("[water weight]")
 	var dry := _new_sub()
 	var flooded := _new_sub()
-	flooded.water_levels = [1.0, 1.0, 1.0, 1.0]
+	flooded.water_levels = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
 
 	await _frames(5)
 	_check(flooded.velocity.y > dry.velocity.y, "fully flooded sub sinks faster than a dry one")

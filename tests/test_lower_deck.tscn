@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://b8r6nq3m1k4xs"]
+
+[ext_resource type="Script" path="res://tests/test_lower_deck.gd" id="1_lowerdeck"]
+
+[node name="TestLowerDeck" type="Node"]
+script = ExtResource("1_lowerdeck")

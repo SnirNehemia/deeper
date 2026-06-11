@@ -15,7 +15,7 @@ func _ready() -> void:
 		await get_tree().physics_frame
 
 	# Flood + breaches of all three tiers so the colour/size difference shows.
-	sub.water_levels = [0.45, 0.25, 0.1, 0.0]
+	sub.water_levels = [0.45, 0.25, 0.1, 0.0, 0.0, 0.0]
 	sub.spawn_breach(0, GameFeel.water.leak_rate_max, Vector2(-Sub.HALF_W + 30.0, -70.0))  # red/big
 	sub.spawn_breach(1, GameFeel.water.leak_rate_mid, Vector2(-30.0, -70.0))               # orange/med
 	sub.spawn_breach(2, GameFeel.water.leak_rate_min, Vector2(Sub.HALF_W - 30.0, -70.0))   # yellow/small
