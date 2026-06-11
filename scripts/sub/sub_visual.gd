@@ -51,8 +51,8 @@ func _draw() -> void:
 	_draw_ladder(0.0, conn_ceil_y, 0.0)
 	# Lower-deck ladders: middle room down to the claw room, engine room down
 	# to the storage room.
-	_draw_ladder(Sub.CLAW_LADDER_X, Sub.CEIL_Y, Sub.LOWER_FLOOR_Y)
-	_draw_ladder(Sub.STORAGE_LADDER_X, Sub.CEIL_Y, Sub.LOWER_FLOOR_Y)
+	_draw_ladder(Sub.CLAW_LADDER_X, -40.0, Sub.LOWER_FLOOR_Y)
+	_draw_ladder(Sub.STORAGE_LADDER_X, -40.0, Sub.LOWER_FLOOR_Y)
 
 	# Doorway between storage and the claw room (lower deck), with its header
 	# and door step.

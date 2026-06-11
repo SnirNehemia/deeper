@@ -519,13 +519,13 @@ func _build_lower_deck() -> void:
 
 	# Ladders down from the middle room (to the claw room) and the engine
 	# room (to the storage room), through the floor openings above. Each shaft
-	# extends all the way up to the ceiling of the room above (not just to its
-	# floor) so a crew member standing anywhere in that room overlaps the
-	# ladder's grab zone — matching how the conning ladder spans nearly the
-	# whole room below it (playtest #1: lower-deck ladders were too fiddly to
-	# grab and couldn't be climbed down).
-	_add_ladder_shaft(CLAW_LADDER_X, CEIL_Y, LOWER_FLOOR_Y)
-	_add_ladder_shaft(STORAGE_LADDER_X, CEIL_Y, LOWER_FLOOR_Y)
+	# is one deck tall (the lower room's height) plus a small overlap (40px)
+	# above the floor opening, just enough for a crew member standing on the
+	# hatch on the main deck to grab it (playtest #1 revision #3: ladders were
+	# changed from spanning the full main-deck room above to a single-deck
+	# ladder, matching the reference layout).
+	_add_ladder_shaft(CLAW_LADDER_X, -40.0, LOWER_FLOOR_Y)
+	_add_ladder_shaft(STORAGE_LADDER_X, -40.0, LOWER_FLOOR_Y)
 
 func _build_ladder() -> void:
 	var deck_y := CEIL_Y - WALL_T
