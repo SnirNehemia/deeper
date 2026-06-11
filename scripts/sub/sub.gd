@@ -66,8 +66,18 @@ const _EMERGE_RANGE := 220.0
 ## room id: 0 = engine, 1 = middle, 2 = helm, 3 = conning area.
 var water_levels: Array[float] = [0.0, 0.0, 0.0, 0.0]
 
+## Live hull breaches, each leaking into its room (see Breach).
+var breaches: Array[Breach] = []
+
+## Fired when a new breach opens (HUD listens for the alert flash).
+signal breach_spawned(breach: Breach)
+
 var _visual: SubVisual
 var _hull_collision: CollisionPolygon2D
+# Grace period between impact-spawned breaches so one scrape along the rocks
+# doesn't open a breach every physics frame.
+var _impact_cooldown: float = 0.0
+const _IMPACT_COOLDOWN_TIME := 0.6
 
 func _ready() -> void:
 	collision_layer = Layers.SUB_HULL
@@ -105,7 +115,9 @@ func _physics_process(delta: float) -> void:
 
 	velocity.y = clampf(velocity.y, -max_v, max_v)
 
+	var pre_velocity := velocity
 	move_and_slide()
+	_check_terrain_impacts(pre_velocity, delta)
 
 	# Cosmetic pitch tilt proportional to horizontal speed. The crew art stays
 	# aligned (they read `pitch`); the hull collider tilts with it so collisions
@@ -170,6 +182,9 @@ func room_water_surface_y(room: int) -> float:
 ## Conserves total water volume across each pairwise transfer.
 func _update_water(delta: float) -> void:
 	var w: GameFeel.WaterFeel = GameFeel.water
+	# Breaches leak into their rooms.
+	for breach in breaches:
+		water_levels[breach.room] += breach.leak_rate * delta
 	for pair in WATER_CONNECTIONS:
 		var i: int = pair[0]
 		var j: int = pair[1]
@@ -179,6 +194,73 @@ func _update_water(delta: float) -> void:
 		water_levels[j] += d_level_i * room_volume(i) / room_volume(j)
 	for i in ROOM_COUNT:
 		water_levels[i] = clampf(water_levels[i], 0.0, 1.0)
+
+## Inspect this frame's slide collisions for terrain hits hard enough to
+## breach the hull. Impact speed is the pre-collision velocity into the
+## surface; below the threshold (gentle docking) it is always free.
+func _check_terrain_impacts(pre_velocity: Vector2, delta: float) -> void:
+	_impact_cooldown = maxf(0.0, _impact_cooldown - delta)
+	if _impact_cooldown > 0.0:
+		return
+	for i in get_slide_collision_count():
+		var col := get_slide_collision(i)
+		var approach_mps := maxf(0.0, -pre_velocity.dot(col.get_normal())) / PPM
+		if register_impact(approach_mps, col.get_position()):
+			_impact_cooldown = _IMPACT_COOLDOWN_TIME
+			break
+
+## Apply a terrain impact at the given speed (m/s) and global point. Spawns a
+## breach (leak rate scaled by speed) when above the free-bump threshold.
+## Returns true if a breach was created. Exposed for headless tests.
+func register_impact(speed_mps: float, global_point: Vector2) -> bool:
+	var w: GameFeel.WaterFeel = GameFeel.water
+	if speed_mps < w.breach_speed_threshold:
+		return false
+	var severity := clampf(inverse_lerp(w.breach_speed_threshold, w.breach_speed_max,
+		speed_mps), 0.0, 1.0)
+	var rate := lerpf(w.leak_rate_min, w.leak_rate_max, severity)
+	var local := to_local(global_point)
+	spawn_breach(_nearest_room(local), rate, local)
+	return true
+
+## Open a breach leaking into `room` at `rate` (level-fraction/s). If no local
+## position is given, the marker lands on the room's outer wall. Also used by
+## fish bites. Returns the new breach.
+func spawn_breach(room: int, rate: float, local_pos := Vector2.INF) -> Breach:
+	var breach := Breach.new()
+	breach.room = room
+	breach.leak_rate = rate
+	var r := room_rect(room)
+	if local_pos == Vector2.INF:
+		local_pos = Vector2(r.position.x + r.size.x * 0.5, r.position.y + r.size.y)
+	# Clamp the marker onto the room rectangle so it always reads as "on the
+	# wall of that room" even if the impact point was out on the hull shell.
+	breach.position = local_pos.clamp(r.position, r.position + r.size)
+	breaches.append(breach)
+	add_child(breach)
+	breach_spawned.emit(breach)
+	return breach
+
+## Remove a patched breach (Module D calls this when repair completes).
+func remove_breach(breach: Breach) -> void:
+	breaches.erase(breach)
+	breach.queue_free()
+
+## Which water room is closest to a local-space point (for impacts that land
+## on the hull shell, outside every room rectangle).
+func _nearest_room(local_pos: Vector2) -> int:
+	var direct := room_index_at(local_pos)
+	if direct >= 0:
+		return direct
+	var best := 0
+	var best_d := INF
+	for i in ROOM_COUNT:
+		var r := room_rect(i)
+		var d := local_pos.distance_squared_to(r.get_center())
+		if d < best_d:
+			best_d = d
+			best = i
+	return best
 
 func _build_helm() -> void:
 	var helm := HelmStation.new()

@@ -44,6 +44,10 @@ func _ready() -> void:
 	hud.sub = _sub
 	add_child(hud)
 
+	var alerts := AlertHud.new()
+	add_child(alerts)
+	alerts.watch(_sub)
+
 	_add_hint_label()
 
 func _physics_process(_delta: float) -> void:
