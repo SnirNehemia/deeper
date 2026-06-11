@@ -84,6 +84,39 @@
 - **Solo play:** is "lock station" enough, or does solo need an AI helper (Lovers-style pet)? Answer via solo playtests during MVP.
 - **Pitch direction/strength:** confirm the lean feels right in playtest (one-number tweak).
 
+## Settled (2026-06-11, Milestone 3 Module A — playtest #1 revision)
+- **No floor-opening water flow:** flooded lower-deck rooms (claw, storage)
+  only exchange water through the existing claw<->storage doorway; there's no
+  separate "water drips down the ladder shaft" mechanic. A breached lower
+  room pools and stays mostly put except for spilling sideways through that
+  one doorway. Confirmed acceptable — visible dripping isn't needed.
+- **Ladder grab zones extend to the ceiling of the room above:** both lower-
+  deck ladders (claw, storage) are climbable down from anywhere in the main
+  deck room above them, and back up, fixing the original "can't climb down /
+  fiddly grab area" complaint.
+- **Ladders alternate sides floor-to-floor:** conning ladder centered (x=0),
+  claw ladder on the left side of the middle room, storage ladder on the right
+  side of the engine room — climbing through multiple decks requires moving
+  sideways, not just holding "up". Both are positioned clear of the door-step
+  grab zones (door steps also use "up" via the shared jump key).
+- **Ladder grab requires column alignment:** the crew must be horizontally
+  centered on a ladder's own column (not just within the wider sensor-overlap
+  band) to grab it. Fixes the shared jump/climb-up key ("up") snagging the
+  crew on a nearby ladder while just running and hopping a door step.
+- **Unified hull silhouette:** the hull (visual + collision) is built as the
+  interior room rectangles (main deck, lower deck, conning tower) each
+  expanded by a uniform outer margin (`Sub.HULL_MARGIN`), drawn/collided as
+  one overlapping shape — replacing the old "two separate blobs" look.
+- **Hull collision shapes must be direct children of the Sub `CharacterBody2D`**
+  (not nested under an intermediate `Node2D`) — Godot 4 only registers
+  `CollisionShape2D` as part of a body's collision when directly parented.
+  Group rotation (cosmetic pitch tilt) is now done by recomputing each shape's
+  position/rotation around the sub's origin every frame, not via a parent
+  transform.
+- **Smaller shore shelf map (160m x 130m, was 300m x 130m):** shore, shallows,
+  pillars, and the cave are all closer together, for faster playtest loops.
+  Cave entrance moved from ~x=140m to ~x=66m.
+
 ## Parked
 - Snappy Overcooked-style crew movement (kept as switchable preset; playtest against weighty)
 - Phone-as-controller via WebSocket (post-MVP, only if gamepads aren't enough)

@@ -1,22 +1,33 @@
 # STATUS — DEEPER
 
-_Read this at session start. Last updated: 2026-06-11 (post playtest #1)._
+_Read this at session start. Last updated: 2026-06-11 (M3 Module A, playtest #1 revision)._
 
 ## Where we are
-**Milestone 2 is built AND its first playtest pass is folded in.** Snir solo-
-tested the build and gave 8 change requests (see PLAYTEST_LOG.md); all are
-implemented and headless-tested. Notable shifts from the original M2 spec:
-breaches now leak in discrete tiers (one per hit, stack for more), rooms have
-knee-high door sills so flooding pools then overflows, crew slow the moment
-their feet touch water, repair progress persists across trips for air, the gun
-sweeps continuously (W/S, ±60° cone), torpedoes fire 20% faster, and breaches +
-gun now tilt with the hull. Next is a re-test for feel.
+**Milestone 3, Module A (lower deck + 6-cell water) is built, playtested
+once, and revised.** Snir's first playtest of the lower deck gave 5 change
+requests, all implemented and headless-tested:
+- The floor-opening water mechanic is **removed** — flooded lower-deck rooms
+  (claw, storage) only drain/spread via their existing door connections (the
+  claw<->storage doorway). Water doesn't visibly drip down ladders, and that's
+  fine.
+- Both lower-deck ladders (claw, storage) are now reliably grabbable **and
+  climbable down** from a normal standing position in the room above — their
+  grab zones extend up to the main-deck ceiling.
+- Ladders alternate sides floor-to-floor (conning ladder centered, claw ladder
+  on the left of the middle room, storage ladder on the right of the engine
+  room) so climbing through multiple decks needs lateral movement, not just
+  holding "up".
+- The crew's ladder-grab check now requires horizontal alignment with the
+  ladder's own column (not the wider sensor-overlap band) — fixes accidental
+  ladder-grabs while just running/jumping past one (the "up" key is shared
+  between jump and climb).
+- The hull silhouette is now **one continuous shape** (rooms + a uniform outer
+  margin), both visually and in collision — was two separate "blobs" before.
+- The shore shelf map is **smaller (160m x 130m)** and the cave is closer to
+  shore, for faster playtest loops.
 
-A second refinement pass on the same playtest then added: drowning respawns
-in the **conning tower** (not the helm), **physical door steps** you hop over
-between rooms, breach severity shown by **colour + size** (yellow/orange/red),
-the water overflow lip **lowered to 0.125 m**, and a locked-in test confirming
-the jump only weakens once water is past half the crew's height.
+Next: Snir plays this revision; if it holds up, Module B (salvage items,
+carry, storage, banking, save) is next.
 
 _(Original M2 summary:)_
 **Milestone 2 (Water, Torpedoes, and First Blood)** The sub can get hurt, flood, and die, and fight back: terrain
@@ -47,8 +58,8 @@ beat. All placeholder art.
   - `collision_layers.gd` — named layers (TERRAIN/SUB_HULL/CREW/INTERIOR/LADDER/HATCH/STATION/**PROJECTILE/FISH**).
   - `placeholder_art.gd` — all colors + dimensions (single art-swap point). BREACH_COLOR is the reserved danger hue.
   - `input/` — `player_input.gd`, `input_provider.gd`, `keyboard_provider.gd` (P1/P2 split keyboard).
-  - `crew/` — `crew.gd` (run/jump/climb/seat + **swim dampening, repair, air timer, drown/respawn**), `crew_visual.gd` (capsule + **bubble air gauge**).
-  - `sub/` — `sub.gd` (body, interior, helm+turret, **per-room water, breaches, impacts, implosion signal, reset**), `sub_visual.gd` (hull + consoles + **water rects**), `breach.gd` (**leak point: spray marker, warning blink, repair arc**).
+  - `crew/` — `crew.gd` (run/jump/climb/seat + **swim dampening, repair, air timer, drown/respawn**; ladder grab requires being centered on the ladder's own column), `crew_visual.gd` (capsule + **bubble air gauge**).
+  - `sub/` — `sub.gd` (body, interior, helm+turret, **6-room water model (3 main deck + conning + claw + storage lower-deck rooms)**, breaches, impacts, implosion signal, reset, **unified hull collision shape (`HULL_*_RECT` + direct `CollisionShape2D` children, tilts together)**), `sub_visual.gd` (hull + consoles + **water rects**, lower-deck rooms + ladders), `breach.gd` (**leak point: spray marker, warning blink, repair arc**).
   - `stations/` — `station.gd` (base: zone + occupancy + **flood eject/refuse**), `helm_station.gd`, `turret_station.gd` (**bow cone aim + fire**).
   - `weapons/` — `torpedo.gd` (slow straight shot, trail, terrain puff; inner `Puff` class).
   - `fauna/` — `fish.gd` (**territorial: patrol/chase/bite/return, torpedo kill, reset_fish**).
@@ -59,8 +70,10 @@ beat. All placeholder art.
   - `shore_shelf.gd` — the map (terrain/water/sky + **cave lamp marker**).
   - `sub_test.tscn`, `sandbox.tscn` — M1 sandboxes (no water/buoyancy).
 - `tests/` — headless suites, all passing: `test_input`, `test_crew`, `test_sub`,
-  `test_helm`, `test_world`, **`test_water`, `test_station_flood`, `test_damage`,
-  `test_repair`, `test_drowning`, `test_implosion`, `test_turret`, `test_fish`**.
+  `test_helm`, `test_world`, `test_water`, `test_station_flood`, `test_damage`,
+  `test_repair`, `test_drowning`, `test_implosion`, `test_turret`, `test_fish`,
+  **`test_lower_deck`** (M3 Module A: lower-deck geometry, claw<->storage door
+  flow, both ladders climbable down and back up).
   Plus `capture_*` — throwaway windowed screenshot tools (png gitignored;
   `capture_m2` stages the full M2 tableau).
 
@@ -101,21 +114,31 @@ torpedoes feel chunky or just sluggish? Is the fish fight fun or a chore? Plus
 all M1 questions (crew weight, sub heft, camera framing).
 
 ## Suggested next step
-**Playtest Milestone 2** (verify-by-playing steps in MILESTONE_2.md §Verify,
-also summarized below), log answers in PLAYTEST_LOG.md, then tune `GameFeel`
-numbers. After that: Snir scopes Milestone 3 in a fresh session.
+**Playtest this M3 Module A revision** (verify-by-playing steps below). If the
+lower deck, ladders, hull silhouette, and smaller map all feel good, move on
+to **Module B** (salvage items, carry, storage, banking, save) in the next
+session.
 
-## Verify by playing (for Snir) — quick copy
+## Verify by playing (for Snir) — M3 Module A revision
 1. Launch: `"GODOT_PATH" --path .`
-2. **Crash test:** nudge the shallows floor gently — nothing. Ram a pillar at
-   speed: flash, spraying breach, rising water.
-3. **Repair drama:** half-flood a room, hold Q (P1) / Enter (P2) at the breach
-   ~3s, watch it drain. Feel the sub fly heavier while flooded.
-4. **Drown on purpose:** stand in a flooding room until the bubbles run out —
-   pop, then respawn at the helm room ~7s later.
-5. **Implode on purpose:** take hits until the water wins — crunch, fade,
-   fresh start at the dock.
-6. **The fight:** P1 helms at the pillars, P2 takes the mid-room turret (E /
-   R-Shift to sit, move to aim in the bow cone, Q / Enter to fire). One hit
-   per fish.
-7. **Victory beat:** kill the cave-mouth fish, slip inside to the glowing lamp.
+2. **Smaller map:** the shore/shelf/cave should all feel closer together than
+   last time — less travel time to get into action.
+3. **Hull shape:** look at the sub from outside — it should read as one solid
+   hull silhouette (main deck + conning tower bump + lower-deck belly), not
+   two separate blobs.
+4. **Storage ladder (engine room, right side):** walk to it, press down to
+   climb into the storage room below; press up to climb back to the engine
+   room. Should grab cleanly from a normal standing position, both directions.
+5. **Claw ladder (middle room, left side):** same check — down to the claw
+   room, up back to the middle room.
+6. **Run past a ladder while jumping:** run through the engine/middle rooms
+   hopping the door steps (tap "up" near a doorway) — you should jump, not
+   suddenly grab a nearby ladder.
+7. **Lower-deck flooding:** breach the storage or claw room (ram terrain near
+   the lower deck, or just check water behavior) — water should pool in that
+   room and spill into its neighbour through the doorway, but not "leak" up
+   through the ladders.
+
+(M2 verify steps — crash/repair/drown/implode/fish fight/victory beat — still
+apply and should all still work; see git history for the full M2 checklist if
+needed.)
