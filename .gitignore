@@ -3,10 +3,8 @@
 /android/
 
 # Throwaway visual-capture output (see tests/capture_*.tscn)
-/tilt_capture.png
-/tilt_capture.png.import
-/world_capture.png
-/world_capture.png.import
+/*_capture.png
+/*_capture.png.import
 
 # Stray stderr capture files
 /.e.txt

@@ -51,6 +51,18 @@
 - **Sub hull collider:** polygon matched to the hull silhouette, tilts with the cosmetic pitch (interior footing stays upright).
 - **Cave:** the shelf cave is a real carved opening in the terrain (enterable), not a painted recess.
 
+## Settled (2026-06-11, Milestone 2 build)
+- **Water rooms:** 4 cells (engine / middle / helm / conning); conning counts as a room and, being smaller, fills/drains faster (volume-weighted equalization conserves water).
+- **Impact rule:** <2 m/s free; 2→6 m/s maps linearly to leak rates from ~90s-to-flood up to ~20s-to-flood; one breach max per 0.6s so a scrape isn't a shotgun blast.
+- **Danger color:** BREACH_COLOR (white-orange) reserved exclusively for breaches + alerts (per art direction).
+- **Station flood rule lives on the Station base** (room > 60% water → eject + refuse entry), so helm, turret, and future stations all inherit it.
+- **Repair:** hold `use` 3s in ~1.2 m of a breach; release = full reset (no partial credit); progress arc drawn at the breach.
+- **Air:** 10s underwater (head-height check), refills in ~2s on surfacing; drowning = cartoon pop; respawn 7s later standing in the helm room; dead player's input ignored.
+- **Implosion:** total water ≥70% of combined room volume → ~1.5s crunch (shake + hull crumple-flash + fade) → world-level `reset_run()` (sub at dock, water/breaches cleared, crew alive aboard, fish home via the "fish" group). Future death penalties hook into `reset_run()`.
+- **Turret:** seat in the middle flex room, tube bow-mounted; aim = move vector clamped to ±45° forward cone; `use` held auto-fires on the 1.2s cooldown; torpedoes 10 m/s straight, infinite ammo, ignore own hull (mask), terrain hit = harmless puff.
+- **Fish:** Area2D, 4 states (patrol/chase/recover/return), territory ~10 m, bite = drip-tier breach + ~3s circling pass; one torpedo kill; death is hide-not-free so `reset_fish()` revives at home. Placement: cave mouth + two pillars.
+- **Tooling:** after adding a `class_name` script, run `--headless --import` once or headless test runs fail with stale class-cache parse errors.
+
 ## Open
 - **Solo play:** is "lock station" enough, or does solo need an AI helper (Lovers-style pet)? Answer via solo playtests during MVP.
 - **Pitch direction/strength:** confirm the lean feels right in playtest (one-number tweak).

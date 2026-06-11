@@ -17,6 +17,7 @@ func _ready() -> void:
 	_build_sky_and_water()
 	_build_terrain()
 	_build_dock()
+	_build_cave_marker()
 
 func _v(mx: float, my: float) -> Vector2:
 	return Vector2(mx * M, my * M)
@@ -119,6 +120,36 @@ func _build_dock() -> void:
 		post.size = _v(0.6, 4.0)
 		post.z_index = -71
 		add_child(post)
+
+## The milestone's victory beat: a warm glowing lamp deep inside the cave.
+## No pickup logic — arriving is the reward.
+func _build_cave_marker() -> void:
+	var marker := CaveMarker.new()
+	marker.position = _v(112.0, 68.0)  # by the cave's back wall
+	marker.z_index = -75               # over the cave fill, under the sub
+	add_child(marker)
+
+## A pulsing placeholder lamp/star (visual only).
+class CaveMarker extends Node2D:
+	var _t: float = 0.0
+
+	func _process(delta: float) -> void:
+		_t += delta
+		queue_redraw()
+
+	func _draw() -> void:
+		var pulse := 0.75 + 0.25 * sin(_t * 2.5)
+		var warm := Color(1.0, 0.85, 0.4)
+		# Soft glow halo.
+		for i in 4:
+			draw_circle(Vector2.ZERO, (60.0 - i * 12.0) * pulse,
+				Color(warm, 0.05 + i * 0.04))
+		# Lamp core + little star points.
+		draw_circle(Vector2.ZERO, 9.0, warm)
+		draw_circle(Vector2.ZERO, 5.0, Color(1.0, 0.97, 0.85))
+		for i in 4:
+			var dir := Vector2.from_angle(i * TAU / 4.0 + _t * 0.5)
+			draw_line(dir * 12.0, dir * (22.0 * pulse), Color(warm, 0.8), 2.0)
 
 ## Add a polygon that both collides (TERRAIN) and is drawn.
 func _add_terrain_polygon(body: StaticBody2D, pts: PackedVector2Array, color: Color, z: int) -> void:
