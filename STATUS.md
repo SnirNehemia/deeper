@@ -26,6 +26,13 @@ requests, all implemented and headless-tested:
 - The shore shelf map is **smaller (160m x 130m)** and the cave is closer to
   shore, for faster playtest loops.
 
+**Follow-up (same day):** after looking at the build, Snir asked for the
+lower-deck ladders to sit closer to the outer/dividing wall of their lower
+room rather than mid-room. Both ladders moved (still single shafts spanning
+both decks, still alternating sides): claw ladder now near the engine/middle
+divider (claw room's left wall), storage ladder now near the outer hull
+(storage room's left wall). Re-tested, all 14 suites green.
+
 Next: Snir plays this revision; if it holds up, Module B (salvage items,
 carry, storage, banking, save) is next.
 
@@ -126,11 +133,12 @@ session.
 3. **Hull shape:** look at the sub from outside — it should read as one solid
    hull silhouette (main deck + conning tower bump + lower-deck belly), not
    two separate blobs.
-4. **Storage ladder (engine room, right side):** walk to it, press down to
-   climb into the storage room below; press up to climb back to the engine
-   room. Should grab cleanly from a normal standing position, both directions.
-5. **Claw ladder (middle room, left side):** same check — down to the claw
-   room, up back to the middle room.
+4. **Storage ladder (near the outer/left wall of the engine room):** walk to
+   it, press down to climb into the storage room below; press up to climb
+   back to the engine room. Should grab cleanly from a normal standing
+   position, both directions.
+5. **Claw ladder (near the engine/middle divider, left side of the middle
+   room):** same check — down to the claw room, up back to the middle room.
 6. **Run past a ladder while jumping:** run through the engine/middle rooms
    hopping the door steps (tap "up" near a doorway) — you should jump, not
    suddenly grab a nearby ladder.

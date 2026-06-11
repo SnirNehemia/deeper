@@ -117,6 +117,17 @@
   pillars, and the cave are all closer together, for faster playtest loops.
   Cave entrance moved from ~x=140m to ~x=66m.
 
+## Settled (2026-06-11, Milestone 3 Module A — playtest #1 revision #2)
+- **Lower-deck ladders moved near their lower room's left wall:** the claw
+  ladder now sits near the engine/middle divider (claw room's left wall, was
+  mid-room), the storage ladder near the outer hull (storage room's left
+  wall, was mid-room). Each is still a single shaft spanning both decks.
+  Considered also adding a second ladder near the upper room's right wall
+  (a literal reading of Snir's reference image), but that put a ladder back
+  in the main-deck traffic path and reintroduced the "running/jumping snags
+  on a ladder" bug from playtest #1 — reverted in favor of the single
+  repositioned shaft per deck pair.
+
 ## Parked
 - Snappy Overcooked-style crew movement (kept as switchable preset; playtest against weighty)
 - Phone-as-controller via WebSocket (post-MVP, only if gamepads aren't enough)
