@@ -34,6 +34,13 @@ var _station: Station = null
 # step out of range — no partial credit).
 var _repair_target: Breach = null
 
+# Drowning: air remaining (seconds) while the head is underwater, and the
+# respawn countdown while dead. Dead crew ignore all input.
+var air_seconds: float = 0.0
+var is_dead: bool = false
+var _respawn_timer: float = 0.0
+var _respawn_label: Label = null
+
 var _facing: float = 1.0
 var _run_phase: float = 0.0
 var _was_on_floor: bool = false
@@ -64,6 +71,8 @@ func _ready() -> void:
 
 	_add_ladder_sensor()
 	_add_station_sensor()
+
+	air_seconds = GameFeel.water.air_time
 
 func _add_ladder_sensor() -> void:
 	var sensor := Area2D.new()
@@ -99,9 +108,17 @@ func _add_station_sensor() -> void:
 			_nearby_station = null)
 
 func _physics_process(delta: float) -> void:
+	if is_dead:
+		_tick_respawn(delta)
+		return
+
 	var input: PlayerInput = InputHub.get_input(player_index)
 	var feel: GameFeel.CrewFeel = GameFeel.crew
 	var ppm: float = GameFeel.PIXELS_PER_METER
+
+	_update_air(delta)
+	if is_dead:
+		return
 
 	var move_x := input.move.x if input != null else 0.0
 	var move_y := input.move.y if input != null else 0.0
@@ -170,6 +187,78 @@ func is_submerged() -> bool:
 	if room < 0:
 		return false
 	return position.y >= sub.room_water_surface_y(room)
+
+## True if the crew's HEAD (top of the capsule) is underwater — this is what
+## starts the air timer.
+func is_head_submerged() -> bool:
+	var sub := get_parent() as Sub
+	if sub == null:
+		return false
+	var head := position + Vector2(0,
+		-PlaceholderArt.CREW_HEIGHT_M * GameFeel.PIXELS_PER_METER * 0.5)
+	var room := sub.room_index_at(position)
+	if room < 0:
+		return false
+	return head.y >= sub.room_water_surface_y(room)
+
+## Air timer: drains while the head is underwater, refills fast on surfacing.
+## Hitting zero drowns the crew (cartoon pop, then a respawn countdown).
+func _update_air(delta: float) -> void:
+	var w: GameFeel.WaterFeel = GameFeel.water
+	if is_head_submerged():
+		air_seconds -= delta
+		if air_seconds <= 0.0:
+			_drown()
+	else:
+		air_seconds = minf(w.air_time,
+			air_seconds + (w.air_time / w.air_refill_time) * delta)
+
+func _drown() -> void:
+	is_dead = true
+	_respawn_timer = GameFeel.water.respawn_delay
+	if _station != null:
+		_exit_station()
+	_repair_target = null
+	velocity = Vector2.ZERO
+	# Cartoon pop: a quick balloon-burst scale-up, then the body vanishes and
+	# only the "respawning..." countdown stays.
+	_play_scale(Vector2(1.6, 1.6), 0.2, Tween.TRANS_BACK)
+	_visual.visible = false
+	# A ghost shouldn't block the living: no collisions while dead.
+	collision_layer = 0
+	collision_mask = 0
+	_show_respawn_label()
+
+func _tick_respawn(delta: float) -> void:
+	_respawn_timer -= delta
+	if _respawn_label != null:
+		_respawn_label.text = "respawning... %d" % int(ceil(maxf(0.0, _respawn_timer)))
+	if _respawn_timer <= 0.0:
+		_respawn()
+
+func _respawn() -> void:
+	is_dead = false
+	air_seconds = GameFeel.water.air_time
+	# Back on your feet in the helm room (just aft of the helm seat).
+	position = Vector2(Sub.HELM_X - 1.5 * GameFeel.PIXELS_PER_METER, Sub.HELM_SEAT_Y)
+	velocity = Vector2.ZERO
+	collision_layer = Layers.CREW
+	collision_mask = _MASK_FOOT
+	_on_ladder = false
+	_visual.visible = true
+	_visual.scale = Vector2.ONE
+	if _respawn_label != null:
+		_respawn_label.queue_free()
+		_respawn_label = null
+
+func _show_respawn_label() -> void:
+	_respawn_label = Label.new()
+	_respawn_label.add_theme_font_size_override("font_size", 20)
+	_respawn_label.add_theme_color_override("font_color", Color.WHITE)
+	_respawn_label.add_theme_color_override("font_outline_color", Color.BLACK)
+	_respawn_label.add_theme_constant_override("outline_size", 4)
+	_respawn_label.position = Vector2(-60.0, -110.0)
+	add_child(_respawn_label)
 
 func _move_on_foot(move_x: float, jump_pressed: bool, feel: GameFeel.CrewFeel,
 		ppm: float, delta: float) -> void:
@@ -266,6 +355,7 @@ func _update_visual(move_x: float, ppm: float, delta: float) -> void:
 	_visual.facing = _facing
 	_visual.running = running
 	_visual.run_phase = _run_phase
+	_visual.air_fraction = clampf(air_seconds / GameFeel.water.air_time, 0.0, 1.0)
 	_visual.queue_redraw()
 
 ## The cosmetic pitch of the sub we're riding (0 if we're not inside a sub).

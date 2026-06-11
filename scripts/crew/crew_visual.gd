@@ -15,6 +15,8 @@ var facing: float = 1.0
 var running: bool = false
 ## Advancing counter; its integer parity picks the run frame.
 var run_phase: float = 0.0
+## Remaining air fraction (0-1). Below 1, a bubble gauge shows above the head.
+var air_fraction: float = 1.0
 
 func _draw() -> void:
 	var ppm: float = GameFeel.PIXELS_PER_METER
@@ -43,3 +45,15 @@ func _draw() -> void:
 	var right_lift := -lift if phase == 1 else 0.0
 	draw_rect(Rect2(-r, -5.0 + left_lift, r * 0.8, 5.0), foot_color)
 	draw_rect(Rect2(r * 0.2, -5.0 + right_lift, r * 0.8, 5.0), foot_color)
+
+	# Air gauge: a shrinking row of bubbles above the head while holding breath.
+	if air_fraction < 1.0:
+		var gauge_y := -(h + 14.0)
+		var bubbles := 5
+		for i in bubbles:
+			var filled := air_fraction > (float(i) + 0.5) / bubbles
+			var bx := (i - (bubbles - 1) * 0.5) * 9.0
+			if filled:
+				draw_circle(Vector2(bx, gauge_y), 3.5, Color(0.85, 0.95, 1.0))
+			else:
+				draw_arc(Vector2(bx, gauge_y), 3.5, 0.0, TAU, 12, Color(0.85, 0.95, 1.0, 0.35), 1.0)

@@ -113,6 +113,8 @@ class WaterFeel:
 	var bite_leak_rate: float = 1.0 / 120.0
 	## Crew air supply while submerged (seconds) before drowning.
 	var air_time: float = 10.0
+	## A surfaced crew refills the whole air supply this fast (seconds).
+	var air_refill_time: float = 2.0
 	## Respawn delay after drowning (seconds).
 	var respawn_delay: float = 7.0
 	## Total water (volume-weighted average fill across all rooms) above this
