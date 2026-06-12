@@ -255,6 +255,26 @@
 - Pickup range 1.0 m; storage-drop range 1.6 m; both tunable. A full pen makes
   "stow" a no-op (keep carrying) until you bank at the dock.
 
+## Settled (2026-06-12, Milestone 4 Module 1 — grid + layout data model)
+- **Grid locked at 2.5m x 3.0m cells (120x144px)**, `+x` toward the bow,
+  `+y` downward, bounds guard `8x5` cells (`SubGrid`, scripts/sub/grid.gd).
+- **Module catalog** (`ModuleCatalog`/`ModuleDef`) holds one entry per module
+  *type*: `helm`/`tower` (core, 2x1/1x1), `room` (generic, used for the
+  middle room), `engine`, `claw_room`, `storage` (all 2x1), plus placeholder
+  entries for the M4 content modules `turret_room` (flags `has_firing_face`)
+  and `floodlight_pod` (flags `is_pod`). Content/prices for the last two land
+  in Modules 9-10.
+- **`SubLayout`** holds placements (module id + grid pos + mirror flag), pods
+  (pod id + host cell + face), and an inventory dict, with dict
+  serialization for the save file (Module 5).
+- **Starting layout ("the Minnow+")** re-expresses the M3 sub on the grid:
+  engine/middle("room")/helm in a row, tower above the middle room, claw room
+  below the middle, storage below the engine — matching M3 adjacency, no
+  pods, empty inventory.
+- This module is **data-only**: nothing in the running game changed; the
+  hand-built M3 sub still builds and plays exactly as before. The new types
+  aren't referenced by `sub.gd`/`sub_visual.gd` yet — that wiring is Module 3+.
+
 ## Parked
 - Snappy Overcooked-style crew movement (kept as switchable preset; playtest against weighty)
 - Phone-as-controller via WebSocket (post-MVP, only if gamepads aren't enough)

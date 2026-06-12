@@ -1,13 +1,34 @@
 # STATUS — DEEPER
 
-_Read this at session start. Last updated: 2026-06-12 (M3 Module C reworked
-into a two-joint articulated claw + storage pen; dry dock moved to M4)._
+_Read this at session start. Last updated: 2026-06-12 (M4 Module 1: grid +
+layout data model landed, no gameplay changes yet)._
 
 ## Where we are
-**Milestone 3 is now scoped to the lower deck + salvage loop only (A, B, C).**
-Per Snir, the **dry dock + sub upgrades were moved to Milestone 4** — that code
-(Module D below) is built, tested, and committed; it's just re-labelled M4 and
-left in place (not wired to block anything). All **18** headless suites green.
+**Milestone 3 (lower deck + salvage loop: A, B, C) is closed.** Milestone 4
+("The Dry Dock & The Growing Sub", v2 — see `MILESTONE_4_v2.md` and
+`MODULAR_SUB_IMPLEMENTATION.md`) is underway. All **19** headless suites green.
+
+### Milestone 4 — Module 1: grid + layout data model (newest, data-only)
+- New plain-data layer for the grid-based modular sub, per
+  `MODULAR_SUB_IMPLEMENTATION.md` §2-3. **No gameplay code changed** — the
+  current hand-built sub still runs exactly as before.
+- `SubGrid` (scripts/sub/grid.gd): the cell size (2.5m x 3.0m = 120x144px at
+  the locked 1m=48px scale) and the `MAX_CELLS` (8x5) bounds guard.
+- `ModuleDef` (scripts/sub/module_def.gd) + `ModuleCatalog`
+  (scripts/sub/module_catalog.gd): one entry per module *type* — `helm`,
+  `tower` (both core), `room` (generic, used for the middle room), `engine`,
+  `claw_room`, `storage`, plus placeholder entries for the M4 content modules
+  `turret_room` (flags a firing face) and `floodlight_pod` (flagged as a pod).
+- `SubLayout` (scripts/sub/sub_layout.gd): placements (module id + grid pos +
+  mirror flag), pods (pod id + host cell + face), and an inventory dict, with
+  `to_dict()`/`from_dict()` round-tripping for the save file (Module 5).
+  `SubLayout.starting_layout()` expresses "the Minnow+" (§2.1) — the M3 sub
+  re-expressed on the grid: engine/middle/helm in a row, tower above the
+  middle room, claw room below the middle, storage below the engine.
+- Test: `test_layout` (grid constants, catalog contents/footprints, the
+  starting layout's shape and bounds, full serialization round-trip).
+- Next (Module 2): `validate(layout)` — the single legality function (7
+  rules from §5), pure and headless-testable, no UI yet.
 
 ### Module C — Salvage claw, REWORKED into a two-joint articulated arm (newest)
 - Replaces the earlier telescopic claw. A **two-joint arm** (shoulder + elbow)
@@ -149,6 +170,7 @@ beat. All placeholder art.
   - `crew/` — `crew.gd` (run/jump/climb/seat + **swim dampening, repair (×loadout repair mult), air timer, drown/respawn**; ladder grab requires being centered on the ladder's own column), `crew_visual.gd` (capsule + **bubble air gauge**).
   - `sub/` — `sub.gd` (body, interior, helm+turret+**claw**, **loadout-driven: 6 base water rooms + optional 7th gun room, engine-boost movement mult**, breaches, impacts, implosion, reset, **unified hull collision (`hull_rects()`, tilts together)**, **on-board storage + dock banking**), `sub_visual.gd` (hull + consoles + water rects + lower deck + **claw arm + multiple turrets + gun room**), `sub_loadout.gd` (**SubLoadout**: upgrade catalog + state + serialization), `breach.gd`.
   - `stations/` — `station.gd` (base: zone + occupancy + **flood eject/refuse**), `helm_station.gd`, `turret_station.gd` (**cone aim + fire; parameterised by `facing`+`tube_local`**), **`claw_station.gd`** (belly claw: aim/extend/grab/retract/deposit).
+  - `sub/` (M4, data-only so far) — `grid.gd` (**SubGrid**: cell size + bounds guard), `module_def.gd` (**ModuleDef**), `module_catalog.gd` (**ModuleCatalog**: catalog of module types), `sub_layout.gd` (**SubLayout**: placements/pods/inventory + serialization + starting layout).
   - `weapons/` — `torpedo.gd` (slow straight shot, trail, terrain puff; inner `Puff` class).
   - `fauna/` — `fish.gd` (**territorial: patrol/chase/bite/return, torpedo kill, reset_fish**, **death spawns a sinking salvage carcass**).
   - `salvage/` — `salvage_item.gd` (**SalvageItem**: scrap crate / fish carcass pickup, sinking + settling for carcasses; in group "salvage" for the claw).
@@ -158,14 +180,15 @@ beat. All placeholder art.
   - `world.tscn`/`.gd` — **main scene**: map + crewed sub (built from loadout) + 3 fish + camera + HUDs + implosion/run reset + dock banking + **dock prompt / Tab opens the dry dock / sub rebuild on purchase**.
   - `shore_shelf.gd` — the map (terrain/water/sky + **cave lamp marker** + **scattered scrap pickups**).
   - `sub_test.tscn`, `sandbox.tscn` — M1 sandboxes (no water/buoyancy).
-- `tests/` — 18 headless suites, all passing: `test_input`, `test_crew`, `test_sub`,
+- `tests/` — 19 headless suites, all passing: `test_input`, `test_crew`, `test_sub`,
   `test_helm`, `test_world`, `test_water`, `test_station_flood`, `test_damage`,
   `test_repair`, `test_drowning`, `test_implosion`, `test_turret`, `test_fish`,
   `test_lower_deck` (Module A), `test_salvage` (Module B storage/bank/save),
   **`test_claw`** (Module C grab/deposit + no-auto-collect regression),
   **`test_loadout`** (Module D buying/saving, engine + repair mults, gun room
   → 7 rooms / 2 turrets / flooding doorway), **`test_dry_dock`** (Module D
-  navigation + placement flow + pause/unpause).
+  navigation + placement flow + pause/unpause), **`test_layout`** (M4 Module 1:
+  grid constants, catalog, footprints, starting layout, serialization).
   Plus `capture_*` — throwaway windowed screenshot tools (png gitignored;
   `capture_m2` stages the full M2 tableau).
 
@@ -206,12 +229,18 @@ torpedoes feel chunky or just sluggish? Is the fish fight fun or a chore? Plus
 all M1 questions (crew weight, sub heft, camera framing).
 
 ## Suggested next step
-**Playtest the reworked claw + ferry chain (verify-by-playing below).** Open
-questions for Snir: does the two-joint excavator control feel good or too
-fiddly? Is the claw→drop→carry→stow ferry fun co-op or too many steps solo
-(one crew has to do all of it alone)? Are the pickup/deposit ranges forgiving
-enough? Are cage 2 / storage 8 the right numbers? Likely next: tune, then close
-out M3.
+**M4 Module 2: `validate(layout)`** — the single legality function (7 rules
+from MODULAR_SUB_IMPLEMENTATION.md §5: core fixed, connectivity, tower
+support, no overlap, clear special faces, pod faces, bounds), pure and
+headless-testable (`test_validate`). Still no gameplay/scene changes — the
+hand-built M3 sub keeps running as-is until Module 3 swaps the interior for
+the generated one.
+
+Nothing new to playtest yet (M4 Modules 1-3 are data/pipeline plumbing); the
+M3 claw/ferry questions below remain open for whenever Snir next plays:
+does the two-joint excavator control feel good or too fiddly? Is the
+claw→drop→carry→stow ferry fun co-op or too many steps solo? Are the
+pickup/deposit ranges and cage 2 / storage 8 numbers right?
 
 ### Known issues / notes (claw rework)
 - **Manual home, no auto-retract** (Snir's call): you pose both joints back to
