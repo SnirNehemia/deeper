@@ -158,7 +158,7 @@ func _add_hint_label() -> void:
 	var layer := CanvasLayer.new()
 	add_child(layer)
 	var label := Label.new()
-	label.text = "E / R-Shift: take a station (helm bow, turret mid-room, claw lower room) - Q / Enter: fire / hold-to-repair / hold to work the claw - Esc quits"
+	label.text = "E / R-Shift: take a station (helm bow, turret mid-room, claw lower room) - claw: stick swings shoulder / elbow, Q snaps the cage shut, fold home + Q to dump - Esc quits"
 	label.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.offset_top = -40

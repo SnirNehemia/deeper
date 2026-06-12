@@ -87,6 +87,9 @@ func _draw() -> void:
 
 	for t in turrets:
 		_draw_turret(t)
+	_draw_claw_console()
+	if sub != null:
+		_draw_storage_pen(sub)
 	_draw_claw()
 	_draw_water()
 
@@ -123,25 +126,74 @@ func _draw_gun_room(sub: Sub) -> void:
 	draw_rect(Rect2(gx - 14.0, -22.0, 28.0, 22.0), PlaceholderArt.SUB_STRUCTURE)
 	draw_circle(Vector2(gx, -30.0), 6.0, PlaceholderArt.HULL_COLOR)
 
-## The belly salvage claw: a telescoping arm from the keel anchor out to the
-## current tip, with a little open claw at the end. Drawn in hull-local space
-## so it pitches with the sub.
+## The belly salvage claw: a two-joint articulated arm (upper arm + forearm
+## with a pivot between them) ending in a cage that opens/closes. Drawn in
+## hull-local space so it pitches with the sub.
 func _draw_claw() -> void:
 	if claw == null:
 		return
 	var anchor := ClawStation.ANCHOR_LOCAL
-	var tip := anchor + claw.aim_dir * claw.length
-	# A small port box on the keel where the arm exits.
-	draw_rect(Rect2(anchor + Vector2(-10.0, -6.0), Vector2(20.0, 10.0)),
+	# A small port/shoulder housing on the keel where the arm exits.
+	draw_rect(Rect2(anchor + Vector2(-12.0, -7.0), Vector2(24.0, 12.0)),
 		PlaceholderArt.SUB_STRUCTURE)
-	if claw.length <= 0.5:
-		return
-	draw_line(anchor, tip, PlaceholderArt.SUB_STRUCTURE, 5.0)
-	# Two little pincers splaying off the tip's forward direction.
-	var fwd := claw.aim_dir
+
+	var joint := claw.joint_local()
+	var tip := claw.tip_local()
+	# Upper arm, then forearm; pivots drawn as knuckles at each joint.
+	draw_line(anchor, joint, PlaceholderArt.SUB_STRUCTURE, 7.0)
+	draw_line(joint, tip, PlaceholderArt.SUB_STRUCTURE, 6.0)
+	draw_circle(anchor, 6.0, PlaceholderArt.HULL_COLOR)
+	draw_circle(joint, 6.0, PlaceholderArt.HULL_COLOR)
+
+	# The cage at the tip: two jaws that close as clamp_amount() rises. Open
+	# jaws splay out from the forearm direction; closed jaws meet ahead.
+	var fwd := (tip - joint).normalized() if tip.distance_to(joint) > 0.1 else Vector2.DOWN
 	var side := fwd.orthogonal()
-	draw_line(tip, tip + (fwd * 0.4 + side).normalized() * 14.0, PlaceholderArt.LADDER_COLOR, 4.0)
-	draw_line(tip, tip + (fwd * 0.4 - side).normalized() * 14.0, PlaceholderArt.LADDER_COLOR, 4.0)
+	var clamp := claw.clamp_amount()
+	var spread := lerpf(0.9, 0.12, clamp)  # wide when open, pinched when shut
+	var jaw := 16.0
+	var c := PlaceholderArt.LADDER_COLOR
+	draw_line(tip, tip + (fwd + side * spread).normalized() * jaw, c, 4.0)
+	draw_line(tip, tip + (fwd - side * spread).normalized() * jaw, c, 4.0)
+	# Cross-bars so it reads as a basket cage.
+	var lip := jaw * 0.6
+	draw_line(tip + (fwd + side * spread).normalized() * lip,
+		tip + (fwd - side * spread).normalized() * lip, c, 3.0)
+
+## The claw operator's console in the lower claw room, styled like the helm /
+## turret consoles so it reads as "a station".
+func _draw_claw_console() -> void:
+	if claw == null:
+		return
+	var cx := claw.position.x
+	var floor_y := Sub.LOWER_FLOOR_Y
+	draw_rect(Rect2(cx - 14.0, floor_y - 22.0, 28.0, 22.0), PlaceholderArt.SUB_STRUCTURE)
+	draw_circle(Vector2(cx, floor_y - 30.0), 6.0, PlaceholderArt.LADDER_COLOR)
+
+## The storage pen in the storage room: a little cage that fills with the
+## salvage the claw has delivered (up to the storage capacity).
+func _draw_storage_pen(sub: Sub) -> void:
+	var room := sub.room_rect(5)  # storage room
+	var floor_y := room.position.y + room.size.y
+	var pen := Rect2(room.position.x + 24.0, floor_y - 54.0, 96.0, 54.0)
+	# Cage bars.
+	var bar := PlaceholderArt.LADDER_COLOR
+	draw_rect(Rect2(pen.position, Vector2(pen.size.x, 4.0)), bar)  # top rail
+	var x := pen.position.x
+	while x <= pen.position.x + pen.size.x:
+		draw_line(Vector2(x, pen.position.y), Vector2(x, floor_y), bar, 2.0)
+		x += 16.0
+	# Contents: scrap squares then carcass blobs, packed bottom-up.
+	var total: int = sub.storage_count()
+	var per_row := 5
+	for i in total:
+		var col := i % per_row
+		var row := i / per_row
+		var p := Vector2(pen.position.x + 12.0 + col * 16.0, floor_y - 10.0 - row * 16.0)
+		if i < sub.storage_scrap:
+			draw_rect(Rect2(p - Vector2(5, 5), Vector2(10, 10)), PlaceholderArt.SCRAP_COLOR)
+		else:
+			draw_circle(p, 5.0, PlaceholderArt.CARCASS_COLOR)
 
 ## Flooding water: a flat rect rising from the floor of each room, clipped to
 ## the room rectangle. Drawn last so it sits over the interior/structure.

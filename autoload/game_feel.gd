@@ -165,3 +165,33 @@ class FishFeel:
 	var bite_interval: float = 3.0        ## s between bites per fish
 
 var fish: FishFeel = FishFeel.new()
+
+## Salvage claw feel (Milestone 3 rework). A two-joint articulated arm hung
+## from the keel under the claw room, driven excavator-style: one stick axis
+## per joint, blended together. The operator poses it out to reach salvage,
+## snaps a cage shut on it, poses the arm back home, and dumps into the
+## storage pen. All numbers tunable.
+class ClawFeel:
+	## Arm segment lengths (m): upper arm (shoulder->elbow) + forearm
+	## (elbow->cage). Max reach is their sum (~4.6 m).
+	var upper_len_m: float = 2.3
+	var fore_len_m: float = 2.3
+	## Joint sweep speeds (deg/s) while the operator holds a direction.
+	var shoulder_speed_deg: float = 70.0
+	var elbow_speed_deg: float = 100.0
+	## Joint limits (deg). Shoulder = 0 points straight down; it swings to
+	## either side but stays in the lower hemisphere (never up through the
+	## hull). Elbow bends relative to the upper arm.
+	var shoulder_limit_deg: float = 95.0
+	var elbow_limit_deg: float = 160.0
+	## How close (m) a piece of salvage must be to the cage to be snapped in.
+	var grab_radius_m: float = 0.6
+	## The cage counts as "home" (ready to dump) when its tip is within this
+	## distance (m) of the keel anchor — you fold the arm back to deliver.
+	var home_radius_m: float = 0.9
+	## How many pieces the arm's cage holds before a trip home.
+	var cage_capacity: int = 2
+	## How many pieces the storage pen holds before you must bank at the dock.
+	var storage_capacity: int = 8
+
+var claw: ClawFeel = ClawFeel.new()

@@ -24,7 +24,8 @@ func _ready() -> void:
 func _process(_delta: float) -> void:
 	if sub == null:
 		return
-	_label.text = "On board: %d scrap, %d carcasses\nBanked: %d scrap, %d carcasses" % [
+	_label.text = "Storage: %d/%d (%d scrap, %d carcasses)\nBanked: %d scrap, %d carcasses" % [
+		sub.storage_count(), GameFeel.claw.storage_capacity,
 		sub.storage_scrap, sub.storage_fish,
 		SaveData.banked_scrap, SaveData.banked_fish,
 	]

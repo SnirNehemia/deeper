@@ -205,6 +205,38 @@
   multiplier, not a global GameFeel mutation); repair training = ×0.6 repair
   time (crew reads `Sub.repair_time_mult()`).
 
+## Settled (2026-06-12, Milestone 3 rescope + claw rework)
+- **M3 rescoped to the lower deck + salvage loop only (A, B, C).** The dry dock
+  + sub upgrades (Module D) are **moved to Milestone 4**. That code stays in
+  the repo (built + tested) but is re-labelled M4; not removed.
+- **The salvage claw is reworked from a telescopic arm into a two-joint
+  articulated arm** (shoulder + elbow), hung from the keel under the claw room,
+  reaching down and swinging wide along the seafloor.
+- **Control = excavator-style "operate each joint", both at once:** Left/Right
+  swings the shoulder, Up/Down bends the elbow (velocity control, blended).
+  Chosen over inverse-kinematics "point & reach" and over one-joint-at-a-time
+  toggling, after researching real machine controls — this matches the
+  standardized ISO/SAE excavator scheme, which is exactly a two-joint boom+stick
+  driven one-axis-per-joint. (Refs: Wikipedia "Excavator controls"; dozr.com
+  ISO-vs-SAE; StrategyWiki Construction Simulator controls.)
+- **The cage is BOTH** a grabber on the arm's tip **and** a visible holding pen
+  in the storage room. Catching: **press `use`** to snap the cage shut on
+  overlapping salvage (deliberate, not auto-on-contact). Delivering: **press
+  `use` again while folded home** to dump into the pen.
+- **Manual home, no auto-return** (Snir's pick): you pose both joints back to
+  the keel yourself; "home" = cage tip within `home_radius_m` of the keel
+  anchor. (A one-button retract was offered and declined — kept as a fallback
+  if it plays tedious.)
+- **Capacities (push-your-luck):** the arm cage holds **2**, the storage pen
+  holds **8** (`GameFeel.claw.cage_capacity` / `storage_capacity`). A full pen
+  refuses dumps until the sub **banks at the dock**. `Sub.deposit_salvage()`
+  now returns a bool and enforces the cap.
+- **Tunables centralised in `GameFeel.claw`** (segment lengths, joint speeds +
+  limits, grab/home radii, capacities) per the one-config rule.
+- **Dedicated console** in the claw room styled like the helm/turret consoles
+  ("looks like any other station"); arm + cage + storage pen drawn by
+  `SubVisual` so they tilt with the hull.
+
 ## Parked
 - Snappy Overcooked-style crew movement (kept as switchable preset; playtest against weighty)
 - Phone-as-controller via WebSocket (post-MVP, only if gamepads aren't enough)

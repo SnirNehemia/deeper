@@ -1,105 +1,131 @@
 class_name ClawStation
 extends Station
 
-## The salvage claw: a belly-mounted arm operated from the lower claw room.
-## The operator aims with the stick (the arm reaches out the bottom of the
-## sub, so it points down into a cone) and HOLDS `use` to extend it. When the
-## claw tip touches a piece of salvage it grips it, then automatically reels
-## back in and drops it into on-board storage. This is the only way to collect
-## salvage (Module C: the hull no longer auto-collects).
+## The salvage claw: a two-joint articulated arm hung from the keel under the
+## lower claw room, operated from a console in that room. Driven excavator
+## style — one stick axis per joint, blended together:
+##   - Left/Right swings the whole arm at the SHOULDER.
+##   - Up/Down bends the ELBOW.
+## A cage rides the arm's tip. Press `use` over a piece of salvage to snap the
+## cage shut on it (it holds a few). To deliver, pose the arm back "home" to
+## the keel and press `use` again to dump the cage into the storage pen. There
+## is no auto-return — you fold it back yourself.
 ##
 ## Like the turret, the arm is drawn by SubVisual so it tilts with the hull's
-## cosmetic pitch; grabbing uses that same tilted tip position so what you see
-## is what you grab.
+## cosmetic pitch; grabbing uses that same tilted tip position.
 
 ## Where the arm is anchored on the keel, in sub-local space (bottom-center of
 ## the claw room's belly).
 const ANCHOR_LOCAL := Vector2(0.0, Sub.LOWER_BOTTOM_Y)
 
-## Max reach of the arm (px) and how fast it extends/retracts (px/s).
-const MAX_REACH := 5.0 * Sub.PPM
-const EXTEND_SPEED := 4.0 * Sub.PPM
-const RETRACT_SPEED := 6.0 * Sub.PPM
-## How close the tip must get to a salvage item to grip it.
-const GRAB_RADIUS := 0.5 * Sub.PPM
-## The arm points down out of the keel; aim is clamped to this half-cone off
-## of straight-down (so it can angle to either side but never reach upward
-## through the hull).
-const AIM_HALF_CONE := deg_to_rad(70.0)
+## Joint angles (radians). shoulder = 0 points the upper arm straight DOWN and
+## swings to either side; elbow bends the forearm relative to the upper arm.
+## Start folded up at home (tip near the anchor).
+var shoulder_angle: float = 0.0
+var elbow_angle: float = deg_to_rad(160.0)
 
-## Current extension length (0 = fully retracted) and aim direction (sub-local,
-## generally downward). Read by SubVisual to draw the arm.
-var length: float = 0.0
-var aim_dir: Vector2 = Vector2.DOWN
+## Pieces currently held in the cage (each a SalvageItem.Kind). Capacity is
+## GameFeel.claw.cage_capacity.
+var _cage: Array[int] = []
+## Brief "snap" animation timer so the cage visibly clamps shut on a grab.
+var _snap_timer: float = 0.0
 
-## The salvage item currently gripped (being reeled in), or null.
-var _held_item: SalvageItem = null
+func _ready() -> void:
+	super._ready()
+	elbow_angle = deg_to_rad(GameFeel.claw.elbow_limit_deg)
+
+func _physics_process(delta: float) -> void:
+	_snap_timer = maxf(0.0, _snap_timer - delta)
 
 func handle_input(input: PlayerInput) -> void:
+	var c: GameFeel.ClawFeel = GameFeel.claw
 	var delta := get_physics_process_delta_time()
+	# Excavator control: each axis drives one joint; you can move both at once.
+	var s_lim := deg_to_rad(c.shoulder_limit_deg)
+	var e_lim := deg_to_rad(c.elbow_limit_deg)
+	shoulder_angle = clampf(
+		shoulder_angle + input.move.x * deg_to_rad(c.shoulder_speed_deg) * delta,
+		-s_lim, s_lim)
+	elbow_angle = clampf(
+		elbow_angle + input.move.y * deg_to_rad(c.elbow_speed_deg) * delta,
+		-e_lim, e_lim)
+	# `use` is the context action: dump when the cage is home, else snap it shut.
+	if input.use_pressed:
+		if is_home():
+			_dump()
+		else:
+			_snap()
 
-	if _held_item != null:
-		# Holding a catch: ignore aim/extend, just reel it in.
-		_retract(delta)
-		_held_item.global_position = _tip_global()
-		if length <= 0.5:
-			_deposit_held()
-		return
+# --- Geometry (sub-local space) ---
 
-	# Free arm: aim it where the stick points (clamped to the downward cone),
-	# and extend while `use` is held, retract otherwise.
-	if input.move.length() > 0.2:
-		aim_dir = _clamp_to_cone(input.move.normalized())
-	if input.use_held:
-		length = minf(MAX_REACH, length + EXTEND_SPEED * delta)
-		_try_grab()
-	else:
-		_retract(delta)
+func upper_len() -> float:
+	return GameFeel.claw.upper_len_m * Sub.PPM
 
-## When unoccupied, the arm simply retracts and parks.
-func _physics_process(_delta: float) -> void:
-	if occupant == null and length > 0.0:
-		length = maxf(0.0, length - RETRACT_SPEED * get_physics_process_delta_time())
+func fore_len() -> float:
+	return GameFeel.claw.fore_len_m * Sub.PPM
 
-func exit(crew: Crew) -> void:
-	super.exit(crew)
-	# Drop any catch back into the water if the operator bails mid-haul.
-	_held_item = null
+## Elbow joint position: down the upper arm from the anchor.
+func joint_local() -> Vector2:
+	return ANCHOR_LOCAL + Vector2.DOWN.rotated(shoulder_angle) * upper_len()
 
-func _retract(delta: float) -> void:
-	length = maxf(0.0, length - RETRACT_SPEED * delta)
+## Cage (tip) position: down the forearm from the elbow.
+func tip_local() -> Vector2:
+	var upper_dir := Vector2.DOWN.rotated(shoulder_angle)
+	var fore_dir := upper_dir.rotated(elbow_angle)
+	return joint_local() + fore_dir * fore_len()
 
-## Clamp an aim direction into the downward half-cone (never points up through
-## the hull).
-func _clamp_to_cone(dir: Vector2) -> Vector2:
-	var ang := Vector2.DOWN.angle_to(dir)
-	ang = clampf(ang, -AIM_HALF_CONE, AIM_HALF_CONE)
-	return Vector2.DOWN.rotated(ang)
-
-## The tip position in world space, matching the hull's cosmetic pitch tilt.
+## Tip in world space, matching the hull's cosmetic pitch tilt (so grabbing
+## lines up with what's drawn).
 func _tip_global() -> Vector2:
-	var tip_local := ANCHOR_LOCAL + aim_dir * length
-	return sub.to_global(tip_local.rotated(sub.pitch))
+	return sub.to_global(tip_local().rotated(sub.pitch))
 
-## Grip the nearest salvage item within reach of the tip, if any.
-func _try_grab() -> void:
+# --- Cage state ---
+
+func cage_count() -> int:
+	return _cage.size()
+
+func cage_full() -> bool:
+	return _cage.size() >= GameFeel.claw.cage_capacity
+
+## True when the cage is folded back near the keel anchor, ready to dump.
+func is_home() -> bool:
+	return tip_local().distance_to(ANCHOR_LOCAL) <= GameFeel.claw.home_radius_m * Sub.PPM
+
+## How fully the cage is clamped shut (0 open .. 1 shut), for the visual.
+func clamp_amount() -> float:
+	if _snap_timer > 0.0:
+		return 1.0
+	return 1.0 if _cage.size() > 0 else 0.0
+
+## Snap the cage shut on any salvage within reach of the tip, up to capacity.
+func _snap() -> void:
+	_snap_timer = 0.18
+	if cage_full():
+		return
 	var tip := _tip_global()
-	var best: SalvageItem = null
-	var best_d := GRAB_RADIUS
+	var grab := GameFeel.claw.grab_radius_m * Sub.PPM
+	# Nearest-first so a tight snap grabs the obvious target.
+	var hits: Array = []
 	for node in sub.get_tree().get_nodes_in_group("salvage"):
 		var item := node as SalvageItem
 		if item == null or item.is_queued_for_deletion():
 			continue
 		var d := tip.distance_to(item.global_position)
-		if d <= best_d:
-			best_d = d
-			best = item
-	if best != null:
-		_held_item = best
-		best.set_deferred("monitoring", false)
+		if d <= grab:
+			hits.append({"item": item, "d": d})
+	hits.sort_custom(func(a, b): return a["d"] < b["d"])
+	for h in hits:
+		if cage_full():
+			break
+		var item: SalvageItem = h["item"]
+		_cage.append(item.kind)
+		item.set_deferred("monitoring", false)
+		item.queue_free()
 
-func _deposit_held() -> void:
-	if _held_item != null:
-		sub.deposit_salvage(_held_item.kind)
-		_held_item.queue_free()
-		_held_item = null
+## Dump the cage into the storage pen (only when home). Stops early if the pen
+## fills up — leftover catch stays in the cage until you bank at the dock.
+func _dump() -> void:
+	while not _cage.is_empty():
+		if not sub.deposit_salvage(_cage[0]):
+			break  # storage pen full
+		_cage.pop_front()

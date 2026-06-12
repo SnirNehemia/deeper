@@ -527,14 +527,27 @@ func _build_claw() -> void:
 	add_child(claw)
 	_visual.claw = claw
 
-## Add one piece of salvage to on-board storage and notify listeners (HUD).
-func deposit_salvage(kind: int) -> void:
+## Total pieces currently held in the storage pen (scrap + carcasses).
+func storage_count() -> int:
+	return storage_scrap + storage_fish
+
+## True once the storage pen is full — the claw can't dump more until the sub
+## banks at the dock (the push-your-luck cap, Module C rework).
+func storage_full() -> bool:
+	return storage_count() >= GameFeel.claw.storage_capacity
+
+## Add one piece of salvage to on-board storage, if there's room. Returns true
+## if it was accepted (false when the pen is full). Notifies listeners (HUD).
+func deposit_salvage(kind: int) -> bool:
+	if storage_full():
+		return false
 	match kind:
 		SalvageItem.Kind.SCRAP:
 			storage_scrap += 1
 		SalvageItem.Kind.FISH:
 			storage_fish += 1
 	salvage_collected.emit(kind)
+	return true
 
 ## If the sub is within `radius` of `dock_pos`, bank everything in storage
 ## (Module B: returning to the shore dock is what makes salvage safe) and

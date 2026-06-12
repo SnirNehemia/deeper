@@ -1,15 +1,35 @@
 # STATUS — DEEPER
 
-_Read this at session start. Last updated: 2026-06-12 (M3 Modules C + D: the
-salvage claw, and the dry dock with a player-placed gun room)._
+_Read this at session start. Last updated: 2026-06-12 (M3 Module C reworked
+into a two-joint articulated claw + storage pen; dry dock moved to M4)._
 
 ## Where we are
-**Milestone 3, Modules C (salvage claw) and D (dry dock + sub upgrades) are
-built and headless-tested.** The full salvage→bank→spend→upgrade loop is now
-closed. Modules A (lower deck) and B (salvage/banking/save) were playtested
-and held up. All **18** headless suites green.
+**Milestone 3 is now scoped to the lower deck + salvage loop only (A, B, C).**
+Per Snir, the **dry dock + sub upgrades were moved to Milestone 4** — that code
+(Module D below) is built, tested, and committed; it's just re-labelled M4 and
+left in place (not wired to block anything). All **18** headless suites green.
 
-### Module D — Dry Dock & sub upgrades (newest)
+### Module C — Salvage claw, REWORKED into a two-joint articulated arm (newest)
+- Replaces the earlier telescopic claw. A **two-joint arm** (shoulder + elbow)
+  hangs from the keel under the claw room and is driven **excavator-style** —
+  one stick axis per joint, blended together (the real ISO/SAE crane scheme):
+  **Left/Right swings the shoulder, Up/Down bends the elbow.** It reaches down
+  and swings wide along the seafloor. (`ClawStation`,
+  scripts/stations/claw_station.gd; tunables in `GameFeel.claw`.)
+- **Cage grabber** on the tip: press **`use`** over salvage to snap the cage
+  shut on it (holds **2** — `GameFeel.claw.cage_capacity`). No auto-return —
+  you **pose the arm back home** to the keel yourself, then **`use`** again to
+  **dump** the cage into the storage pen.
+- **Storage pen** (in the storage room): a visible holding cage that fills with
+  what you deliver, capacity **8** (`GameFeel.claw.storage_capacity`); when
+  full the claw can't dump more until you **bank at the dock** (push-your-luck).
+- **Dedicated console** in the claw room, styled like the helm/turret consoles.
+- The whole arm + cage + pen are drawn by `SubVisual` (tilt with the hull).
+- It is the only way to collect salvage — no hull auto-collect.
+- Tests: `test_claw` (joint controls, snap→pose-home→dump, cage capacity,
+  storage cap, no-auto-collect).
+
+### Module D — Dry Dock & sub upgrades (now Milestone 4)
 - **Dry dock** (`DryDock`, scripts/ui/dry_dock.gd): while floating at the
   dock, press **Tab** to open an upgrade screen (pauses the run). Spend
   banked **scrap** on three upgrade classes:
@@ -31,15 +51,8 @@ and held up. All **18** headless suites green.
   giving 7 rooms / 2 turrets / a flooding doorway) and `test_dry_dock`
   (navigation, placement flow, pause/unpause on close).
 
-### Module C — Salvage claw (replaces the old hull auto-collect)
-- **Claw station** (`ClawStation`, scripts/stations/claw_station.gd): seated
-  in the lower **claw room**, belly-mounted. The operator aims down into a
-  cone and **holds `use`** to extend the arm; on contact it grips the salvage,
-  auto-reels in, and drops it into on-board storage. It is now the **only**
-  way to collect salvage — the Module B hull auto-collector is removed.
-- Arm is drawn by `SubVisual` so it tilts with the hull's pitch.
-- Tests: `test_claw` (grab + deposit, no-auto-collect regression, unoccupied
-  retract); `test_salvage` refocused onto storage/banking/save.
+_(The Module C claw is described at the top — it was reworked from the
+telescopic version into the two-joint arm.)_
 
 _(M3 Module B summary — salvage items, storage, dock banking, save:)_
 - **Salvage items** (`SalvageItem`): scrap crates (scattered on the map:
@@ -180,55 +193,46 @@ torpedoes feel chunky or just sluggish? Is the fish fight fun or a chore? Plus
 all M1 questions (crew weight, sub heft, camera framing).
 
 ## Suggested next step
-**Playtest M3 Modules C + D** (verify-by-playing below). Open questions for
-Snir after this play: does the claw feel good as the *only* way to grab (vs.
-the old auto-collect)? Is one crew on the claw too many hands away from the
-helm — fun pressure or just annoying solo? Is the gun-room placement choice
-meaningful, or should there be more/different hardpoints? Should fish carcasses
-buy something distinct (right now scrap is the only spend currency)? Likely
-next modules: more upgrade options (hull plating, floodlight, storage), or a
-real depth-gated reason to spend (zone 2 hull rating).
+**Playtest the reworked claw (verify-by-playing below).** Open questions for
+Snir after this play: does the two-joint excavator control feel good, or too
+fiddly under pressure? Are the joint speeds right? Is folding the arm home to
+dump satisfying or a chore (should there be a "retract" assist after all)? Are
+cage 2 / storage 8 the right numbers? Should the storage pen's position/size in
+the storage room change? Likely next: tune those numbers, then close out M3.
 
-### Known issues / notes (Modules C + D)
-- **Bow gun-room overlap:** the base bow turret's tube sits mid-bow; a *bow*
-  gun room wraps around it so the old barrel pokes through the new room a
-  little. Harmless (torpedoes ignore the hull). **Stern is the clean slot** —
-  the one Snir asked for. Tidy the bow case if it ever reads badly.
-- The dry dock reads keys directly (menu), like the existing Esc-to-quit — it
-  doesn't go through the input abstraction. Fine for a pause menu; revisit if
-  gamepad/phone players need to drive it.
-- Buying at the dock rebuilds the sub from scratch (fresh crew at spawn). Since
-  you're parked safely at the dock that's invisible, but any in-progress claw
-  haul / seated crew resets — expected.
+### Known issues / notes (claw rework)
+- **Manual home, no auto-retract** (Snir's call): you pose both joints back to
+  the keel yourself to dump. "Home" = the cage tip within ~0.9 m of the keel
+  anchor. If this feels tedious in play, the easy fix is a one-button retract
+  (was offered, not chosen) — flagged as an open question above.
+- Grabbing checks the cage tip against salvage by distance (group "salvage"),
+  using the pitch-matched tip position so it lines up with the drawn cage.
+- The dry-dock / upgrade code (now M4) is still present and tested but
+  untouched this pass; the bow gun-room cosmetic overlap note still stands.
 
-## Verify by playing (for Snir) — M3 Modules C + D
+## Verify by playing (for Snir) — the reworked claw
 1. Launch: `"GODOT_PATH" --path .`
-2. **The claw (Module C):** send a crew **down the claw ladder** into the
-   lower claw room and press E at the claw console to take it. Hold **Q** — an
-   arm reaches out the **bottom** of the sub; steer it with the stick (it
-   points down into a cone). Drive the sub so the arm tip touches a scrap
-   crate or a sunken fish carcass — it should grab, reel in, and "On board"
-   ticks up. (Driving the hull *through* salvage no longer collects it — the
-   claw is the only way now.)
-3. **Open the Dry Dock (Module D):** drive back to the **dock** (left of the
-   map). A gold prompt appears: **press Tab**. The run pauses and an upgrade
-   screen opens showing your banked scrap.
-4. **Buy an upgrade:** use **W/S** to pick a row, **Enter** to buy. Try
-   **Engine Boost** or **Repair Training** (3 scrap each). Esc/Tab leaves.
-5. **Build a second gun (the big one):** pick **"Second Gun + Control Room"**
-   (6 scrap) and press Enter — a **submarine design view** appears. Press
-   **A/D** to choose **STERN** (gun aft, left) or **BOW** (gun fwd, right),
-   then **Enter** to confirm. Close the dock — the sub **rebuilds with the new
-   room bolted on**, and you'll find a **second turret console** inside it
-   (a crew can sit there and fire that gun with Q).
-6. **Engine boost** should make steering noticeably zippier; **Repair
-   Training** patches breaches faster.
-7. **Save persists:** quit (Esc) and relaunch — your banked scrap **and the
-   upgrades you bought** (including the gun room, in the spot you chose) should
-   still be there.
-8. **Risk still applies:** unbanked on-board salvage is lost on implosion;
-   banked scrap and bought upgrades are safe.
+2. **Take the claw:** send a crew **down the claw ladder** into the lower claw
+   room and press **E** at the claw console (it looks like the other station
+   consoles now).
+3. **Drive the two-joint arm (excavator-style):** an articulated arm hangs out
+   the **bottom** of the sub. **Left/Right swings the whole arm at the
+   shoulder; Up/Down bends the elbow.** Use both together to sweep the cage
+   down and out to either side, reaching for salvage on the seafloor. Steer the
+   *sub* too to line things up.
+4. **Catch it:** put the cage over a scrap crate (or a sunken fish carcass) and
+   press **Q** — the cage snaps shut and holds the catch. The cage holds **2**
+   pieces, so you can grab a second before heading back.
+5. **Deliver it:** **pose the arm back home** (fold it up to the keel — the
+   cage returns near where it came out) and press **Q** again to **dump** into
+   the **storage pen** in the storage room. Watch the pen fill up, and the
+   top-right "Storage: N/8" climb.
+6. **Storage is limited (8):** once the pen is full the claw won't dump more —
+   drive back to the **dock** to bank it (storage empties, banked total rises),
+   then go fill it again.
+7. (Unchanged) salvage is **only** collectable with the claw — driving the hull
+   through it does nothing.
 
 (M2 / M3 A+B verify steps — crash/repair/drown/implode/fish fight/lower
-deck/ladders/salvage/banking/victory beat — still apply; see git history for
-the full checklist.)
+deck/ladders/banking/victory beat — still apply; see git history. The dry-dock
+"Tab at the dock" upgrade flow also still works but is now M4 content.)
