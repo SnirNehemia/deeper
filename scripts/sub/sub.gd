@@ -152,7 +152,7 @@ func _ready() -> void:
 	_build_ladder()
 	_build_helm()
 	_build_turret()
-	_build_salvage_collector()
+	_build_claw()
 
 func _physics_process(delta: float) -> void:
 	var feel: GameFeel.SubFeel = GameFeel.sub
@@ -434,33 +434,20 @@ func _build_turret() -> void:
 	# sub's pitch (playtest #8); the station itself just holds the seat + logic.
 	_visual.turret = turret
 
-## A magnet-ish collector zone covering the hull's bounding box (with a small
-## margin): any SalvageItem (scrap crate or fish carcass) that touches it is
-## sucked into on-board storage. Placeholder for the future claw arm — for now
-## salvage is collected just by driving the hull into it.
-const _COLLECTOR_MARGIN := 0.5 * PPM
+## The salvage claw station, seated in the lower claw room. It reaches out the
+## keel to grab salvage (Module C: the only way to collect — the hull no
+## longer auto-collects). Drawn by SubVisual so it tilts with the hull.
+## Seat sits in the claw room, clear of the claw ladder (CLAW_LADDER_X).
+const CLAW_SEAT_X := 40.0
+const CLAW_SEAT_Y := LOWER_FLOOR_Y - PlaceholderArt.CREW_HEIGHT_M * PPM * 0.5
 
-func _build_salvage_collector() -> void:
-	var bounds := HULL_MAIN_RECT.merge(HULL_LOWER_RECT).merge(HULL_CONN_RECT)
-	bounds = bounds.grow(_COLLECTOR_MARGIN)
-	var area := Area2D.new()
-	area.collision_layer = 0
-	area.collision_mask = Layers.SALVAGE
-	area.monitoring = true
-	area.monitorable = false
-	var shape := CollisionShape2D.new()
-	var rect := RectangleShape2D.new()
-	rect.size = bounds.size
-	shape.shape = rect
-	shape.position = bounds.position + bounds.size * 0.5
-	area.add_child(shape)
-	add_child(area)
-	area.area_entered.connect(_on_salvage_area_entered)
-
-func _on_salvage_area_entered(area: Area2D) -> void:
-	if area is SalvageItem:
-		deposit_salvage(area.kind)
-		area.queue_free()
+func _build_claw() -> void:
+	var claw := ClawStation.new()
+	claw.sub = self
+	claw.room_index = 4  # claw room (lower deck, below the middle room)
+	claw.position = Vector2(CLAW_SEAT_X, CLAW_SEAT_Y)
+	add_child(claw)
+	_visual.claw = claw
 
 ## Add one piece of salvage to on-board storage and notify listeners (HUD).
 func deposit_salvage(kind: int) -> void:

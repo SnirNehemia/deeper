@@ -1,7 +1,8 @@
 extends Node
 
-## Headless test for Module B: salvage pickups, the hull collector, on-board
-## storage, dock banking, and the persisted save.
+## Headless test for Module B: on-board salvage storage, dock banking, and the
+## persisted save. (Collecting salvage itself is the claw's job — see
+## test_claw; this suite covers what happens to it once it's on board.)
 ##
 ## Run: godot --headless res://tests/test_salvage.tscn
 
@@ -9,8 +10,8 @@ var _failures := 0
 
 func _ready() -> void:
 	SaveData.reset_for_test()
-	await _test_scrap_pickup()
-	await _test_fish_carcass()
+	await _test_storage_counters()
+	await _test_carcass_kind()
 	await _test_dock_banking()
 	_test_save_round_trip()
 	SaveData.reset_for_test()
@@ -38,35 +39,32 @@ func _new_sub() -> Sub:
 	add_child(sub)
 	return sub
 
-func _test_scrap_pickup() -> void:
-	print("[scrap pickup]")
+func _test_storage_counters() -> void:
+	print("[storage counters]")
 	var sub := _new_sub()
 
-	var item := SalvageItem.make_scrap(Vector2.ZERO)
-	add_child(item)
+	sub.deposit_salvage(SalvageItem.Kind.SCRAP)
+	sub.deposit_salvage(SalvageItem.Kind.SCRAP)
+	sub.deposit_salvage(SalvageItem.Kind.FISH)
+	_check(sub.storage_scrap == 2, "depositing scrap raises the scrap counter")
+	_check(sub.storage_fish == 1, "depositing a carcass raises the fish counter")
 
-	await _frames(4)
-	_check(sub.storage_scrap == 1, "scrap crate inside the hull bounds is collected")
-	_check(not is_instance_valid(item) or item.is_queued_for_deletion(),
-		"collected scrap item is removed from the world")
+	# Unbanked storage is lost on implosion reset (the push-your-luck stakes).
+	sub.reset_state()
+	_check(sub.storage_scrap == 0 and sub.storage_fish == 0,
+		"reset (implosion) clears unbanked on-board storage")
 
 	sub.queue_free()
 	await _frames(2)
 
-func _test_fish_carcass() -> void:
-	print("[fish carcass]")
-	var sub := _new_sub()
-
+func _test_carcass_kind() -> void:
+	print("[carcass tagging]")
 	var carcass := SalvageItem.make_carcass(Vector2.ZERO)
 	add_child(carcass)
-
 	_check(carcass.kind == SalvageItem.Kind.FISH, "carcass has the FISH kind")
+	_check(carcass.is_in_group("salvage"), "carcass is findable by the claw")
 	_check(carcass.is_in_group("salvage_carcass"), "carcass is tagged for run-reset cleanup")
-
-	await _frames(4)
-	_check(sub.storage_fish == 1, "a carcass drifting into the hull is collected")
-
-	sub.queue_free()
+	carcass.queue_free()
 	await _frames(2)
 
 func _test_dock_banking() -> void:

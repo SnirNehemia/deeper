@@ -9,6 +9,10 @@ extends Node2D
 ## than on the station node) so they tilt with the hull's pitch (playtest #8).
 var turret: TurretStation = null
 
+## The salvage claw station, set by Sub. Its belly arm is drawn here so it
+## tilts with the hull too.
+var claw: ClawStation = null
+
 func _draw() -> void:
 	var deck_y := Sub.CEIL_Y - Sub.WALL_T
 	var conn_ceil_y := deck_y - 2.0 * Sub.PPM
@@ -74,6 +78,7 @@ func _draw() -> void:
 	draw_circle(Vector2(tx, -30.0), 6.0, PlaceholderArt.HULL_COLOR)
 
 	_draw_turret()
+	_draw_claw()
 	_draw_water()
 
 ## The bow torpedo tube + aimed barrel, drawn in hull-local space so it pitches
@@ -90,6 +95,26 @@ func _draw_turret() -> void:
 		draw_line(tube + dir * 34.0, tube + dir * 150.0, Color(1.0, 1.0, 1.0, 0.35), 2.0)
 		if turret.is_ready_to_fire():
 			draw_circle(tube + dir * 150.0, 4.0, Color(1.0, 1.0, 1.0, 0.6))
+
+## The belly salvage claw: a telescoping arm from the keel anchor out to the
+## current tip, with a little open claw at the end. Drawn in hull-local space
+## so it pitches with the sub.
+func _draw_claw() -> void:
+	if claw == null:
+		return
+	var anchor := ClawStation.ANCHOR_LOCAL
+	var tip := anchor + claw.aim_dir * claw.length
+	# A small port box on the keel where the arm exits.
+	draw_rect(Rect2(anchor + Vector2(-10.0, -6.0), Vector2(20.0, 10.0)),
+		PlaceholderArt.SUB_STRUCTURE)
+	if claw.length <= 0.5:
+		return
+	draw_line(anchor, tip, PlaceholderArt.SUB_STRUCTURE, 5.0)
+	# Two little pincers splaying off the tip's forward direction.
+	var fwd := claw.aim_dir
+	var side := fwd.orthogonal()
+	draw_line(tip, tip + (fwd * 0.4 + side).normalized() * 14.0, PlaceholderArt.LADDER_COLOR, 4.0)
+	draw_line(tip, tip + (fwd * 0.4 - side).normalized() * 14.0, PlaceholderArt.LADDER_COLOR, 4.0)
 
 ## Flooding water: a flat rect rising from the floor of each room, clipped to
 ## the room rectangle. Drawn last so it sits over the interior/structure.

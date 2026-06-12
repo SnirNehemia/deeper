@@ -35,6 +35,8 @@ static func make_carcass(world_pos: Vector2) -> SalvageItem:
 	return item
 
 func _ready() -> void:
+	# Joined so the claw station can find nearby salvage to grip.
+	add_to_group("salvage")
 	collision_layer = Layers.SALVAGE
 	collision_mask = 0
 	monitorable = true
