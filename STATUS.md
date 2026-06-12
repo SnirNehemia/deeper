@@ -1,13 +1,80 @@
 # STATUS — DEEPER
 
-_Read this at session start. Last updated: 2026-06-12 (M3 Module E: wrecks +
-salvage placement + fish guards — Milestone 3 is now fully closed; M4 Module 1
-also landed)._
+_Read this at session start. Last updated: 2026-06-12 (M4 Module 1b: grid
+resized to the uniform 3.75m cell per `ROOM_SYSTEM.md`)._
 
 ## Where we are
 **Milestone 3 is closed (Modules A-E).** Milestone 4
-("The Dry Dock & The Growing Sub", v2 — see `MILESTONE_4_v2.md` and
-`MODULAR_SUB_IMPLEMENTATION.md`) is underway. All **20** headless suites green.
+("The Dry Dock & The Growing Sub" — see `MILESTONE_4_v2.md`,
+`MODULAR_SUB_IMPLEMENTATION.md`, and **`ROOM_SYSTEM.md`**, which supersedes
+parts of the other two — read it first) is underway. All **20** headless
+suites green.
+
+**Read `ROOM_SYSTEM.md` and `SKILL_STUB_add_room.md` before touching anything
+in M4** — they replace the mixed-footprint catalog with one uniform cell, add
+the s1-s5 authoring/section-bake layer, and reorder the milestone (see
+"M4 module order" below). `SKILL_STUB_add_module.md` is dead — superseded by
+`SKILL_STUB_add_room.md`.
+
+### Milestone 4 — Module 1b: grid resized to the uniform 3.75m cell
+- Per `ROOM_SYSTEM.md` §1-2: the mixed 2x1/1x1 footprint catalog is replaced
+  with **one uniform cell** for every room (helm, tower, control room, engine,
+  claw room, storage, turret room) — **3.75m wide x 3m tall** (five 0.75m
+  "sections," s1-s5, the new authoring layer for where stations/hatches/guns
+  sit within a room — sections bake to coordinates before the generation
+  pipeline runs and never reach it).
+- `SubGrid` (scripts/sub/grid.gd): `CELL_W_M` is now 3.75 (was 2.5),
+  `CELL_W_PX` 180 (was 120); added `SECTION_W_M = 0.75`. `CELL_H_M`/`CELL_H_PX`
+  unchanged (3.0m / 144px).
+- `ModuleCatalog`: every room's `footprint` is now `Vector2i(1, 1)`.
+- `SubLayout.starting_layout()` ("the Minnow+") re-expressed on the new grid:
+  same adjacencies (engine/control/helm in a row, tower above control,
+  storage below engine, claw below control), each now a single cell.
+- **Data-only, same as Module 1** — nothing in the running game changed; the
+  hand-built M3 sub still builds and plays exactly as before. **Not yet
+  visible in-game** — the wider/uniform cells only become visible once
+  Modules 3-4 (generated interiors/hull/water) swap in the generated sub, at
+  which point Checkpoint 1 asks Snir to judge the new sizing.
+- Test: `test_layout` updated for the new constants/footprints (20/20 suites
+  green).
+- **Commit:** `M4-1b: resize grid to uniform 3.75m cell per ROOM_SYSTEM.md`.
+
+### M4 module order (corrected per `ROOM_SYSTEM.md` reconciliation, 2026-06-12)
+`MILESTONE_4_v2.md`'s eleven modules are still the backbone, but three things
+from `ROOM_SYSTEM.md` change the order and add a module. This list is the
+current source of truth for M4 sequencing — supersedes the v2 numbering below:
+
+1. **M4-1 / M4-1b** (done) — grid + layout data model, resized to the uniform
+   3.75m cell.
+2. **M4-2 (new)** — **slot economy**: buyable empty room-shells (real,
+   walled, generated rooms with no station inside), adjacent to the existing
+   hull, escalating price separate from room prices. Gates everything below —
+   a bought room has nowhere to go without a bought slot.
+3. **M4-3** — validation engine (`validate(layout)`, all 7 rules + slot/
+   ladder-parity checks).
+4. **M4-4** — generated interiors + connections (rooms, auto-doors, auto
+   ladders with floor-parity sides, the section-bake step).
+5. **M4-5** — generated hull, water cells, damage, implosion on the new cell
+   size.
+   - **⛳ CHECKPOINT 1** — Snir plays: does the wider/uniform-cell sub still
+     feel right?
+6. **M4-6** — save extension (scrap + inventory + slots + layout, with the
+   "invalid layout → inventory, nothing lost" recovery).
+7. **M4-7** — dock shop: sells slots **and** rooms; multi-resource cost
+   engine (scrap + small/medium/large carcasses, `ROOM_SYSTEM.md` §4.2).
+8. **M4-8** — assembly screen: places owned rooms into owned slots; left/right
+   wall choice for outside-mounted elements (guns, claws).
+9. **M4-9** — pods plumbing.
+   - **⛳ CHECKPOINT 2** — Snir plays: buy a slot, buy a room, place it,
+     rearrange.
+10. **M4-10** — first hand-built purchasable room with a real mechanic (a
+    weapon room, per `ROOM_SYSTEM.md` §6) — the reference implementation for
+    the add-room skill.
+11. **M4-11** — build the `add-deeper-room` skill (per
+    `SKILL_STUB_add_room.md`), validated by re-deriving the M4-10 room from it.
+12. **M4-12** — second content room, built using the skill (e.g. the
+    floodlight pod or another `ROOM_SYSTEM.md` §6 room).
+13. **M4-13** — close-out: full suite, STATUS/DECISIONS updates, push.
 
 ### Milestone 3 — Module E: wrecks + salvage placement + fish guards (closes M3)
 - A `Wreck` (scripts/salvage/wreck.gd): a placeholder ~4m broken-hull shape,
@@ -261,11 +328,11 @@ all M1 questions (crew weight, sub heft, camera framing).
 ## Suggested next step
 **Playtest M3 close-out (verify-by-playing below) — the wrecks + bigger fish
 roster, alongside the existing claw/ferry loop.** Then, in parallel/after:
-**M4 Module 2: `validate(layout)`** — the single legality function (7 rules
-from MODULAR_SUB_IMPLEMENTATION.md §5), pure and headless-testable
-(`test_validate`). Still no gameplay/scene changes from M4 — the hand-built
-sub keeps running as-is until Module 3 swaps the interior for the generated
-one.
+**M4-2: the slot economy** (per the "M4 module order" above and
+`ROOM_SYSTEM.md` §4.1) — buyable empty room-shells, adjacent to the existing
+hull, with their own escalating price track separate from room prices. Still
+no visible gameplay change from M4 yet — the hand-built sub keeps running
+as-is until M4-4/M4-5 swap in the generated interior/hull.
 
 Open questions for Snir (M3 close-out): is a wreck satisfying to crack open
 with a torpedo? Does the unguarded shallows wreck feel like a fair "easy

@@ -294,7 +294,66 @@
   of the original Module D brief was already superseded by the claw rework's
   visible-cage + carry-ferry design.
 
+## Settled (2026-06-12, ROOM_SYSTEM.md reconciliation with M4)
+- **One uniform cell, 3.75m x 3m**, replaces the M4-draft's mixed 2x1/1x1
+  footprint catalog — every room (helm, tower, control room, engine, claw
+  room, storage, turret room) is exactly one cell. Larger (multi-cell) rooms
+  are deliberately deferred until a specific one is designed
+  (`ROOM_SYSTEM.md` §7) — not to be generalized speculatively.
+  - 3.75m = five 0.75m "sections" (s1-s5), a pure authoring layer for where a
+    room's elements (station, hatch, gun, claw, ladder) sit. Sections bake to
+    local coordinates *before* `rebuild_from_layout` runs and never reach the
+    pipeline, water model, hull generator, or `validate()`.
+  - **Flagged as a playtest point, not fully locked:** the 3.75m width is
+    "subject to change after a playtest where Snir inspects if it's the right
+    size" — re-raise at Checkpoint 1 (first time the generated/uniform-cell
+    sub is actually visible).
+- **Ladders are parity-placed, never authored:** odd floors (counted from the
+  tower down) put their ladder in section s1, even floors in s5 — same "sides
+  alternate floor-to-floor" rule from M3 Module A, now expressed on the
+  section grid instead of hand-placed per room.
+- **The room economy becomes two separate purchases:** buying a **slot** (an
+  empty, real, generated room-shell — walls/floor/ceiling/auto-doors/ladders,
+  just no station — adjacent to the existing hull, "Option B": the hull
+  visibly grows the instant you buy it) is independent from buying a **room**
+  (a module bought into inventory, then placed into an owned empty slot).
+  Slot price escalates on slots-owned only, on its own track separate from
+  room-price escalation. This becomes M4's first *content* module (M4-2),
+  ahead of the shop/assembly work, since a bought room has nowhere to go
+  without a bought slot.
+- **Costs become multi-resource:** scrap (`sc`) plus small/medium/large
+  carcass tiers (`s_ca`/`m_ca`/`l_ca`, `ROOM_SYSTEM.md` §4.2). Only small
+  carcasses drop today (from the existing fish); `m_ca`/`l_ca`-priced
+  upgrades ship **visible but unaffordable** until later milestones add bigger
+  enemies — plus a **debug-mode "+1 medium/+1 large carcass"** button
+  alongside the existing scrap/small-carcass debug adds, for testing those
+  paths early.
+- **Control room (the M3 "middle room") stays a single uniform cell** — it
+  only ever holds one station, so it doesn't need the deferred larger-room
+  treatment.
+- **Tower keeps its own cell** (always the top room); what station/ability
+  lives in it is still an open design question (parked below).
+- **`SKILL_STUB_add_room.md` supersedes `SKILL_STUB_add_module.md`** (now
+  dead) — the add-room skill is scaffolded at M4 kickoff with the
+  canon-derived parts (room-def schema, section/ladder/economy/upgrade
+  conventions) written now, and the code-wired parts (file paths,
+  `GameFeel` keys, `validate` rule-add mechanism) filled in once M4-10 (the
+  first hand-built purchasable room) exists. The skill is then validated by
+  re-deriving that room from scratch in a scratch branch.
+- **Corrected M4 module order** (supersedes `MILESTONE_4_v2.md`'s 1-11
+  numbering; full list in `STATUS.md` "M4 module order"): grid resize (1b) →
+  slot economy (2, new) → validation (3) → generated interiors/connections (4)
+  → generated hull/water/damage (5) → Checkpoint 1 → save (6) → dock shop with
+  multi-resource costs (7) → assembly (8) → pods (9) → Checkpoint 2 → first
+  hand-built content room (10) → add-room skill (11) → second room via the
+  skill (12) → close-out (13).
+
 ## Parked
+- **What station/ability lives in the conning tower?** It's a fixed, always-
+  present single cell at the top of the sub (core, like the helm) — Snir is
+  still thinking about what makes it a unique room rather than a copy of an
+  existing one. Revisit before/at M4-10 (first content room) if a decision is
+  needed by then; otherwise it can stay an empty tower through Checkpoint 2.
 - Snappy Overcooked-style crew movement (kept as switchable preset; playtest against weighty)
 - Phone-as-controller via WebSocket (post-MVP, only if gamepads aren't enough)
 - Godot MCP for Claude Code (revisit only if visual-bug iteration becomes painful)
