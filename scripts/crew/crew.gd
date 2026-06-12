@@ -173,7 +173,9 @@ func _update_repair(repairing: bool, delta: float) -> void:
 				target = b
 	_repair_target = target
 	if target != null:
-		target.repair_progress += delta / GameFeel.water.repair_time
+		# "Repair Training" crew upgrade (Module D) shortens the patch time.
+		var repair_time: float = GameFeel.water.repair_time * sub.repair_time_mult()
+		target.repair_progress += delta / repair_time
 		if target.repair_progress >= 1.0:
 			sub.remove_breach(target)
 			_repair_target = null

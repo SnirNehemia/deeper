@@ -22,12 +22,63 @@ var _crew: Array[Crew] = []
 var _fade: ColorRect
 var _shake_time: float = 0.0
 var _resetting: bool = false
+var _depth_hud: DepthHud
+var _salvage_hud: SalvageHud
+var _alerts: AlertHud
+var _dock_prompt: Label
+var _dry_dock: DryDock = null
 
 func _ready() -> void:
 	add_child(ShoreShelf.new())
 
-	# Sub spawns floating at the surface, just past the dock over the shallows.
+	# Sub (built from the saved loadout) + crew, floating at the dock.
+	_spawn_sub_and_crew()
+
+	# Territorial fish: one guarding the cave mouth, two around the basin
+	# pillars. They reset home via the "fish" group on implosion.
+	_add_fish(Vector2(70.0 * M, 64.0 * M))    # cave mouth
+	_add_fish(Vector2(96.0 * M, 47.0 * M))    # first pillar
+	_add_fish(Vector2(138.0 * M, 54.0 * M))   # third pillar
+
+	# Fixed-zoom follow camera: ~60 m visible width, smoothed.
+	_cam = Camera2D.new()
+	var visible_width_m := 60.0
+	var zoom := get_viewport().get_visible_rect().size.x / (visible_width_m * M)
+	_cam.zoom = Vector2(zoom, zoom)
+	_cam.position_smoothing_enabled = true
+	_cam.position_smoothing_speed = 5.0
+	add_child(_cam)
+	_cam.make_current()
+
+	_depth_hud = DepthHud.new()
+	_depth_hud.sub = _sub
+	add_child(_depth_hud)
+
+	_alerts = AlertHud.new()
+	add_child(_alerts)
+	_alerts.watch(_sub)
+
+	_salvage_hud = SalvageHud.new()
+	_salvage_hud.sub = _sub
+	add_child(_salvage_hud)
+
+	# Implosion fade overlay (above everything; transparent until needed).
+	var fade_layer := CanvasLayer.new()
+	fade_layer.layer = 10
+	add_child(fade_layer)
+	_fade = ColorRect.new()
+	_fade.color = Color(0, 0, 0, 0)
+	_fade.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	fade_layer.add_child(_fade)
+
+	_add_hint_label()
+	_add_dock_prompt()
+
+## Build the sub from the saved loadout and seat the two crew inside it.
+func _spawn_sub_and_crew() -> void:
 	_sub = Sub.new()
+	_sub.loadout = SaveData.loadout
 	_sub.buoyancy_enabled = true  # floats at the surface, can't fly out of the water
 	_sub.position = SUB_SPAWN
 	add_child(_sub)
@@ -46,46 +97,6 @@ func _ready() -> void:
 	_sub.add_child(p2)
 	_crew = [p1, p2]
 
-	# Territorial fish: one guarding the cave mouth, two around the basin
-	# pillars. They reset home via the "fish" group on implosion.
-	_add_fish(Vector2(70.0 * M, 64.0 * M))    # cave mouth
-	_add_fish(Vector2(96.0 * M, 47.0 * M))    # first pillar
-	_add_fish(Vector2(138.0 * M, 54.0 * M))   # third pillar
-
-	# Fixed-zoom follow camera: ~60 m visible width, smoothed.
-	_cam = Camera2D.new()
-	var visible_width_m := 60.0
-	var zoom := get_viewport().get_visible_rect().size.x / (visible_width_m * M)
-	_cam.zoom = Vector2(zoom, zoom)
-	_cam.position_smoothing_enabled = true
-	_cam.position_smoothing_speed = 5.0
-	add_child(_cam)
-	_cam.make_current()
-
-	var hud := DepthHud.new()
-	hud.sub = _sub
-	add_child(hud)
-
-	var alerts := AlertHud.new()
-	add_child(alerts)
-	alerts.watch(_sub)
-
-	var salvage_hud := SalvageHud.new()
-	salvage_hud.sub = _sub
-	add_child(salvage_hud)
-
-	# Implosion fade overlay (above everything; transparent until needed).
-	var fade_layer := CanvasLayer.new()
-	fade_layer.layer = 10
-	add_child(fade_layer)
-	_fade = ColorRect.new()
-	_fade.color = Color(0, 0, 0, 0)
-	_fade.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	fade_layer.add_child(_fade)
-
-	_add_hint_label()
-
 func _physics_process(delta: float) -> void:
 	if _sub != null and _cam != null:
 		_cam.global_position = _sub.global_position
@@ -97,8 +108,11 @@ func _physics_process(delta: float) -> void:
 			_cam.offset = Vector2.ZERO
 
 	# Module B: returning to the dock banks whatever's on board.
+	# Module D: while docked, the dry dock can be opened to spend it.
 	if _sub != null:
 		_sub.try_bank(SUB_SPAWN, DOCK_BANK_RADIUS)
+		if _dock_prompt != null:
+			_dock_prompt.visible = _is_docked() and _dry_dock == null
 
 ## Lose condition: too much water. Crunch (~1.5s of shake + hull crumple +
 ## fade to dark), then a clean reset back at the dock. One guard flag keeps
@@ -153,7 +167,59 @@ func _add_hint_label() -> void:
 	label.add_theme_constant_override("outline_size", 5)
 	layer.add_child(label)
 
+## "Press Tab: Dry Dock" prompt, shown only while floating at the dock.
+func _add_dock_prompt() -> void:
+	var layer := CanvasLayer.new()
+	add_child(layer)
+	_dock_prompt = Label.new()
+	_dock_prompt.text = "At the dock — press Tab to open the Dry Dock and spend salvage"
+	_dock_prompt.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	_dock_prompt.offset_top = 70
+	_dock_prompt.offset_left = -360
+	_dock_prompt.size = Vector2(720, 40)
+	_dock_prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_dock_prompt.add_theme_font_size_override("font_size", 24)
+	_dock_prompt.add_theme_color_override("font_color", Color("e0c060"))
+	_dock_prompt.add_theme_color_override("font_outline_color", Color.BLACK)
+	_dock_prompt.add_theme_constant_override("outline_size", 5)
+	_dock_prompt.visible = false
+	layer.add_child(_dock_prompt)
+
+func _is_docked() -> bool:
+	return _sub != null \
+		and _sub.global_position.distance_to(SUB_SPAWN) <= DOCK_BANK_RADIUS
+
+## Open the dry dock (pauses the run). On close, if anything was bought, the
+## sub is rebuilt so the new room/upgrades take effect immediately.
+func _open_dry_dock() -> void:
+	if _dry_dock != null or _resetting:
+		return
+	_dry_dock = DryDock.new()
+	add_child(_dry_dock)
+	_dry_dock.closed.connect(_on_dry_dock_closed)
+
+func _on_dry_dock_closed(changed: bool) -> void:
+	_dry_dock = null
+	if changed:
+		_rebuild_sub()
+
+## Rebuild the sub from the (possibly upgraded) loadout, at the dock, with a
+## fresh crew aboard. Used after a dry-dock purchase so changes show up now.
+func _rebuild_sub() -> void:
+	_sub.queue_free()  # frees its crew + stations too
+	_spawn_sub_and_crew()
+	_depth_hud.sub = _sub
+	_salvage_hud.sub = _sub
+	_alerts.watch(_sub)
+	_cam.reset_smoothing()
+
 func _unhandled_input(event: InputEvent) -> void:
-	# Dev convenience only (not gameplay input): quit on Esc.
-	if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
+	# Dev convenience only (not gameplay input): quit on Esc, dry dock on Tab.
+	if not (event is InputEventKey) or not event.pressed:
+		return
+	if event.keycode == KEY_ESCAPE:
 		get_tree().quit()
+	elif event.keycode == KEY_TAB and _is_docked():
+		_open_dry_dock()
+		# Consume so this same press doesn't reach the dock as a "close".
+		get_viewport().set_input_as_handled()

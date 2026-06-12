@@ -8,13 +8,23 @@ extends Station
 ## threats. `use` fires slow torpedoes with infinite ammo. The barrel itself is
 ## drawn by SubVisual so it tilts with the hull (playtest #6/#8).
 
-## Where the tube sits on the hull, in sub-local space (bow, mid-height).
+## Where the default bow tube sits on the hull, in sub-local space.
 const TUBE_LOCAL := Vector2(Sub.HALF_W + 36.0, -Sub.ROOM_H * 0.5)
 
-## Current aim angle in radians (0 = straight ahead off the bow, + = down).
+## This gun's tube position (sub-local) and which way it faces: +1 = aims off
+## the bow (right), -1 = aims off the stern (left). Set by Sub at build time so
+## a bought stern/bow gun can sit anywhere; the original turret uses the bow.
+var tube_local: Vector2 = TUBE_LOCAL
+var facing: float = 1.0
+
+## Current aim angle in radians (0 = straight along the gun's facing, + = down).
 var aim_angle: float = 0.0
 
 var _cooldown: float = 0.0
+
+## The barrel's local direction: forward along `facing`, tilted by aim_angle.
+func barrel_dir() -> Vector2:
+	return Vector2(facing * cos(aim_angle), sin(aim_angle))
 
 func _physics_process(delta: float) -> void:
 	_cooldown = maxf(0.0, _cooldown - delta)
@@ -38,11 +48,10 @@ func _fire() -> void:
 	_cooldown = GameFeel.turret.fire_cooldown
 	# The visible barrel tilts with the hull's cosmetic pitch, so launch the
 	# torpedo along that same tilted line (keeps shot + barrel aligned).
-	var world_angle := aim_angle + sub.pitch
-	var dir := Vector2.from_angle(world_angle)
+	var dir := barrel_dir().rotated(sub.pitch)
 	var torpedo := Torpedo.new()
 	torpedo.velocity = dir * GameFeel.turret.torpedo_speed * GameFeel.PIXELS_PER_METER
 	# Launch into the world (not the sub) so it flies free of the hull.
 	var world := sub.get_parent()
 	world.add_child(torpedo)
-	torpedo.global_position = sub.to_global(TUBE_LOCAL.rotated(sub.pitch)) + dir * 30.0
+	torpedo.global_position = sub.to_global(tube_local.rotated(sub.pitch)) + dir * 30.0

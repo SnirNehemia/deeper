@@ -5,9 +5,10 @@ extends Node2D
 ## a cosmetic pitch tilt (rotate this) while the physics body and the crew stay
 ## perfectly upright. Reads the geometry constants from Sub.
 
-## The turret station, set by Sub. Its bow tube + barrel are drawn here (rather
+## The turret stations, set by Sub. Each tube + barrel is drawn here (rather
 ## than on the station node) so they tilt with the hull's pitch (playtest #8).
-var turret: TurretStation = null
+## One for the base bow gun, plus the bought gun-room gun if present.
+var turrets: Array[TurretStation] = []
 
 ## The salvage claw station, set by Sub. Its belly arm is drawn here so it
 ## tilts with the hull too.
@@ -17,11 +18,15 @@ func _draw() -> void:
 	var deck_y := Sub.CEIL_Y - Sub.WALL_T
 	var conn_ceil_y := deck_y - 2.0 * Sub.PPM
 
-	# Outer hull silhouette: one continuous shape, drawn as three overlapping
-	# rounded rects (main deck, lower deck, conning tower) — each room block
-	# expanded by a uniform margin (Sub.HULL_*_RECT), so it reads as a single
-	# hull rather than separate "blobs" (playtest #1 of Module A).
-	for r in [Sub.HULL_MAIN_RECT, Sub.HULL_LOWER_RECT, Sub.HULL_CONN_RECT]:
+	var sub := get_parent() as Sub
+
+	# Outer hull silhouette: one continuous shape, drawn as overlapping rounded
+	# rects (main deck, lower deck, conning tower, + a bought gun room) — each
+	# room block expanded by a uniform margin, so it reads as a single hull
+	# rather than separate "blobs" (playtest #1 of Module A).
+	var rects: Array = sub.hull_rects() if sub != null else \
+		[Sub.HULL_MAIN_RECT, Sub.HULL_LOWER_RECT, Sub.HULL_CONN_RECT]
+	for r in rects:
 		_draw_round_rect(r, 24.0, PlaceholderArt.HULL_COLOR)
 
 	# Room interiors.
@@ -77,24 +82,46 @@ func _draw() -> void:
 	draw_rect(Rect2(tx - 14.0, -22.0, 28.0, 22.0), PlaceholderArt.SUB_STRUCTURE)
 	draw_circle(Vector2(tx, -30.0), 6.0, PlaceholderArt.HULL_COLOR)
 
-	_draw_turret()
+	if sub != null and sub.has_gun_room():
+		_draw_gun_room(sub)
+
+	for t in turrets:
+		_draw_turret(t)
 	_draw_claw()
 	_draw_water()
 
-## The bow torpedo tube + aimed barrel, drawn in hull-local space so it pitches
-## with the sub. Reads the live aim angle + occupancy from the turret station.
-func _draw_turret() -> void:
-	if turret == null:
+## A torpedo tube + aimed barrel for one gun, drawn in hull-local space so it
+## pitches with the sub. Reads the live aim + occupancy from the station.
+func _draw_turret(t: TurretStation) -> void:
+	if t == null:
 		return
-	var tube := TurretStation.TUBE_LOCAL
-	draw_rect(Rect2(tube + Vector2(-18.0, -10.0), Vector2(28.0, 20.0)),
+	var tube := t.tube_local
+	draw_rect(Rect2(tube - Vector2(14.0, 10.0), Vector2(28.0, 20.0)),
 		PlaceholderArt.SUB_STRUCTURE)
-	var dir := Vector2.from_angle(turret.aim_angle)
+	var dir := t.barrel_dir()
 	draw_line(tube, tube + dir * 34.0, PlaceholderArt.SUB_STRUCTURE, 8.0)
-	if turret.occupant != null:
+	if t.occupant != null:
 		draw_line(tube + dir * 34.0, tube + dir * 150.0, Color(1.0, 1.0, 1.0, 0.35), 2.0)
-		if turret.is_ready_to_fire():
+		if t.is_ready_to_fire():
 			draw_circle(tube + dir * 150.0, 4.0, Color(1.0, 1.0, 1.0, 0.6))
+
+## The bought gun room's interior: its room background, floor highlight, the
+## doorway into the neighbouring end room, and a gunner console.
+func _draw_gun_room(sub: Sub) -> void:
+	var r := sub.room_rect(Sub.GUN_ROOM)
+	draw_rect(r, PlaceholderArt.SUB_INTERIOR)
+	draw_rect(Rect2(r.position.x, 0.0, r.size.x, 6.0), PlaceholderArt.SUB_FLOOR)
+	# Doorway header + step at the inner boundary with the end room.
+	var inner := sub.gun_room_side() * Sub.HALF_W
+	var header_h := Sub.ROOM_H - Sub.DOOR_H
+	draw_rect(Rect2(inner - Sub.WALL_T * 0.5, Sub.CEIL_Y, Sub.WALL_T, header_h),
+		PlaceholderArt.SUB_STRUCTURE)
+	draw_rect(Rect2(inner - Sub.WALL_T * 0.5, -Sub.DOOR_STEP_H, Sub.WALL_T, Sub.DOOR_STEP_H),
+		PlaceholderArt.SUB_STRUCTURE)
+	# Gunner console.
+	var gx := r.get_center().x
+	draw_rect(Rect2(gx - 14.0, -22.0, 28.0, 22.0), PlaceholderArt.SUB_STRUCTURE)
+	draw_circle(Vector2(gx, -30.0), 6.0, PlaceholderArt.HULL_COLOR)
 
 ## The belly salvage claw: a telescoping arm from the keel anchor out to the
 ## current tip, with a little open claw at the end. Drawn in hull-local space
@@ -122,7 +149,7 @@ func _draw_water() -> void:
 	var sub := get_parent() as Sub
 	if sub == null:
 		return
-	for i in Sub.ROOM_COUNT:
+	for i in sub.active_room_count():
 		var level: float = sub.water_levels[i]
 		if level <= 0.0:
 			continue

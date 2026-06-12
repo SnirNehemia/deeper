@@ -56,8 +56,10 @@ const CLAW_LADDER_X := -84.0
 const STORAGE_LADDER_X := -330.0
 
 ## Water "rooms": engine (0), middle (1), helm (2), conning area (3),
-## claw room (4, below middle), storage room (5, below engine).
+## claw room (4, below middle), storage room (5, below engine). A bought gun
+## room (Module D) is appended as room 6 when present.
 const ROOM_COUNT := 6
+const GUN_ROOM := 6  # index of the optional bought gun room
 ## Outer hull silhouette (Milestone 3, playtest #1): one continuous hull shape
 ## built as three overlapping rounded rectangles, each the matching interior
 ## room block (main deck, lower deck, conning tower) expanded outward by a
@@ -105,8 +107,19 @@ const _EMERGE_RANGE := 220.0
 
 ## Per-room water level (0-1 fraction of room height), indexed by
 ## room id: 0 = engine, 1 = middle, 2 = helm, 3 = conning area,
-## 4 = claw room, 5 = storage room.
+## 4 = claw room, 5 = storage room, 6 = bought gun room (if any).
 var water_levels: Array[float] = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+
+## The persistent upgrade state this sub was built from (Module D, the dry
+## dock). The world sets it from SaveData before adding the sub; tests and
+## sandboxes leave it at the base (no upgrades). Read at build time.
+var loadout: SubLoadout = SubLoadout.new()
+
+## How many water rooms this sub actually has (6 base, 7 with a gun room).
+## Set in _ready from the loadout; internal loops use this, not the const.
+var _active_rooms: int = ROOM_COUNT
+## Cached movement multiplier from the loadout (engine boost).
+var _move_mult: float = 1.0
 
 ## Live hull breaches, each leaking into its room (see Breach).
 var breaches: Array[Breach] = []
@@ -145,6 +158,10 @@ const _IMPACT_COOLDOWN_TIME := 0.6
 func _ready() -> void:
 	collision_layer = Layers.SUB_HULL
 	collision_mask = Layers.TERRAIN
+	# Read the loadout into the live room count + movement multiplier.
+	_active_rooms = ROOM_COUNT + (1 if has_gun_room() else 0)
+	_move_mult = loadout.move_mult()
+	water_levels.resize(_active_rooms)
 	_visual = SubVisual.new()
 	add_child(_visual)
 	_build_hull_collision()
@@ -153,21 +170,48 @@ func _ready() -> void:
 	_build_helm()
 	_build_turret()
 	_build_claw()
+	if has_gun_room():
+		_build_gun_room()
+		_build_gun_turret()
+
+## How many water rooms this sub currently has (6 base, 7 with a gun room).
+func active_room_count() -> int:
+	return _active_rooms
+
+## True if a second gun room was bought and placed (Module D).
+func has_gun_room() -> bool:
+	return loadout.gun_room != SubLoadout.Slot.NONE
+
+## Which hull side the gun room is on: -1 = stern (left), +1 = bow (right),
+## 0 = no gun room.
+func gun_room_side() -> int:
+	match loadout.gun_room:
+		SubLoadout.Slot.STERN: return -1
+		SubLoadout.Slot.BOW: return 1
+	return 0
+
+## The repair-time multiplier the crew applies (lower = faster, from the
+## "Repair Training" crew upgrade).
+func repair_time_mult() -> float:
+	return loadout.repair_time_mult()
 
 func _physics_process(delta: float) -> void:
 	var feel: GameFeel.SubFeel = GameFeel.sub
 	var ppm: float = GameFeel.PIXELS_PER_METER
 
+	# Engine boost (Module D) scales top speed + thrust. Base sub: mult = 1.
+	var mult := _move_mult
+
 	# Horizontal: velocity-target control (heavy spin-up / long coast).
-	var target_x := clampf(drive_input.x, -1.0, 1.0) * feel.max_speed_h * ppm
+	var target_x := clampf(drive_input.x, -1.0, 1.0) * feel.max_speed_h * ppm * mult
 	var rate_x := feel.accel_h() if absf(target_x) > 0.01 else feel.decel_h()
-	velocity.x = move_toward(velocity.x, target_x, rate_x * ppm * delta)
+	velocity.x = move_toward(velocity.x, target_x, rate_x * ppm * mult * delta)
 
 	# Vertical: acceleration-based thrust (bounded), so buoyancy weight can
 	# actually overpower it near the surface instead of being cancelled out.
-	var max_v := feel.max_speed_v * ppm
+	var max_v := feel.max_speed_v * ppm * mult
 	if absf(drive_input.y) > 0.01:
-		velocity.y += clampf(drive_input.y, -1.0, 1.0) * feel.accel_v() * ppm * delta
+		velocity.y += clampf(drive_input.y, -1.0, 1.0) * feel.accel_v() * ppm * mult * delta
 	else:
 		velocity.y = move_toward(velocity.y, 0.0, feel.decel_v() * ppm * delta)
 	if buoyancy_enabled:
@@ -216,9 +260,21 @@ func room_rect(i: int) -> Rect2:
 			return Rect2(-DIV_X, 0.0, ROOM_W, LOWER_ROOM_H)
 		5:  # storage room, directly below the engine room
 			return Rect2(-HALF_W, 0.0, ROOM_W, LOWER_ROOM_H)
+		GUN_ROOM:  # bought gun room, bolted onto the stern or bow end
+			return _gun_room_rect()
 		_:
 			var room_x := -HALF_W + i * ROOM_W
 			return Rect2(room_x, CEIL_Y, ROOM_W, ROOM_H)
+
+## Local rect of the bought gun room (a main-deck-sized room appended at the
+## chosen end), or an empty rect if none was bought.
+func _gun_room_rect() -> Rect2:
+	match loadout.gun_room:
+		SubLoadout.Slot.STERN:
+			return Rect2(-HALF_W - ROOM_W, CEIL_Y, ROOM_W, ROOM_H)
+		SubLoadout.Slot.BOW:
+			return Rect2(HALF_W, CEIL_Y, ROOM_W, ROOM_H)
+	return Rect2()
 
 ## Cross-sectional "volume" (area) of a water room, used to weight flow and the
 ## overall fill fraction so the smaller conning area fills/drains faster.
@@ -231,7 +287,7 @@ func room_volume(i: int) -> float:
 func total_fill_fraction() -> float:
 	var total_water := 0.0
 	var total_vol := 0.0
-	for i in ROOM_COUNT:
+	for i in _active_rooms:
 		var vol := room_volume(i)
 		total_water += water_levels[i] * vol
 		total_vol += vol
@@ -241,7 +297,7 @@ func total_fill_fraction() -> float:
 ## of them (e.g. inside a doorway/header). Used by crew to find their water
 ## level and by stations to know which room floods them.
 func room_index_at(local_pos: Vector2) -> int:
-	for i in ROOM_COUNT:
+	for i in _active_rooms:
 		var r := room_rect(i)
 		if r.has_point(local_pos):
 			return i
@@ -250,7 +306,7 @@ func room_index_at(local_pos: Vector2) -> int:
 ## Water surface y (local space) for a given room, or +INF if the room index
 ## is invalid (treated as "no water here").
 func room_water_surface_y(room: int) -> float:
-	if room < 0 or room >= ROOM_COUNT:
+	if room < 0 or room >= _active_rooms:
 		return INF
 	var r := room_rect(room)
 	return r.position.y + r.size.y * (1.0 - water_levels[room])
@@ -265,12 +321,18 @@ func room_water_surface_y(room: int) -> float:
 func _door_connections() -> Array:
 	var door_sill: float = GameFeel.water.door_sill_m / GameFeel.water.room_height_m
 	var lower_door_sill: float = GameFeel.water.door_sill_m / GameFeel.water.lower_room_height_m
-	return [
+	var conns := [
 		{"a": 0, "b": 1, "sill": door_sill},
 		{"a": 1, "b": 2, "sill": door_sill},
 		{"a": 1, "b": 3, "sill": LADDER_SILL_FRACTION},
 		{"a": 5, "b": 4, "sill": lower_door_sill},
 	]
+	# The gun room shares a doorway with whichever end room it bolts onto:
+	# stern -> engine (0), bow -> helm (2).
+	if has_gun_room():
+		var neighbor := 0 if gun_room_side() < 0 else 2
+		conns.append({"a": neighbor, "b": GUN_ROOM, "sill": door_sill})
+	return conns
 
 ## Equalize water levels between connected rooms and clamp to [0, 1].
 ## Conserves total water volume across each pairwise transfer. Water only
@@ -280,16 +342,16 @@ func _update_water(delta: float) -> void:
 	var w: GameFeel.WaterFeel = GameFeel.water
 	# Breaches leak into their rooms; fully patched rooms auto-drain.
 	var room_breached: Array[bool] = []
-	room_breached.resize(ROOM_COUNT)
+	room_breached.resize(_active_rooms)
 	for breach in breaches:
 		water_levels[breach.room] += breach.leak_rate * delta
 		room_breached[breach.room] = true
-	for i in ROOM_COUNT:
+	for i in _active_rooms:
 		if not room_breached[i]:
 			water_levels[i] -= w.drain_rate * delta
 	for conn in _door_connections():
 		_flow_over_sill(conn["a"], conn["b"], conn["sill"], w.flow_rate, delta)
-	for i in ROOM_COUNT:
+	for i in _active_rooms:
 		water_levels[i] = clampf(water_levels[i], 0.0, 1.0)
 
 ## Spill water from the higher of two rooms into the lower, but only the part
@@ -379,7 +441,7 @@ func play_implosion_crunch() -> void:
 ## Full reset to a fresh-run state: dry rooms, no breaches, dead stop, level
 ## hull. The world moves the sub back to the dock and resets the crew.
 func reset_state() -> void:
-	for i in ROOM_COUNT:
+	for i in _active_rooms:
 		water_levels[i] = 0.0
 	for breach in breaches:
 		breach.queue_free()
@@ -405,7 +467,7 @@ func nearest_room(local_pos: Vector2) -> int:
 		return direct
 	var best := 0
 	var best_d := INF
-	for i in ROOM_COUNT:
+	for i in _active_rooms:
 		var r := room_rect(i)
 		var d := local_pos.distance_squared_to(r.get_center())
 		if d < best_d:
@@ -429,10 +491,26 @@ func _build_turret() -> void:
 	turret.sub = self
 	turret.room_index = 1  # middle flex room
 	turret.position = Vector2(TURRET_SEAT_X, HELM_SEAT_Y)
+	turret.tube_local = TurretStation.TUBE_LOCAL
+	turret.facing = 1.0
 	add_child(turret)
 	# The bow tube + barrel are drawn by the hull visual so they tilt with the
 	# sub's pitch (playtest #8); the station itself just holds the seat + logic.
-	_visual.turret = turret
+	_visual.turrets.append(turret)
+
+## The bought second gun: a turret in the gun room, its tube on the room's
+## outer wall aiming outward (stern guns face aft, bow guns face forward).
+func _build_gun_turret() -> void:
+	var side := gun_room_side()
+	var outer := side * (HALF_W + ROOM_W)
+	var turret := TurretStation.new()
+	turret.sub = self
+	turret.room_index = GUN_ROOM
+	turret.position = Vector2((side * HALF_W + outer) * 0.5, HELM_SEAT_Y)
+	turret.tube_local = Vector2(outer + side * 36.0, -ROOM_H * 0.5)
+	turret.facing = float(side)
+	add_child(turret)
+	_visual.turrets.append(turret)
 
 ## The salvage claw station, seated in the lower claw room. It reaches out the
 ## keel to grab salvage (Module C: the only way to collect — the hull no
@@ -475,8 +553,17 @@ func try_bank(dock_pos: Vector2, radius: float) -> bool:
 ## old rough rectangle hung ~1.5 m below the art, causing a visible gap). Tilts
 ## with the cosmetic pitch so the collision matches what you see.
 func _build_hull_collision() -> void:
-	for r in [HULL_MAIN_RECT, HULL_LOWER_RECT, HULL_CONN_RECT]:
+	for r in hull_rects():
 		_add_hull_rect(r)
+
+## The rectangles that make up the unified hull silhouette (shared by the
+## collider and SubVisual so they always match). Adds the gun-room block when
+## one is bought.
+func hull_rects() -> Array:
+	var rects := [HULL_MAIN_RECT, HULL_LOWER_RECT, HULL_CONN_RECT]
+	if has_gun_room():
+		rects.append(_gun_room_rect().grow(HULL_MARGIN))
+	return rects
 
 ## A single rectangular collider, part of the unified hull silhouette (see
 ## HULL_*_RECT above).
@@ -509,9 +596,10 @@ func _build_interior() -> void:
 	_add_hatch(Vector2(STORAGE_LADDER_X, WALL_T * 0.5), Vector2(HOLE_W, WALL_T))
 	_add_hatch(Vector2(CLAW_LADDER_X, WALL_T * 0.5), Vector2(HOLE_W, WALL_T))
 
-	# End walls (stern / bow), floor up past the ceiling.
-	_add_static(Vector2(-HALF_W - WALL_T * 0.5, -ROOM_H * 0.5 - 8.0), Vector2(WALL_T, ROOM_H + WALL_T + 32.0))
-	_add_static(Vector2(HALF_W + WALL_T * 0.5, -ROOM_H * 0.5 - 8.0), Vector2(WALL_T, ROOM_H + WALL_T + 32.0))
+	# End walls (stern / bow): a solid wall, OR a doorway divider if a gun room
+	# bolts onto that end.
+	_build_main_end_wall(-1)
+	_build_main_end_wall(1)
 
 	# Ceiling: two segments leaving a ladder hole at the center. The TOP of these
 	# segments doubles as the conning-area floor.
@@ -548,6 +636,37 @@ func _build_interior() -> void:
 		Vector2(CONN_HALF * 2.0 + WALL_T * 2.0, WALL_T))
 
 	_build_lower_deck()
+
+## One main-deck end wall (side -1 = stern/left, +1 = bow/right). A solid wall
+## normally; a doorway divider (header + step) when a gun room is attached on
+## that side, so crew can walk between the end room and the gun room.
+func _build_main_end_wall(side: int) -> void:
+	var inner := side * HALF_W
+	if _gun_room_on_side(side):
+		var header_h := ROOM_H - DOOR_H
+		_add_static(Vector2(inner, CEIL_Y + header_h * 0.5), Vector2(WALL_T, header_h))
+		_add_static(Vector2(inner, -DOOR_STEP_H * 0.5), Vector2(WALL_T, DOOR_STEP_H))
+	else:
+		_add_static(Vector2(inner + side * WALL_T * 0.5, -ROOM_H * 0.5 - 8.0),
+			Vector2(WALL_T, ROOM_H + WALL_T + 32.0))
+
+func _gun_room_on_side(side: int) -> bool:
+	return has_gun_room() and gun_room_side() == side
+
+## Build the bought gun room's interior shell (floor, far end wall, ceiling).
+## The doorway into the neighbouring end room is made by _build_main_end_wall.
+func _build_gun_room() -> void:
+	var side := gun_room_side()
+	var inner := side * HALF_W
+	var outer := side * (HALF_W + ROOM_W)
+	var cx := (inner + outer) * 0.5
+	# Floor (top surface at y = 0).
+	_add_static(Vector2(cx, WALL_T * 0.5), Vector2(ROOM_W, WALL_T))
+	# Far end wall (solid), like the original stern/bow wall.
+	_add_static(Vector2(outer + side * WALL_T * 0.5, -ROOM_H * 0.5 - 8.0),
+		Vector2(WALL_T, ROOM_H + WALL_T + 32.0))
+	# Ceiling.
+	_add_static(Vector2(cx, CEIL_Y - WALL_T * 0.5), Vector2(ROOM_W, WALL_T))
 
 func _build_lower_deck() -> void:
 	# Lower deck floor: spans the claw room (under middle) + storage room

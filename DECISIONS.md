@@ -159,6 +159,52 @@
 - **Save:** a real first save file (`user://save.json` via the new `SaveData`
   autoload) persists `banked_scrap`/`banked_fish` across game launches.
 
+## Settled (2026-06-12, Milestone 3 Module C — the salvage claw)
+- **The claw is the only way to grab salvage** (replaces the Module B hull
+  auto-collector): a belly-mounted arm operated from the lower claw room. The
+  operator aims into a downward cone and holds `use` to extend; on contact it
+  grips the salvage, auto-reels in, and deposits to on-board storage. Making
+  it a manned station is the point — someone has to leave the helm/turret, the
+  co-op pillar.
+- **Implementation:** the arm is drawn by `SubVisual` (tilts with pitch) and
+  grabs by a distance check against the "salvage" group at the tip's
+  pitch-matched world position (no extra physics body). Salvage items joined
+  group "salvage" for this.
+
+## Settled (2026-06-12, Milestone 3 Module D — dry dock + sub upgrades)
+- **Three upgrade classes**, per Snir: **Add room** (a second gun *with its
+  own control room*), **Upgrade room** (engine boost), **Upgrade crew**
+  (repair training). Catalog + prices live in `SubLoadout.catalog()`
+  (gun room 6 scrap, engine 3, repairs 3) — balance knobs, easy to retune.
+- **Scrap is the spend currency**; fish carcasses are still only a trophy
+  count for now (no sink yet — flagged as an open question for playtest).
+- **Player-placed gun room (the "submarine design planning window"):** buying
+  the gun room opens a schematic where you pick a **hardpoint slot** — STERN
+  (gun faces aft) or BOW (gun faces forward). Chose **predefined end-slots**
+  over free-form placement: it's a real "where do you want it" decision while
+  staying tractable. Stern is the clean/intended one (what Snir asked for);
+  the bow slot overlaps the base bow turret's tube cosmetically (noted as a
+  known issue, harmless).
+- **The gun room is a *real* room**, not just a hull-mounted gun: it adds a
+  7th water cell (floods/drains, shares a doorway with the end room it bolts
+  onto), extends the hull silhouette + collision, and seats a second
+  `TurretStation`. To support it the sub became **loadout-driven** — internal
+  loops use a live `_active_rooms` (6 base / 7 with gun room) rather than the
+  `ROOM_COUNT` const, `water_levels` resizes at build, and `room_rect(6)`
+  returns the slot-placed rect. `TurretStation` gained `facing` + `tube_local`
+  so a gun can sit anywhere and fire outward.
+- **Persistence + apply:** the loadout saves to `user://save.json` alongside
+  banked currency; the sub builds from `SaveData.loadout` every launch, and
+  the world **rebuilds the sub in place** when you buy at the dock (fresh crew
+  at spawn) so changes show immediately rather than only next launch.
+- **Dry dock access:** opened with **Tab** while floating at the dock; it
+  **pauses the run** and reads keys directly (a pause menu, like the existing
+  Esc-to-quit — not routed through the input abstraction). W/S navigate,
+  Enter buys, A/D pick the hardpoint, Esc/Tab leaves.
+- **Upgrade effects:** engine boost = ×1.5 move/dive accel + top speed (per-sub
+  multiplier, not a global GameFeel mutation); repair training = ×0.6 repair
+  time (crew reads `Sub.repair_time_mult()`).
+
 ## Parked
 - Snappy Overcooked-style crew movement (kept as switchable preset; playtest against weighty)
 - Phone-as-controller via WebSocket (post-MVP, only if gamepads aren't enough)
