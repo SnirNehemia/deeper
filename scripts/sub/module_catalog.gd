@@ -10,12 +10,12 @@ extends RefCounted
 
 static func all() -> Array[ModuleDef]:
 	return [
-		_room("helm", "Helm", Vector2i(2, 1), 0, true),
+		_room("helm", "Helm", Vector2i(1, 1), 0, true),
 		_room("tower", "Conning Tower", Vector2i(1, 1), 0, true),
-		_room("room", "Room", Vector2i(2, 1), 0, false),
-		_room("engine", "Engine Room", Vector2i(2, 1), 0, false),
-		_room("claw_room", "Claw Room", Vector2i(2, 1), 0, false),
-		_room("storage", "Storage Room", Vector2i(2, 1), 0, false),
+		_room("room", "Room", Vector2i(1, 1), 0, false),
+		_room("engine", "Engine Room", Vector2i(1, 1), 0, false),
+		_room("claw_room", "Claw Room", Vector2i(1, 1), 0, false),
+		_room("storage", "Storage Room", Vector2i(1, 1), 0, false),
 		_turret_room(),
 		_floodlight_pod(),
 	]
@@ -40,7 +40,7 @@ static func _turret_room() -> ModuleDef:
 	var def := ModuleDef.new()
 	def.id = "turret_room"
 	def.display_name = "Turret Room"
-	def.footprint = Vector2i(2, 1)
+	def.footprint = Vector2i(1, 1)
 	def.has_firing_face = true
 	return def
 

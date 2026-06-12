@@ -100,21 +100,23 @@ static func placement_cells(p: Placement) -> Array:
 			cells.append(p.grid_pos + Vector2i(dx, dy))
 	return cells
 
-## "The Minnow+" (MODULAR_SUB_IMPLEMENTATION.md §2.1): the M3 sub re-expressed
-## on the grid. Helm at the bow (right) end of the main row, tower above the
-## middle room, claw room below the middle, storage below the engine.
+## "The Minnow+" (MODULAR_SUB_IMPLEMENTATION.md §2.1, resized to the uniform
+## 1x1 cell per ROOM_SYSTEM.md §1): the M3 sub re-expressed on the grid. Helm
+## at the bow (right) end of the main row, tower above the middle room, claw
+## room below the middle, storage below the engine — same adjacencies as
+## before, each room now a single (3.75m x 3m) cell.
 ##
-##             [Tower 1x1]              y = -1
-## [Engine 2x1][Room  2x1][Helm 2x1]    y =  0   (bow -> right)
-## [Storage 2x1][Claw  2x1]             y = +1
+##          [Tower 1x1]            y = -1
+## [Engine 1x1][Room 1x1][Helm 1x1]  y =  0   (bow -> right)
+## [Storage 1x1][Claw 1x1]           y = +1
 static func starting_layout() -> SubLayout:
 	var layout := SubLayout.new()
 	layout.placements = [
 		Placement.new("engine", Vector2i(0, 0)),
-		Placement.new("room", Vector2i(2, 0)),
-		Placement.new("helm", Vector2i(4, 0)),
-		Placement.new("tower", Vector2i(2, -1)),
+		Placement.new("room", Vector2i(1, 0)),
+		Placement.new("helm", Vector2i(2, 0)),
+		Placement.new("tower", Vector2i(1, -1)),
 		Placement.new("storage", Vector2i(0, 1)),
-		Placement.new("claw_room", Vector2i(2, 1)),
+		Placement.new("claw_room", Vector2i(1, 1)),
 	]
 	return layout

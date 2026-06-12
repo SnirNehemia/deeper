@@ -32,9 +32,11 @@ func _check(cond: bool, msg: String) -> void:
 func _test_grid_constants() -> void:
 	print("[grid constants]")
 	_check(is_equal_approx(SubGrid.CELL_W_PX, SubGrid.CELL_W_M * GameFeel.PIXELS_PER_METER),
-		"cell width in px matches 2.5m at the locked scale")
+		"cell width in px matches 3.75m at the locked scale")
 	_check(is_equal_approx(SubGrid.CELL_H_PX, SubGrid.CELL_H_M * GameFeel.PIXELS_PER_METER),
 		"cell height in px matches 3.0m at the locked scale")
+	_check(is_equal_approx(SubGrid.SECTION_W_M * 5, SubGrid.CELL_W_M),
+		"five 0.75m sections span the cell width")
 	_check(SubGrid.MAX_CELLS.x > 0 and SubGrid.MAX_CELLS.y > 0, "a bounds guard is defined")
 
 func _test_catalog() -> void:
@@ -56,15 +58,14 @@ func _test_catalog() -> void:
 
 func _test_footprints() -> void:
 	print("[footprints]")
-	_check(ModuleCatalog.by_id("helm").footprint == Vector2i(2, 1), "helm is 2x1")
+	_check(ModuleCatalog.by_id("helm").footprint == Vector2i(1, 1), "helm is 1x1")
 	_check(ModuleCatalog.by_id("tower").footprint == Vector2i(1, 1), "tower is 1x1")
-	_check(ModuleCatalog.by_id("engine").footprint == Vector2i(2, 1), "engine is 2x1")
+	_check(ModuleCatalog.by_id("engine").footprint == Vector2i(1, 1), "engine is 1x1")
 
 	var p := SubLayout.Placement.new("helm", Vector2i(4, 0))
 	var cells: Array = SubLayout.placement_cells(p)
-	_check(cells.size() == 2, "a 2x1 placement occupies 2 cells")
-	_check(Vector2i(4, 0) in cells and Vector2i(5, 0) in cells,
-		"a 2x1 placement at (4,0) occupies (4,0) and (5,0)")
+	_check(cells.size() == 1, "a 1x1 placement occupies 1 cell")
+	_check(Vector2i(4, 0) in cells, "a 1x1 placement at (4,0) occupies (4,0)")
 
 func _test_starting_layout() -> void:
 	print("[starting layout]")

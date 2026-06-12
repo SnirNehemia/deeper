@@ -12,9 +12,11 @@ extends Resource
 ## Player-facing name shown in the dock shop and assembly screen.
 @export var display_name: String = ""
 
-## Size in grid cells (width, height). Rooms are 2x1 or 1x1; pods don't use
-## this (they clip to a face, no cell of their own).
-@export var footprint: Vector2i = Vector2i(2, 1)
+## Size in grid cells (width, height). All current rooms are a single
+## uniform cell (1x1, ROOM_SYSTEM.md §1-2); pods don't use this (they clip to
+## a face, no cell of their own). Larger (multi-cell) rooms are reserved for
+## a future design pass (ROOM_SYSTEM.md §7) — do not generalize speculatively.
+@export var footprint: Vector2i = Vector2i(1, 1)
 
 ## Scrap cost before price escalation (GameFeel.dock.escalation).
 @export var price: int = 0
