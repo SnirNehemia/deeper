@@ -20,6 +20,7 @@ func _ready() -> void:
 	_build_dock()
 	_build_cave_marker()
 	_build_salvage_pickups()
+	_build_wrecks()
 
 func _v(mx: float, my: float) -> Vector2:
 	return Vector2(mx * M, my * M)
@@ -139,10 +140,24 @@ func _build_salvage_pickups() -> void:
 		_v(93.0, 48.0),   # by the first pillar
 		_v(120.0, 32.0),  # by the second pillar
 		_v(141.0, 56.0),  # by the third pillar
-		_v(50.0, 65.0),   # inside the cave
+		_v(50.0, 65.0),   # inside the cave (lamp's treasure cluster)
+		_v(56.0, 70.0),   # inside the cave
+		_v(46.0, 72.0),   # inside the cave
 	]
 	for spot in spots:
 		add_child(SalvageItem.make_scrap(spot))
+
+## Module E: a couple of breakable wrecks. The shallows wreck is unguarded
+## ("easy money"); the basin wreck sits near the second pillar, guarded by a
+## fish. One torpedo hit cracks each open for 2-3 more scrap crates.
+func _build_wrecks() -> void:
+	var wreck := Wreck.new()
+	wreck.position = _v(45.0, 18.5)  # shallows plateau, free
+	add_child(wreck)
+
+	var basin_wreck := Wreck.new()
+	basin_wreck.position = _v(116.0, 107.0)  # basin floor, near the second pillar
+	add_child(basin_wreck)
 
 ## A pulsing placeholder lamp/star (visual only).
 class CaveMarker extends Node2D:

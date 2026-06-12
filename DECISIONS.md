@@ -275,6 +275,25 @@
   hand-built M3 sub still builds and plays exactly as before. The new types
   aren't referenced by `sub.gd`/`sub_visual.gd` yet — that wiring is Module 3+.
 
+## Settled (2026-06-12, Milestone 3 Module E — wrecks + salvage placement + fish guards)
+- **`Wreck`** (scripts/salvage/wreck.gd): a static ~4m broken-hull placeholder
+  on the seafloor. One torpedo hit cracks it open (pop puff, hull swaps to an
+  "open" look with a jagged hole) and spills 2-3 scrap crates that settle
+  nearby — same `SalvageItem.make_scrap`, claw-catchable like any other loose
+  salvage. New `WRECK` collision layer; doesn't damage the sub.
+- **Two wrecks placed**: shallows plateau (unguarded — "easy money"), and
+  basin floor near the second pillar (guarded by a fish).
+- **Cave treasure cluster grown** from 1 to 3 loose scrap items — best haul
+  on the map.
+- **Fish guards expanded from 3 to 5**: cave mouth, cave treasure cluster,
+  both basin pillars (one also guards the basin wreck), and the third pillar.
+- **`reset_run()` reseals wrecks**: `Wreck.reset_wreck()` (on the "wreck"
+  group) reseals the hull and frees spilled loot, matching "respawn wrecks at
+  home position" from the M3 brief.
+- **This closes Milestone 3** (Modules A-E all done). The cage/hatch portion
+  of the original Module D brief was already superseded by the claw rework's
+  visible-cage + carry-ferry design.
+
 ## Parked
 - Snappy Overcooked-style crew movement (kept as switchable preset; playtest against weighty)
 - Phone-as-controller via WebSocket (post-MVP, only if gamepads aren't enough)

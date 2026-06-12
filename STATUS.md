@@ -1,14 +1,42 @@
 # STATUS — DEEPER
 
-_Read this at session start. Last updated: 2026-06-12 (M4 Module 1: grid +
-layout data model landed, no gameplay changes yet)._
+_Read this at session start. Last updated: 2026-06-12 (M3 Module E: wrecks +
+salvage placement + fish guards — Milestone 3 is now fully closed; M4 Module 1
+also landed)._
 
 ## Where we are
-**Milestone 3 (lower deck + salvage loop: A, B, C) is closed.** Milestone 4
+**Milestone 3 is closed (Modules A-E).** Milestone 4
 ("The Dry Dock & The Growing Sub", v2 — see `MILESTONE_4_v2.md` and
-`MODULAR_SUB_IMPLEMENTATION.md`) is underway. All **19** headless suites green.
+`MODULAR_SUB_IMPLEMENTATION.md`) is underway. All **20** headless suites green.
 
-### Milestone 4 — Module 1: grid + layout data model (newest, data-only)
+### Milestone 3 — Module E: wrecks + salvage placement + fish guards (closes M3)
+- A `Wreck` (scripts/salvage/wreck.gd): a placeholder ~4m broken-hull shape,
+  static on the seafloor. **One torpedo hit cracks it open** (pop puff, hull
+  swaps to its "open" look with a jagged hole) and **spills 2-3 scrap
+  crates** that settle nearby — same `SalvageItem.make_scrap`, claw-catchable
+  like any other loose salvage. New `WRECK` collision layer
+  (`collision_layers.gd`); placeholder colors in `placeholder_art.gd`.
+- **Two wrecks placed** (`shore_shelf.gd`): one on the **shallows plateau**
+  (unguarded — "easy money"), one on the **basin floor near the second
+  pillar** (guarded by a fish).
+- **Cave treasure cluster grown** to 3 loose scrap items (was 1) — the cave
+  lamp's haul is now the best one in the map.
+- **Fish guards expanded from 3 to 5**: cave mouth, the cave treasure
+  cluster, both basin pillars (one now also guards the basin wreck), and the
+  third pillar. Still the same `fish.gd`, just more placements.
+- **`reset_run()` reseals wrecks**: `Wreck.reset_wreck()` (called on the new
+  "wreck" group) reseals the hull and frees whatever it spilled, so a wreck
+  you cracked before an implosion is crackable again after the reset —
+  matching "respawn wrecks at home position" from the M3 brief.
+- Test: `test_wreck` (a fresh wreck starts sealed; one torpedo hit cracks it
+  and spills 2-3 salvage items; `reset_wreck()` reseals and clears spilled
+  loot; an already-open wreck ignores further hits).
+- **This closes Milestone 3** (Modules A-E all done; cage/hatch from the
+  original Module D brief were superseded by the claw rework's visible-cage +
+  carry-ferry design, which already shipped). M4 (grid/layout) is also already
+  underway — see Module 1 below.
+
+### Milestone 4 — Module 1: grid + layout data model
 - New plain-data layer for the grid-based modular sub, per
   `MODULAR_SUB_IMPLEMENTATION.md` §2-3. **No gameplay code changed** — the
   current hand-built sub still runs exactly as before.
@@ -173,22 +201,24 @@ beat. All placeholder art.
   - `sub/` (M4, data-only so far) — `grid.gd` (**SubGrid**: cell size + bounds guard), `module_def.gd` (**ModuleDef**), `module_catalog.gd` (**ModuleCatalog**: catalog of module types), `sub_layout.gd` (**SubLayout**: placements/pods/inventory + serialization + starting layout).
   - `weapons/` — `torpedo.gd` (slow straight shot, trail, terrain puff; inner `Puff` class).
   - `fauna/` — `fish.gd` (**territorial: patrol/chase/bite/return, torpedo kill, reset_fish**, **death spawns a sinking salvage carcass**).
-  - `salvage/` — `salvage_item.gd` (**SalvageItem**: scrap crate / fish carcass pickup, sinking + settling for carcasses; in group "salvage" for the claw).
+  - `salvage/` — `salvage_item.gd` (**SalvageItem**: scrap crate / fish carcass pickup, sinking + settling for carcasses; in group "salvage" for the claw), `wreck.gd` (**Wreck**: torpedo-cracked hull spilling 2-3 scrap crates; group "wreck", `reset_wreck()` reseals + clears loot).
   - `ui/` — `depth_hud.gd`, `alert_hud.gd` (**breach screen-edge flash**), `salvage_hud.gd` (on-board vs. banked totals), **`dry_dock.gd`** (DryDock: upgrade screen + sub-design placement view).
   - `util/` — `grid_background.gd`.
 - `scenes/`
   - `world.tscn`/`.gd` — **main scene**: map + crewed sub (built from loadout) + 3 fish + camera + HUDs + implosion/run reset + dock banking + **dock prompt / Tab opens the dry dock / sub rebuild on purchase**.
   - `shore_shelf.gd` — the map (terrain/water/sky + **cave lamp marker** + **scattered scrap pickups**).
   - `sub_test.tscn`, `sandbox.tscn` — M1 sandboxes (no water/buoyancy).
-- `tests/` — 19 headless suites, all passing: `test_input`, `test_crew`, `test_sub`,
+- `tests/` — 20 headless suites, all passing: `test_input`, `test_crew`, `test_sub`,
   `test_helm`, `test_world`, `test_water`, `test_station_flood`, `test_damage`,
   `test_repair`, `test_drowning`, `test_implosion`, `test_turret`, `test_fish`,
   `test_lower_deck` (Module A), `test_salvage` (Module B storage/bank/save),
   **`test_claw`** (Module C grab/deposit + no-auto-collect regression),
   **`test_loadout`** (Module D buying/saving, engine + repair mults, gun room
   → 7 rooms / 2 turrets / flooding doorway), **`test_dry_dock`** (Module D
-  navigation + placement flow + pause/unpause), **`test_layout`** (M4 Module 1:
-  grid constants, catalog, footprints, starting layout, serialization).
+  navigation + placement flow + pause/unpause), **`test_wreck`** (Module E:
+  torpedo cracks a wreck for 2-3 salvage, reset reseals + clears loot),
+  **`test_layout`** (M4 Module 1: grid constants, catalog, footprints,
+  starting layout, serialization).
   Plus `capture_*` — throwaway windowed screenshot tools (png gitignored;
   `capture_m2` stages the full M2 tableau).
 
@@ -229,18 +259,37 @@ torpedoes feel chunky or just sluggish? Is the fish fight fun or a chore? Plus
 all M1 questions (crew weight, sub heft, camera framing).
 
 ## Suggested next step
+**Playtest M3 close-out (verify-by-playing below) — the wrecks + bigger fish
+roster, alongside the existing claw/ferry loop.** Then, in parallel/after:
 **M4 Module 2: `validate(layout)`** — the single legality function (7 rules
-from MODULAR_SUB_IMPLEMENTATION.md §5: core fixed, connectivity, tower
-support, no overlap, clear special faces, pod faces, bounds), pure and
-headless-testable (`test_validate`). Still no gameplay/scene changes — the
-hand-built M3 sub keeps running as-is until Module 3 swaps the interior for
-the generated one.
+from MODULAR_SUB_IMPLEMENTATION.md §5), pure and headless-testable
+(`test_validate`). Still no gameplay/scene changes from M4 — the hand-built
+sub keeps running as-is until Module 3 swaps the interior for the generated
+one.
 
-Nothing new to playtest yet (M4 Modules 1-3 are data/pipeline plumbing); the
-M3 claw/ferry questions below remain open for whenever Snir next plays:
-does the two-joint excavator control feel good or too fiddly? Is the
-claw→drop→carry→stow ferry fun co-op or too many steps solo? Are the
-pickup/deposit ranges and cage 2 / storage 8 numbers right?
+Open questions for Snir (M3 close-out): is a wreck satisfying to crack open
+with a torpedo? Does the unguarded shallows wreck feel like a fair "easy
+money" tutorial vs. the guarded basin one? Are 5 fish too many / well placed?
+Plus the standing claw/ferry questions: does the two-joint excavator control
+feel good? Is the claw→drop→carry→stow ferry fun co-op or too many steps
+solo? Are pickup/deposit ranges and cage 2 / storage 8 right?
+
+## Verify by playing — Module E (wrecks + fish guards)
+1. Launch: `"GODOT_PATH" --path .`
+2. **Easy money:** drive over the **shallows plateau** (near the shore) and
+   fire a torpedo into the broken hull shape sitting there — it cracks open
+   with a puff and spills a couple of scrap crates onto the seafloor. No fish
+   guard it.
+3. **Claw them up** as usual (see the claw verify-by-playing below) and ferry
+   them to storage.
+4. **Guarded wreck:** head into the basin near the **second pillar** — a fish
+   now guards a second wreck there. Deal with the fish (or dodge it), crack
+   the wreck the same way.
+5. **Cave haul:** the cave now has **3** loose scrap items near the lamp,
+   guarded by its own fish.
+6. **Reset check:** crack a wreck, then let the sub implode (or take heavy
+   damage on purpose) to trigger `reset_run()`. Back at the dock, return to
+   the cracked wreck — it should be **sealed again** and crackable once more.
 
 ### Known issues / notes (claw rework)
 - **Manual home, no auto-retract** (Snir's call): you pose both joints back to

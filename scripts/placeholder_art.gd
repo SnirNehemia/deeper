@@ -34,6 +34,9 @@ const FISH_LENGTH_M: float = 1.0
 # --- Salvage ---
 const SCRAP_COLOR := Color("c8a050")      ## scrap crate (warm metal)
 const CARCASS_COLOR := Color("9a7ab8")    ## sunken fish carcass (faded fish purple)
+const WRECK_COLOR := Color("5a5a52")      ## closed wreck hull (dull rust-grey)
+const WRECK_OPEN_COLOR := Color("3a3a36") ## cracked-open wreck (darker, hollow)
+const WRECK_LENGTH_M: float = 4.0
 
 # --- Terrain ---
 const TERRAIN_SAND := Color("d8c27a")
