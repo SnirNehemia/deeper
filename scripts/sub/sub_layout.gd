@@ -66,6 +66,12 @@ var pods: Array[PodPlacement] = []
 ## Owned-but-unplaced module ids -> count.
 var inventory: Dictionary = {}
 
+## Owned empty room-shells (ROOM_SYSTEM.md §4.1, "Option B"): a slot is a
+## real, generated, walled room with no station inside, bought adjacent to
+## the existing hull. Bought separately from rooms; a room from `inventory`
+## is later placed into an empty slot. Cells, not modules — no ModuleDef.
+var slots: Array[Vector2i] = []
+
 func to_dict() -> Dictionary:
 	var placement_dicts: Array = []
 	for p in placements:
@@ -73,10 +79,14 @@ func to_dict() -> Dictionary:
 	var pod_dicts: Array = []
 	for pod in pods:
 		pod_dicts.append(pod.to_dict())
+	var slot_dicts: Array = []
+	for slot in slots:
+		slot_dicts.append([slot.x, slot.y])
 	return {
 		"placements": placement_dicts,
 		"pods": pod_dicts,
 		"inventory": inventory.duplicate(),
+		"slots": slot_dicts,
 	}
 
 static func from_dict(data: Dictionary) -> SubLayout:
@@ -87,6 +97,8 @@ static func from_dict(data: Dictionary) -> SubLayout:
 		layout.pods.append(PodPlacement.from_dict(pod))
 	for id in data.get("inventory", {}):
 		layout.inventory[id] = int(data["inventory"][id])
+	for slot in data.get("slots", []):
+		layout.slots.append(Vector2i(int(slot[0]), int(slot[1])))
 	return layout
 
 ## All grid cells occupied by a placement, given its module's footprint.
@@ -120,3 +132,50 @@ static func starting_layout() -> SubLayout:
 		Placement.new("claw_room", Vector2i(1, 1)),
 	]
 	return layout
+
+## All cells that are part of the built hull: every placed module's
+## footprint cells plus every bought-but-empty slot (ROOM_SYSTEM.md §4.1 —
+## a slot is a real generated room shell the instant it's bought, so it
+## counts as hull for adjacency purposes just like a placed room).
+func occupied_cells() -> Array:
+	var cells: Array = []
+	for p in placements:
+		for cell in placement_cells(p):
+			if cell not in cells:
+				cells.append(cell)
+	for slot in slots:
+		if slot not in cells:
+			cells.append(slot)
+	return cells
+
+## The four grid-adjacent neighbors of a cell (no diagonals — only shared
+## walls count as adjacency for slot-buying and connections).
+static func neighbors(cell: Vector2i) -> Array:
+	return [
+		cell + Vector2i(1, 0), cell + Vector2i(-1, 0),
+		cell + Vector2i(0, 1), cell + Vector2i(0, -1),
+	]
+
+## Empty cells the player could buy as a new slot right now (ROOM_SYSTEM.md
+## §4.1): not already occupied (by a placement or another slot), adjacent to
+## at least one occupied cell (the slot must touch the existing hull), and
+## within the bounds guard (SubGrid.MAX_CELLS) once added.
+func buyable_slot_positions() -> Array:
+	var occupied := occupied_cells()
+	var min_pos := Vector2i(999, 999)
+	var max_pos := Vector2i(-999, -999)
+	for cell in occupied:
+		min_pos = Vector2i(min(min_pos.x, cell.x), min(min_pos.y, cell.y))
+		max_pos = Vector2i(max(max_pos.x, cell.x), max(max_pos.y, cell.y))
+
+	var candidates: Array = []
+	for cell in occupied:
+		for n in neighbors(cell):
+			if n in occupied or n in candidates:
+				continue
+			var span_min := Vector2i(min(min_pos.x, n.x), min(min_pos.y, n.y))
+			var span_max := Vector2i(max(max_pos.x, n.x), max(max_pos.y, n.y))
+			var span := span_max - span_min + Vector2i.ONE
+			if span.x <= SubGrid.MAX_CELLS.x and span.y <= SubGrid.MAX_CELLS.y:
+				candidates.append(n)
+	return candidates

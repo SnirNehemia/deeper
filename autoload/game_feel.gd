@@ -195,3 +195,22 @@ class ClawFeel:
 	var storage_capacity: int = 8
 
 var claw: ClawFeel = ClawFeel.new()
+
+## The dry dock's growth economy (MODULAR_SUB_IMPLEMENTATION.md §6/§8,
+## ROOM_SYSTEM.md §4.1). Buying a "slot" is a separate purchase from buying a
+## room: a slot is an empty, generated room-shell bolted onto the hull
+## (adjacent to it), and rooms from inventory are placed into owned empty
+## slots. Slot price escalates on slots-owned only, on its own track,
+## separate from any future per-room price escalation.
+class DockFeel:
+	## Cost of the first slot, in scrap.
+	var slot_base_price: int = 4
+	## Each owned slot raises the price of the next one by this fraction
+	## (soft cap on sub size).
+	var slot_escalation: float = 0.25
+
+	## Price of the next slot given how many the player already owns.
+	func slot_price(slots_owned: int) -> int:
+		return int(round(slot_base_price * (1.0 + slot_escalation * slots_owned)))
+
+var dock: DockFeel = DockFeel.new()

@@ -1,7 +1,7 @@
 # STATUS — DEEPER
 
-_Read this at session start. Last updated: 2026-06-12 (M4 Module 1b: grid
-resized to the uniform 3.75m cell per `ROOM_SYSTEM.md`)._
+_Read this at session start. Last updated: 2026-06-12 (M4 Module 2: slot
+economy data model)._
 
 ## Where we are
 **Milestone 3 is closed (Modules A-E).** Milestone 4
@@ -38,6 +38,32 @@ the s1-s5 authoring/section-bake layer, and reorder the milestone (see
 - Test: `test_layout` updated for the new constants/footprints (20/20 suites
   green).
 - **Commit:** `M4-1b: resize grid to uniform 3.75m cell per ROOM_SYSTEM.md`.
+
+### Milestone 4 — Module 2: slot economy (data model)
+- Per `ROOM_SYSTEM.md` §4.1 ("Option B", settled with Snir): a **slot** is an
+  owned-but-empty cell — a real room-shell once generated, just with no
+  station inside. `SubLayout.slots: Array[Vector2i]` holds them, separate
+  from `placements` (rooms with a module) and `inventory` (owned-but-unplaced
+  room modules). Serializes/round-trips like everything else in the layout.
+- `SubLayout.occupied_cells()`: every placement's footprint cells **plus**
+  every slot — a slot counts as hull for adjacency, same as a placed room.
+- `SubLayout.buyable_slot_positions()`: the empty cells the player could buy
+  *right now* — empty, touching at least one occupied cell (slots must be
+  **adjacent to the existing hull**, per Snir), and keeping the layout's
+  bounding box within `SubGrid.MAX_CELLS`. This is what the dock shop (M4-7)
+  and assembly screen (M4-8) will offer.
+- `GameFeel.dock` (new `DockFeel` block): `slot_base_price` (4 scrap) and
+  `slot_escalation` (0.25, linear — `price(n) = base * (1 + 0.25*n)`),
+  **on its own track from any future per-room price escalation**, per Snir's
+  call that slots and rooms escalate independently.
+- **Still data-only / no UI** — nothing buyable in-game yet; the dock shop
+  (M4-7) is what wires this to scrap and the dock menu.
+- Test: `test_slots` (starting layout has no slots; buyable positions are
+  empty+adjacent+in-bounds with no duplicates; buying a slot grows
+  `occupied_cells` and updates future candidates; bounds guard excludes
+  out-of-range slots; price escalation math; serialization round-trip).
+  21/21 suites green.
+- **Commit:** `M4-2: slot economy data model + price escalation`.
 
 ### M4 module order (corrected per `ROOM_SYSTEM.md` reconciliation, 2026-06-12)
 `MILESTONE_4_v2.md`'s eleven modules are still the backbone, but three things
@@ -275,7 +301,7 @@ beat. All placeholder art.
   - `world.tscn`/`.gd` — **main scene**: map + crewed sub (built from loadout) + 3 fish + camera + HUDs + implosion/run reset + dock banking + **dock prompt / Tab opens the dry dock / sub rebuild on purchase**.
   - `shore_shelf.gd` — the map (terrain/water/sky + **cave lamp marker** + **scattered scrap pickups**).
   - `sub_test.tscn`, `sandbox.tscn` — M1 sandboxes (no water/buoyancy).
-- `tests/` — 20 headless suites, all passing: `test_input`, `test_crew`, `test_sub`,
+- `tests/` — 21 headless suites, all passing: `test_input`, `test_crew`, `test_sub`,
   `test_helm`, `test_world`, `test_water`, `test_station_flood`, `test_damage`,
   `test_repair`, `test_drowning`, `test_implosion`, `test_turret`, `test_fish`,
   `test_lower_deck` (Module A), `test_salvage` (Module B storage/bank/save),
@@ -284,8 +310,10 @@ beat. All placeholder art.
   → 7 rooms / 2 turrets / flooding doorway), **`test_dry_dock`** (Module D
   navigation + placement flow + pause/unpause), **`test_wreck`** (Module E:
   torpedo cracks a wreck for 2-3 salvage, reset reseals + clears loot),
-  **`test_layout`** (M4 Module 1: grid constants, catalog, footprints,
-  starting layout, serialization).
+  **`test_layout`** (M4 Module 1/1b: grid constants, catalog, footprints,
+  starting layout, serialization), **`test_slots`** (M4 Module 2: buyable
+  slot positions, hull adjacency, bounds guard, price escalation,
+  serialization).
   Plus `capture_*` — throwaway windowed screenshot tools (png gitignored;
   `capture_m2` stages the full M2 tableau).
 
@@ -328,11 +356,11 @@ all M1 questions (crew weight, sub heft, camera framing).
 ## Suggested next step
 **Playtest M3 close-out (verify-by-playing below) — the wrecks + bigger fish
 roster, alongside the existing claw/ferry loop.** Then, in parallel/after:
-**M4-2: the slot economy** (per the "M4 module order" above and
-`ROOM_SYSTEM.md` §4.1) — buyable empty room-shells, adjacent to the existing
-hull, with their own escalating price track separate from room prices. Still
-no visible gameplay change from M4 yet — the hand-built sub keeps running
-as-is until M4-4/M4-5 swap in the generated interior/hull.
+**M4-3: the validation engine** (`validate(layout)`, all 7 rules from
+`MODULAR_SUB_IMPLEMENTATION.md` §5 plus the slot/ladder-parity checks added by
+`ROOM_SYSTEM.md`). Still no visible gameplay change from M4 yet — the
+hand-built sub keeps running as-is until M4-4/M4-5 swap in the generated
+interior/hull.
 
 Open questions for Snir (M3 close-out): is a wreck satisfying to crack open
 with a torpedo? Does the unguarded shallows wreck feel like a fair "easy
