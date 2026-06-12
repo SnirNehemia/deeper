@@ -237,6 +237,24 @@
   ("looks like any other station"); arm + cage + storage pen drawn by
   `SubVisual` so they tilt with the hull.
 
+## Settled (2026-06-12, Milestone 3 claw — visible cage + carry ferry)
+- **Caught salvage stays visible** inside the basket cage (it rides the arm,
+  staggered so two catches sit apart) instead of vanishing on grab — the cage
+  is a real container you can see the haul in. `SalvageItem` became a small
+  state machine: WATER → CAGED → LOOSE → CARRIED → stowed.
+- **Delivery is a two-step co-op ferry, not an auto-dump:** at home the claw
+  opens the cage and drops the catch **through a keel hatch onto the claw-room
+  floor** as a loose item; a crew on foot picks it up (`use`), carries it (it
+  rides above their head), and stows it into the storage pen (`use` near the
+  cage). Carrying = hands full = no repairing. This deliberately makes storing
+  salvage a second job, reinforcing the co-op pillar.
+- **Storage pen moved to the storage room's right wall** (was overlapping the
+  storage ladder on the left).
+- **Debug mode toggle** in the salvage HUD gates the playtest-only "+1 scrap /
+  +1 carcass" add buttons (hidden by default).
+- Pickup range 1.0 m; storage-drop range 1.6 m; both tunable. A full pen makes
+  "stow" a no-op (keep carrying) until you bank at the dock.
+
 ## Parked
 - Snappy Overcooked-style crew movement (kept as switchable preset; playtest against weighty)
 - Phone-as-controller via WebSocket (post-MVP, only if gamepads aren't enough)

@@ -527,6 +527,21 @@ func _build_claw() -> void:
 	add_child(claw)
 	_visual.claw = claw
 
+## Base drop hatch on the claw room floor (sub-local), where the claw drops
+## catches into the hold for a crew to carry off.
+const HOLD_HATCH_LOCAL := Vector2(0.0, LOWER_FLOOR_Y)
+
+## Centre of the storage pen in the storage room (sub-local) — the crew's
+## drop target. Kept in step with where SubVisual draws the pen.
+func storage_pen_center() -> Vector2:
+	var room := room_rect(5)
+	return Vector2(room.position.x + room.size.x - 18.0 - 48.0,
+		room.position.y + room.size.y - 27.0)
+
+## True if a local point is close enough to the storage pen to drop salvage in.
+func near_storage(local_pos: Vector2) -> bool:
+	return local_pos.distance_to(storage_pen_center()) <= 1.6 * PPM
+
 ## Total pieces currently held in the storage pen (scrap + carcasses).
 func storage_count() -> int:
 	return storage_scrap + storage_fish

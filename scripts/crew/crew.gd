@@ -34,6 +34,12 @@ var _station: Station = null
 # step out of range — no partial credit).
 var _repair_target: Breach = null
 
+# A loose salvage item we're carrying to the storage cage (Module C ferry),
+# or null. Hands full = can't repair.
+var _carrying: SalvageItem = null
+# How close (m) we must be to a loose item to pick it up.
+const PICKUP_RANGE_M := 1.0
+
 # Drowning: air remaining (seconds) while the head is underwater, and the
 # respawn countdown while dead. Dead crew ignore all input.
 var air_seconds: float = 0.0
@@ -151,10 +157,61 @@ func _physics_process(delta: float) -> void:
 	else:
 		_move_on_foot(move_x, jump_pressed, feel, ppm, delta)
 
+	# Carry salvage: a press picks up a loose item / drops or stows the one
+	# we're carrying. Hands full means no repairing.
+	var use_pressed := input.use_pressed if input != null else false
+	if use_pressed and not _on_ladder:
+		_carry_action()
+
 	var use_held := input.use_held if input != null else false
-	_update_repair(use_held and not _on_ladder, delta)
+	_update_repair(use_held and not _on_ladder and _carrying == null, delta)
 
 	_update_visual(move_x, ppm, delta)
+
+## Pick up / carry / drop loose salvage with `use`. Empty-handed near a loose
+## item picks it up; carrying near the storage cage stows it; carrying anywhere
+## else drops it on the floor.
+func _carry_action() -> void:
+	var sub := get_parent() as Sub
+	if sub == null:
+		return
+	if _carrying != null:
+		if sub.near_storage(position):
+			if sub.deposit_salvage(_carrying.kind):
+				_carrying.queue_free()
+				_carrying = null
+		else:
+			_carrying.set_loose_at(position)
+			_carrying = null
+	else:
+		var item := _nearest_loose(sub)
+		if item != null:
+			item.set_carried(self)
+			_carrying = item
+
+## True if we're ferrying a salvage item right now.
+func is_carrying() -> bool:
+	return _carrying != null
+
+## Let go of any carried item where we stand (used on drown / run reset).
+func _drop_carry() -> void:
+	if _carrying != null:
+		if is_instance_valid(_carrying):
+			_carrying.set_loose_at(position)
+		_carrying = null
+
+func _nearest_loose(_sub: Sub) -> SalvageItem:
+	var best: SalvageItem = null
+	var best_d := PICKUP_RANGE_M * GameFeel.PIXELS_PER_METER
+	for node in get_tree().get_nodes_in_group("salvage"):
+		var item := node as SalvageItem
+		if item == null or not item.is_loose():
+			continue
+		var d := position.distance_to(item.position)
+		if d <= best_d:
+			best_d = d
+			best = item
+	return best
 
 ## Hold `use` within range of a breach to patch it: progress fills over
 ## GameFeel.water.repair_time. Progress PERSISTS on the breach when you stop
@@ -235,6 +292,7 @@ func _drown() -> void:
 	if _station != null:
 		_exit_station()
 	_repair_target = null
+	_drop_carry()
 	velocity = Vector2.ZERO
 	# Cartoon pop: a quick balloon-burst scale-up, then the body vanishes and
 	# only the "respawning..." countdown stays.
@@ -282,6 +340,7 @@ func reset_at(local_pos: Vector2) -> void:
 	collision_mask = _MASK_FOOT
 	_on_ladder = false
 	_repair_target = null
+	_drop_carry()
 	_visual.visible = true
 	_visual.scale = Vector2.ONE
 	if _respawn_label != null:

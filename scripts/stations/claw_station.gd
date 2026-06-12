@@ -51,10 +51,12 @@ func handle_input(input: PlayerInput) -> void:
 	elbow_angle = clampf(
 		elbow_angle + input.move.y * deg_to_rad(c.elbow_speed_deg) * delta,
 		-e_lim, e_lim)
-	# `use` is the context action: dump when the cage is home, else snap it shut.
+	# `use` is the context action: when the cage is folded home and holding,
+	# open it to drop the catch through the keel hatch into the hold; otherwise
+	# snap the cage shut on whatever salvage it's over.
 	if input.use_pressed:
-		if is_home():
-			_dump()
+		if is_home() and not _caught.is_empty():
+			_drop_into_hold()
 		else:
 			_snap()
 
@@ -99,12 +101,14 @@ func clamp_amount() -> float:
 		return 1.0
 	return 1.0 if _caught.size() > 0 else 0.0
 
-## Where a caught item rides inside the cage (sub-local), staggered so two
-## catches don't fully overlap.
+## Where a caught item rides inside the cage (sub-local), staggered along the
+## cage mouth so two catches sit side by side instead of overlapping.
+const _CAGE_SLOT_SPACING := 26.0
+
 func _caught_slot_local(index: int, count: int) -> Vector2:
 	var fore_dir := (tip_local() - joint_local())
 	var side := fore_dir.orthogonal().normalized() if fore_dir.length() > 0.1 else Vector2.RIGHT
-	var spread := (float(index) - (count - 1) * 0.5) * 11.0
+	var spread := (float(index) - (count - 1) * 0.5) * _CAGE_SLOT_SPACING
 	return tip_local() + side * spread
 
 ## Keep each trapped item glued inside the cage as the arm moves (and prune any
@@ -129,7 +133,7 @@ func _snap() -> void:
 	var hits: Array = []
 	for node in sub.get_tree().get_nodes_in_group("salvage"):
 		var item := node as SalvageItem
-		if item == null or item.is_queued_for_deletion() or item.held:
+		if item == null or item.is_queued_for_deletion() or not item.is_water():
 			continue
 		var d := tip.distance_to(item.global_position)
 		if d <= grab:
@@ -139,20 +143,21 @@ func _snap() -> void:
 		if cage_full():
 			break
 		var item: SalvageItem = h["item"]
-		item.set_held(true)
+		item.set_caged()
 		item.set_deferred("monitoring", false)
 		_caught.append(item)
 	_carry_caught()
 
-## Dump the cage into the storage pen (only when home). Stops early if the pen
-## fills up — leftover catch stays in the cage until you bank at the dock.
-func _dump() -> void:
-	while not _caught.is_empty():
-		var item: SalvageItem = _caught[0]
+## Open the cage at home: drop each catch through the keel hatch onto the claw
+## room floor as a loose, carryable item. From there a crew member ferries it
+## to the storage cage. (Reparenting is deferred — safe to call mid-physics.)
+func _drop_into_hold() -> void:
+	var n := _caught.size()
+	for i in n:
+		var item: SalvageItem = _caught[i]
 		if not is_instance_valid(item):
-			_caught.pop_front()
 			continue
-		if not sub.deposit_salvage(item.kind):
-			break  # storage pen full
-		_caught.pop_front()
-		item.queue_free()
+		var lx := (float(i) - (n - 1) * 0.5) * 30.0  # spread along the claw room floor
+		var local := Vector2(lx, Sub.LOWER_FLOOR_Y - SalvageItem.RADIUS_PX)
+		item.call_deferred("drop_into_sub", sub, local)
+	_caught.clear()

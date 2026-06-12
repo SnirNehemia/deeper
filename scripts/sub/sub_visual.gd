@@ -180,7 +180,8 @@ func _draw_cage(joint: Vector2, tip: Vector2) -> void:
 	draw_line(mr, center.lerp(r_open, openness), c, 3.0)
 
 ## The claw operator's console in the lower claw room, styled like the helm /
-## turret consoles so it reads as "a station".
+## turret consoles so it reads as "a station". Plus the keel drop hatch the
+## claw lowers catches through into the hold.
 func _draw_claw_console() -> void:
 	if claw == null:
 		return
@@ -188,6 +189,17 @@ func _draw_claw_console() -> void:
 	var floor_y := Sub.LOWER_FLOOR_Y
 	draw_rect(Rect2(cx - 14.0, floor_y - 22.0, 28.0, 22.0), PlaceholderArt.SUB_STRUCTURE)
 	draw_circle(Vector2(cx, floor_y - 30.0), 6.0, PlaceholderArt.LADDER_COLOR)
+
+	# Drop hatch in the claw room floor, at the arm base, where catches come up
+	# into the hold. A framed opening with a hinged lid.
+	var hx := Sub.HOLD_HATCH_LOCAL.x
+	var hw := 22.0
+	draw_rect(Rect2(hx - hw, floor_y - 3.0, hw * 2.0, 6.0), PlaceholderArt.SUB_INTERIOR)
+	draw_line(Vector2(hx - hw, floor_y), Vector2(hx + hw, floor_y),
+		PlaceholderArt.LADDER_COLOR, 2.0)
+	# Hinged lid leaning open against the floor.
+	draw_line(Vector2(hx - hw, floor_y), Vector2(hx - hw + 14.0, floor_y - 12.0),
+		PlaceholderArt.SUB_STRUCTURE, 3.0)
 
 ## The storage pen in the storage room: a little cage that fills with the
 ## salvage the claw has delivered (up to the storage capacity).

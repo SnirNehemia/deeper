@@ -146,6 +146,7 @@ func reset_run() -> void:
 	_crew[1].reset_at(P2_SPAWN)
 	get_tree().call_group("fish", "reset_fish")
 	get_tree().call_group("salvage_carcass", "queue_free")
+	get_tree().call_group("carryable", "queue_free")  # loose/caged catches in the hold
 	_cam.reset_smoothing()
 
 func _add_fish(pos: Vector2) -> void:
@@ -158,7 +159,7 @@ func _add_hint_label() -> void:
 	var layer := CanvasLayer.new()
 	add_child(layer)
 	var label := Label.new()
-	label.text = "E / R-Shift: take a station (helm bow, turret mid-room, claw lower room) - claw: stick swings shoulder / elbow, Q snaps the cage shut, fold home + Q to dump - Esc quits"
+	label.text = "Claw: stick swings shoulder / elbow, Q snaps the cage, fold home + Q drops the catch into the hold - on foot: Q picks up / carries a catch, Q at the storage cage stows it - Esc quits"
 	label.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.offset_top = -40

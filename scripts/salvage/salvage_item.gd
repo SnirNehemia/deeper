@@ -1,27 +1,32 @@
 class_name SalvageItem
 extends Area2D
 
-## A piece of salvage floating in the world: either a scrap crate (placed on
-## the map) or a sunken fish carcass (spawned where a fish dies). The sub's
-## hull collector picks these up on contact (Module B: no claw arm yet) and
-## adds them to its on-board storage.
+## A piece of salvage. It moves through a little lifecycle (Module C rework):
+##
+##   WATER   — drifting in the ocean (scrap on the map / a sunken carcass).
+##             The claw can snap it into its cage.
+##   CAGED   — trapped in the claw's cage; the claw drives its position.
+##   LOOSE   — dropped through the keel hatch onto a sub floor; a crew member
+##             can pick it up and carry it.
+##   CARRIED — being carried by a crew member to the storage cage.
 ##
 ## Placeholder visuals only: scrap = a bobbing crate, carcass = a faded fish
-## silhouette that sinks toward the seafloor before settling.
+## blob that sinks toward the seafloor before settling.
 
 enum Kind { SCRAP, FISH }
+enum State { WATER, CAGED, LOOSE, CARRIED }
 
 const RADIUS_PX := 14.0
 
 @export var kind: Kind = Kind.SCRAP
 
+var state: State = State.WATER
+## The crew node carrying this item (only while CARRIED).
+var carried_by: Node2D = null
+
 var _wobble: float = randf() * TAU
 # Carcasses sink at this speed (px/s), decaying to a stop so they "settle".
 var _sink_speed: float = 0.0
-# True while trapped in the claw's cage: the claw drives our position, so we
-# stop sinking/drifting on our own and ride above the hull (high z) to stay
-# visible inside the cage.
-var held: bool = false
 
 static func make_scrap(world_pos: Vector2) -> SalvageItem:
 	var item := SalvageItem.new()
@@ -39,7 +44,7 @@ static func make_carcass(world_pos: Vector2) -> SalvageItem:
 	return item
 
 func _ready() -> void:
-	# Joined so the claw station can find nearby salvage to grip.
+	# Joined so the claw and crew can find salvage by group.
 	add_to_group("salvage")
 	collision_layer = Layers.SALVAGE
 	collision_mask = 0
@@ -53,23 +58,64 @@ func _ready() -> void:
 
 func _physics_process(delta: float) -> void:
 	_wobble += delta
-	if held:
-		# The claw owns our position while we're caged; just keep animating.
-		queue_redraw()
-		return
-	if _sink_speed > 0.0:
-		position.y += _sink_speed * delta
-		# Decay the sink speed so the carcass eases to a stop ("settling").
-		_sink_speed = maxf(0.0, _sink_speed - GameFeel.PIXELS_PER_METER * 0.5 * delta)
+	match state:
+		State.CAGED:
+			pass  # the claw drives our position
+		State.CARRIED:
+			# Ride just above the carrying crew's head (same local space — both
+			# are children of the sub).
+			if is_instance_valid(carried_by):
+				position = carried_by.position + Vector2(0,
+					-PlaceholderArt.CREW_HEIGHT_M * GameFeel.PIXELS_PER_METER * 0.7)
+		State.LOOSE:
+			pass  # sits where it was dropped
+		State.WATER:
+			if _sink_speed > 0.0:
+				position.y += _sink_speed * delta
+				_sink_speed = maxf(0.0,
+					_sink_speed - GameFeel.PIXELS_PER_METER * 0.5 * delta)
 	queue_redraw()
 
-## Caught/released by the claw cage. Held items stop sinking and draw above the
-## hull so they read as trapped inside the cage.
-func set_held(h: bool) -> void:
-	held = h
-	z_index = 50 if h else 0
-	if h:
-		_sink_speed = 0.0
+func is_water() -> bool:
+	return state == State.WATER
+
+func is_loose() -> bool:
+	return state == State.LOOSE
+
+## Snapped into the claw's cage. Stops sinking and draws above the hull so it
+## reads as trapped inside the cage.
+func set_caged() -> void:
+	state = State.CAGED
+	carried_by = null
+	_sink_speed = 0.0
+	z_index = 50
+
+## Dropped through the keel hatch into the sub: reparent under the sub (so it
+## rides along), land at `local_pos`, and become a pickup-able loose item.
+func drop_into_sub(sub: Node2D, local_pos: Vector2) -> void:
+	if not is_instance_valid(sub):
+		queue_free()
+		return
+	if get_parent() != sub:
+		reparent(sub)
+	position = local_pos
+	state = State.LOOSE
+	carried_by = null
+	z_index = 6
+	add_to_group("carryable")
+
+## Picked up by a crew member; rides along with them.
+func set_carried(crew: Node2D) -> void:
+	state = State.CARRIED
+	carried_by = crew
+	z_index = 50
+
+## Put back down on a sub floor at `local_pos` (the crew dropped it).
+func set_loose_at(local_pos: Vector2) -> void:
+	state = State.LOOSE
+	carried_by = null
+	position = local_pos
+	z_index = 6
 
 func _draw() -> void:
 	var bob := sin(_wobble * 2.0) * 3.0
