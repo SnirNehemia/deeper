@@ -145,20 +145,39 @@ func _draw_claw() -> void:
 	draw_circle(anchor, 6.0, PlaceholderArt.HULL_COLOR)
 	draw_circle(joint, 6.0, PlaceholderArt.HULL_COLOR)
 
-	# The cage at the tip: two jaws that close as clamp_amount() rises. Open
-	# jaws splay out from the forearm direction; closed jaws meet ahead.
+	# The cage at the tip: an actual basket whose mouth (facing outward) has a
+	# hatch that swings shut as clamp_amount() rises. Caught salvage rides
+	# inside it (drawn by the items themselves, above the hull) so you can see
+	# what you've trapped.
+	_draw_cage(joint, tip)
+
+## A basket cage at the arm tip, opening outward, with a hinged hatch across
+## the mouth that closes (clamp_amount -> 1) when it's holding salvage.
+func _draw_cage(joint: Vector2, tip: Vector2) -> void:
 	var fwd := (tip - joint).normalized() if tip.distance_to(joint) > 0.1 else Vector2.DOWN
 	var side := fwd.orthogonal()
-	var clamp := claw.clamp_amount()
-	var spread := lerpf(0.9, 0.12, clamp)  # wide when open, pinched when shut
-	var jaw := 16.0
 	var c := PlaceholderArt.LADDER_COLOR
-	draw_line(tip, tip + (fwd + side * spread).normalized() * jaw, c, 4.0)
-	draw_line(tip, tip + (fwd - side * spread).normalized() * jaw, c, 4.0)
-	# Cross-bars so it reads as a basket cage.
-	var lip := jaw * 0.6
-	draw_line(tip + (fwd + side * spread).normalized() * lip,
-		tip + (fwd - side * spread).normalized() * lip, c, 3.0)
+	var hw := 22.0          # half-width across the mouth
+	var back := tip - fwd * 8.0
+	var mouth := tip + fwd * 22.0
+	var bl := back + side * hw
+	var br := back - side * hw
+	var ml := mouth + side * hw
+	var mr := mouth - side * hw
+	# Basket: back wall + two side walls + a mid rib for a caged look.
+	draw_line(bl, br, c, 3.0)
+	draw_line(bl, ml, c, 3.0)
+	draw_line(br, mr, c, 3.0)
+	var rib := tip + fwd * 8.0
+	draw_line(rib + side * hw, rib - side * hw, c, 2.0)
+	# Hinged hatch doors across the mouth: meet in the middle when shut, swing
+	# outward when open.
+	var openness := 1.0 - claw.clamp_amount()
+	var center := mouth
+	var l_open := ml + fwd * 10.0 + side * 6.0
+	var r_open := mr + fwd * 10.0 - side * 6.0
+	draw_line(ml, center.lerp(l_open, openness), c, 3.0)
+	draw_line(mr, center.lerp(r_open, openness), c, 3.0)
 
 ## The claw operator's console in the lower claw room, styled like the helm /
 ## turret consoles so it reads as "a station".
@@ -175,7 +194,8 @@ func _draw_claw_console() -> void:
 func _draw_storage_pen(sub: Sub) -> void:
 	var room := sub.room_rect(5)  # storage room
 	var floor_y := room.position.y + room.size.y
-	var pen := Rect2(room.position.x + 24.0, floor_y - 54.0, 96.0, 54.0)
+	# Against the room's RIGHT wall, clear of the storage ladder on the left.
+	var pen := Rect2(room.position.x + room.size.x - 96.0 - 18.0, floor_y - 54.0, 96.0, 54.0)
 	# Cage bars.
 	var bar := PlaceholderArt.LADDER_COLOR
 	draw_rect(Rect2(pen.position, Vector2(pen.size.x, 4.0)), bar)  # top rail

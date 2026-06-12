@@ -21,6 +21,28 @@ func _ready() -> void:
 	_label.add_theme_constant_override("outline_size", 6)
 	add_child(_label)
 
+	_add_debug_buttons()
+
+## TEMP playtest aid: two buttons under the readout that drop salvage straight
+## into storage, so we can test the storage pen / banking without grinding the
+## claw. (Respects the storage cap.) Remove when debug mode is no longer needed.
+func _add_debug_buttons() -> void:
+	_add_debug_button("+1 scrap", -340, SalvageItem.Kind.SCRAP)
+	_add_debug_button("+1 carcass", -236, SalvageItem.Kind.FISH)
+
+func _add_debug_button(text: String, left: float, kind: int) -> void:
+	var btn := Button.new()
+	btn.text = text
+	btn.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	btn.offset_left = left
+	btn.offset_right = left + 96.0
+	btn.offset_top = 78.0
+	btn.offset_bottom = 104.0
+	btn.pressed.connect(func() -> void:
+		if sub != null:
+			sub.deposit_salvage(kind))
+	add_child(btn)
+
 func _process(_delta: float) -> void:
 	if sub == null:
 		return

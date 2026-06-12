@@ -103,8 +103,10 @@ func _test_snap_and_dump() -> void:
 	claw.handle_input(_make_input(Vector2.ZERO, true))
 	_check(claw.cage_count() == 1, "use snaps the cage shut on the salvage")
 	await _frames(2)
-	_check(not is_instance_valid(item) or item.is_queued_for_deletion(),
-		"the caught item leaves the world")
+	_check(is_instance_valid(item) and item.held,
+		"the caught item stays alive, held inside the cage (visible)")
+	_check(item.global_position.distance_to(_tip_world(sub, claw)) < 40.0,
+		"the held item rides at the cage")
 	_check(sub.storage_count() == 0, "nothing is stored until the catch is dumped")
 
 	# Fold home and dump.
@@ -114,6 +116,9 @@ func _test_snap_and_dump() -> void:
 	claw.handle_input(_make_input(Vector2.ZERO, true))
 	_check(claw.cage_count() == 0, "use at home empties the cage")
 	_check(sub.storage_scrap == 1, "the catch lands in storage")
+	await _frames(2)
+	_check(not is_instance_valid(item) or item.is_queued_for_deletion(),
+		"the dumped item leaves the world")
 
 	sub.queue_free()
 	await _frames(2)

@@ -18,6 +18,10 @@ const RADIUS_PX := 14.0
 var _wobble: float = randf() * TAU
 # Carcasses sink at this speed (px/s), decaying to a stop so they "settle".
 var _sink_speed: float = 0.0
+# True while trapped in the claw's cage: the claw drives our position, so we
+# stop sinking/drifting on our own and ride above the hull (high z) to stay
+# visible inside the cage.
+var held: bool = false
 
 static func make_scrap(world_pos: Vector2) -> SalvageItem:
 	var item := SalvageItem.new()
@@ -49,11 +53,23 @@ func _ready() -> void:
 
 func _physics_process(delta: float) -> void:
 	_wobble += delta
+	if held:
+		# The claw owns our position while we're caged; just keep animating.
+		queue_redraw()
+		return
 	if _sink_speed > 0.0:
 		position.y += _sink_speed * delta
 		# Decay the sink speed so the carcass eases to a stop ("settling").
 		_sink_speed = maxf(0.0, _sink_speed - GameFeel.PIXELS_PER_METER * 0.5 * delta)
 	queue_redraw()
+
+## Caught/released by the claw cage. Held items stop sinking and draw above the
+## hull so they read as trapped inside the cage.
+func set_held(h: bool) -> void:
+	held = h
+	z_index = 50 if h else 0
+	if h:
+		_sink_speed = 0.0
 
 func _draw() -> void:
 	var bob := sin(_wobble * 2.0) * 3.0

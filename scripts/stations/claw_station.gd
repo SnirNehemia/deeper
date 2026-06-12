@@ -24,10 +24,11 @@ const ANCHOR_LOCAL := Vector2(0.0, Sub.LOWER_BOTTOM_Y)
 var shoulder_angle: float = 0.0
 var elbow_angle: float = deg_to_rad(160.0)
 
-## Pieces currently held in the cage (each a SalvageItem.Kind). Capacity is
+## The actual salvage items trapped in the cage right now (kept alive and
+## visible — they ride inside the cage as the arm moves). Capacity is
 ## GameFeel.claw.cage_capacity.
-var _cage: Array[int] = []
-## Brief "snap" animation timer so the cage visibly clamps shut on a grab.
+var _caught: Array[SalvageItem] = []
+## Brief "snap" animation timer so the cage hatch visibly clamps shut.
 var _snap_timer: float = 0.0
 
 func _ready() -> void:
@@ -36,6 +37,7 @@ func _ready() -> void:
 
 func _physics_process(delta: float) -> void:
 	_snap_timer = maxf(0.0, _snap_timer - delta)
+	_carry_caught()
 
 func handle_input(input: PlayerInput) -> void:
 	var c: GameFeel.ClawFeel = GameFeel.claw
@@ -82,22 +84,41 @@ func _tip_global() -> Vector2:
 # --- Cage state ---
 
 func cage_count() -> int:
-	return _cage.size()
+	return _caught.size()
 
 func cage_full() -> bool:
-	return _cage.size() >= GameFeel.claw.cage_capacity
+	return _caught.size() >= GameFeel.claw.cage_capacity
 
 ## True when the cage is folded back near the keel anchor, ready to dump.
 func is_home() -> bool:
 	return tip_local().distance_to(ANCHOR_LOCAL) <= GameFeel.claw.home_radius_m * Sub.PPM
 
-## How fully the cage is clamped shut (0 open .. 1 shut), for the visual.
+## How fully the cage hatch is clamped shut (0 open .. 1 shut), for the visual.
 func clamp_amount() -> float:
 	if _snap_timer > 0.0:
 		return 1.0
-	return 1.0 if _cage.size() > 0 else 0.0
+	return 1.0 if _caught.size() > 0 else 0.0
 
-## Snap the cage shut on any salvage within reach of the tip, up to capacity.
+## Where a caught item rides inside the cage (sub-local), staggered so two
+## catches don't fully overlap.
+func _caught_slot_local(index: int, count: int) -> Vector2:
+	var fore_dir := (tip_local() - joint_local())
+	var side := fore_dir.orthogonal().normalized() if fore_dir.length() > 0.1 else Vector2.RIGHT
+	var spread := (float(index) - (count - 1) * 0.5) * 11.0
+	return tip_local() + side * spread
+
+## Keep each trapped item glued inside the cage as the arm moves (and prune any
+## that vanished, e.g. on a run reset).
+func _carry_caught() -> void:
+	for i in range(_caught.size() - 1, -1, -1):
+		if not is_instance_valid(_caught[i]) or _caught[i].is_queued_for_deletion():
+			_caught.remove_at(i)
+	for i in _caught.size():
+		var local := _caught_slot_local(i, _caught.size())
+		_caught[i].global_position = sub.to_global(local.rotated(sub.pitch))
+
+## Snap the cage hatch shut on any salvage within reach of the tip, up to
+## capacity. Caught items stay alive and visible — they ride in the cage.
 func _snap() -> void:
 	_snap_timer = 0.18
 	if cage_full():
@@ -108,7 +129,7 @@ func _snap() -> void:
 	var hits: Array = []
 	for node in sub.get_tree().get_nodes_in_group("salvage"):
 		var item := node as SalvageItem
-		if item == null or item.is_queued_for_deletion():
+		if item == null or item.is_queued_for_deletion() or item.held:
 			continue
 		var d := tip.distance_to(item.global_position)
 		if d <= grab:
@@ -118,14 +139,20 @@ func _snap() -> void:
 		if cage_full():
 			break
 		var item: SalvageItem = h["item"]
-		_cage.append(item.kind)
+		item.set_held(true)
 		item.set_deferred("monitoring", false)
-		item.queue_free()
+		_caught.append(item)
+	_carry_caught()
 
 ## Dump the cage into the storage pen (only when home). Stops early if the pen
 ## fills up — leftover catch stays in the cage until you bank at the dock.
 func _dump() -> void:
-	while not _cage.is_empty():
-		if not sub.deposit_salvage(_cage[0]):
+	while not _caught.is_empty():
+		var item: SalvageItem = _caught[0]
+		if not is_instance_valid(item):
+			_caught.pop_front()
+			continue
+		if not sub.deposit_salvage(item.kind):
 			break  # storage pen full
-		_cage.pop_front()
+		_caught.pop_front()
+		item.queue_free()
