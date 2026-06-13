@@ -17,20 +17,23 @@ extends CanvasLayer
 
 signal closed(changed: bool)
 
-enum Mode { LIST, PLACEMENT }
+enum Mode { LIST, PLACEMENT, SHOP }
 
 var _mode: Mode = Mode.LIST
 var _index: int = 0
+var _shop_index: int = 0
 var _slot: SubLoadout.Slot = SubLoadout.Slot.STERN
 var _changed: bool = false
 var _note: String = ""
 var _entries: Array = []
+var _shop_entries: Array = []
 var _view: _View
 
 func _ready() -> void:
 	layer = 20
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_entries = SubLoadout.catalog()
+	_shop_entries = ModuleCatalog.purchasable_rooms()
 	get_tree().paused = true
 
 	var bg := ColorRect.new()
@@ -51,10 +54,13 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		return
 	get_viewport().set_input_as_handled()
 	_note = ""
-	if _mode == Mode.LIST:
-		_list_key(key.physical_keycode)
-	else:
-		_placement_key(key.physical_keycode)
+	match _mode:
+		Mode.LIST:
+			_list_key(key.physical_keycode)
+		Mode.SHOP:
+			_shop_key(key.physical_keycode)
+		Mode.PLACEMENT:
+			_placement_key(key.physical_keycode)
 	_view.queue_redraw()
 
 func _list_key(code: int) -> void:
@@ -65,7 +71,25 @@ func _list_key(code: int) -> void:
 			_index = wrapi(_index + 1, 0, _entries.size())
 		KEY_ENTER, KEY_KP_ENTER, KEY_SPACE:
 			_try_buy(_entries[_index])
-		KEY_ESCAPE, KEY_TAB:
+		KEY_TAB:
+			_mode = Mode.SHOP
+		KEY_ESCAPE:
+			_close()
+
+func _shop_key(code: int) -> void:
+	match code:
+		KEY_UP, KEY_W:
+			if not _shop_entries.is_empty():
+				_shop_index = wrapi(_shop_index - 1, 0, _shop_entries.size())
+		KEY_DOWN, KEY_S:
+			if not _shop_entries.is_empty():
+				_shop_index = wrapi(_shop_index + 1, 0, _shop_entries.size())
+		KEY_ENTER, KEY_KP_ENTER, KEY_SPACE:
+			if not _shop_entries.is_empty():
+				_try_buy_room(_shop_entries[_shop_index])
+		KEY_TAB:
+			_mode = Mode.LIST
+		KEY_ESCAPE:
 			_close()
 
 func _placement_key(code: int) -> void:
@@ -98,6 +122,21 @@ func _try_buy(entry: Dictionary) -> void:
 		_changed = true
 		_note = "%s installed!" % entry["label"]
 
+func _try_buy_room(def: ModuleDef) -> void:
+	var cost := def.cost_bundle()
+	if not SaveData.can_afford_cost(cost):
+		_note = "Not enough resources (need %s)." % _cost_string(cost)
+		return
+	if SaveData.buy_room(def.id):
+		_changed = true
+		_note = "%s bought into inventory!" % def.display_name
+
+static func _cost_string(cost: Dictionary) -> String:
+	var parts: Array[String] = []
+	for code in cost:
+		parts.append("%d %s" % [int(cost[code]), code])
+	return ", ".join(parts)
+
 func _close() -> void:
 	get_tree().paused = false
 	closed.emit(_changed)
@@ -116,20 +155,31 @@ class _View extends Control:
 		f.draw_string(get_canvas_item(), Vector2(80, 70), "DRY DOCK",
 			HORIZONTAL_ALIGNMENT_LEFT, -1, 44, Color("e0c060"))
 		f.draw_string(get_canvas_item(), Vector2(80, 110),
-			"Banked: %d scrap   %d fish" % [SaveData.banked_scrap, SaveData.banked_fish],
+			"Scrap: %d   Small carcass: %d   Medium carcass: %d   Large carcass: %d" % [
+				SaveData.banked_scrap, SaveData.banked_fish,
+				SaveData.banked_med_carcass, SaveData.banked_large_carcass],
 			HORIZONTAL_ALIGNMENT_LEFT, -1, 24, Color.WHITE)
 
-		if dock._mode == DryDock.Mode.PLACEMENT:
-			_draw_placement(f)
-		else:
-			_draw_list(f)
+		match dock._mode:
+			DryDock.Mode.PLACEMENT:
+				_draw_placement(f)
+			DryDock.Mode.SHOP:
+				_draw_shop(f)
+			_:
+				_draw_list(f)
 
 		# Footer note + controls.
 		if dock._note != "":
 			f.draw_string(get_canvas_item(), Vector2(80, size.y - 96), dock._note,
 				HORIZONTAL_ALIGNMENT_LEFT, -1, 24, Color("ff8c3a"))
-		var hint := "W/S select   Enter buy   Esc/Tab leave" if dock._mode == DryDock.Mode.LIST \
-			else "A/D pick the end   Enter confirm   Esc back"
+		var hint := ""
+		match dock._mode:
+			DryDock.Mode.LIST:
+				hint = "W/S select   Enter buy   Tab: shop   Esc leave"
+			DryDock.Mode.SHOP:
+				hint = "W/S select   Enter buy   Tab: upgrades   Esc leave"
+			_:
+				hint = "A/D pick the end   Enter confirm   Esc back"
 		f.draw_string(get_canvas_item(), Vector2(80, size.y - 60), hint,
 			HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(1, 1, 1, 0.7))
 
@@ -157,6 +207,32 @@ class _View extends Control:
 				HORIZONTAL_ALIGNMENT_LEFT, -1, 24, name_col)
 			f.draw_string(get_canvas_item(), Vector2(80, y + 50), str(e["desc"]),
 				HORIZONTAL_ALIGNMENT_LEFT, -1, 17, Color(1, 1, 1, 0.55))
+			y += 86.0
+
+	func _draw_shop(f: Font) -> void:
+		f.draw_string(get_canvas_item(), Vector2(80, 170), "SHOP — buy rooms into inventory",
+			HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color("7aa0c0"))
+		var y := 230.0
+		if dock._shop_entries.is_empty():
+			f.draw_string(get_canvas_item(), Vector2(80, y), "Nothing for sale yet.",
+				HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(1, 1, 1, 0.6))
+			return
+		for i in dock._shop_entries.size():
+			var def: ModuleDef = dock._shop_entries[i]
+			var cost := def.cost_bundle()
+			var afford: bool = SaveData.can_afford_cost(cost)
+			var owned: int = int(SaveData.layout.inventory.get(def.id, 0))
+			var selected := i == dock._shop_index
+			if selected:
+				draw_rect(Rect2(64, y - 30, 760, 64), Color(1, 1, 1, 0.10))
+			var name_col := Color.WHITE if afford else Color(0.6, 0.6, 0.65)
+			f.draw_string(get_canvas_item(), Vector2(80, y + 26), def.display_name,
+				HORIZONTAL_ALIGNMENT_LEFT, -1, 26, name_col)
+			f.draw_string(get_canvas_item(), Vector2(560, y + 22), DryDock._cost_string(cost),
+				HORIZONTAL_ALIGNMENT_LEFT, -1, 24, name_col)
+			if owned > 0:
+				f.draw_string(get_canvas_item(), Vector2(80, y + 50), "In inventory: %d" % owned,
+					HORIZONTAL_ALIGNMENT_LEFT, -1, 17, Color(1, 1, 1, 0.55))
 			y += 86.0
 
 	func _draw_placement(f: Font) -> void:
