@@ -202,6 +202,24 @@ generated tower spot.
   inventory). 24/24 suites green.
 - **Commit:** `M4-6: save extension + layout persistence + recovery`.
 
+### Milestone 4 — Module 7a: dry-dock shop, slot purchasing (DONE)
+- `SaveData.buy_slot(pos)` + `next_slot_price()` (`autoload/save_data.gd`): the
+  slot-economy spend (ROOM_SYSTEM.md §4.1 — the gate before a room has anywhere
+  to go). Buying a legal buyable position deducts the escalating scrap price
+  (`GameFeel.dock`, M4-2), appends the slot to the layout, and persists.
+  Illegal positions (not adjacent to the hull / out of bounds) and insufficient
+  scrap are refused with no state change.
+- **Logic only — no shop UI yet** (M4-7b/c). These are the controller functions
+  the keyboard shop will call.
+- Test: `test_shop` (happy path, too-poor refusal, illegal-position refusal,
+  price escalation, save/reload persistence). 25/25 suites green.
+- **Commit:** `M4-7a: dry-dock shop slot purchasing logic`.
+- **Still to do for M4-7:** (b) multi-resource room costs — add carcass tiers
+  (`s_ca`/`m_ca`/`l_ca`) to the wallet + resource-bundle prices on the room
+  catalog (ROOM_SYSTEM.md §4.2/§6), buy a room into inventory; (c) the
+  keyboard shop UI (sell slots + rooms). Then M4-8 assembly (place inventory
+  rooms into owned slots).
+
 ### M4 module order (corrected per `ROOM_SYSTEM.md` reconciliation, 2026-06-12)
 `MILESTONE_4_v2.md`'s eleven modules are still the backbone, but three things
 from `ROOM_SYSTEM.md` change the order and add a module. This list is the
@@ -438,7 +456,7 @@ beat. All placeholder art.
   - `world.tscn`/`.gd` — **main scene**: map + crewed sub (built from loadout) + 3 fish + camera + HUDs + implosion/run reset + dock banking + **dock prompt / Tab opens the dry dock / sub rebuild on purchase**.
   - `shore_shelf.gd` — the map (terrain/water/sky + **cave lamp marker** + **scattered scrap pickups**).
   - `sub_test.tscn`, `sandbox.tscn` — M1 sandboxes (no water/buoyancy).
-- `tests/` — 24 headless suites, all passing: `test_input`, `test_crew`, `test_sub`,
+- `tests/` — 25 headless suites, all passing: `test_input`, `test_crew`, `test_sub`,
   `test_helm`, `test_world`, `test_water`, `test_station_flood`, `test_damage`,
   `test_repair`, `test_drowning`, `test_implosion`, `test_turret`, `test_fish`,
   `test_lower_deck` (Module A), `test_salvage` (Module B storage/bank/save),

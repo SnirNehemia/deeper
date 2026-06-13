@@ -86,6 +86,27 @@ func purchase(id: String, slot: SubLoadout.Slot = SubLoadout.Slot.NONE) -> bool:
 	save_data()
 	return true
 
+## Buy a slot (an empty, buildable cell adjacent to the hull) at `pos`
+## (ROOM_SYSTEM.md §4.1 — the growth purchase, the gate before a room has
+## anywhere to go). The price escalates on slots already owned
+## (`GameFeel.dock`, M4-2). Fails (false) if `pos` isn't a legal buyable
+## position right now or there isn't enough scrap. On success: deduct scrap,
+## add the slot to the layout, persist.
+func buy_slot(pos: Vector2i) -> bool:
+	if pos not in layout.buyable_slot_positions():
+		return false
+	var cost := GameFeel.dock.slot_price(layout.slots.size())
+	if banked_scrap < cost:
+		return false
+	banked_scrap -= cost
+	layout.slots.append(pos)
+	save_data()
+	return true
+
+## The scrap price of the next slot, given how many are already owned.
+func next_slot_price() -> int:
+	return GameFeel.dock.slot_price(layout.slots.size())
+
 ## Wipe the in-memory and on-disk save (used by tests).
 func reset_for_test() -> void:
 	banked_scrap = 0
