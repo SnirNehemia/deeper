@@ -82,6 +82,7 @@ func _ready() -> void:
 func _spawn_sub_and_crew() -> void:
 	_sub = Sub.new()
 	_sub.loadout = SaveData.loadout
+	_sub.layout = SaveData.layout  # the persisted sub shape (M4)
 	_sub.buoyancy_enabled = true  # floats at the surface, can't fly out of the water
 	_sub.position = SUB_SPAWN
 	add_child(_sub)

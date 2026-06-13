@@ -184,6 +184,24 @@ generated tower spot.
   suites green; the main scene boots clean.**
 - **Commit:** `M4-4b: layout-driven sub (generated interior/visual/stations)`.
 
+### Milestone 4 — Module 6: save extension + layout persistence + recovery (DONE)
+- `SaveData` now persists the submarine **layout** (placements, pods, owned
+  slots, inventory) alongside banked salvage + loadout, via
+  `SubLayout.to_dict/from_dict` (`autoload/save_data.gd`). `world.gd` builds the
+  live sub from `SaveData.layout`.
+- **Load-time validation + recovery** (`MODULAR_SUB_IMPLEMENTATION.md` §5/§9):
+  on load the layout is run through `SubValidator.recover` — a layout left
+  illegal by a rules change boots to core + inventory (non-core rooms returned,
+  scrap untouched) instead of crashing or vanishing.
+- **Legacy upgrade:** a pre-M4 save with no `layout` key loads as the starting
+  Minnow+.
+- Still no shop to *change* the layout yet (M4-7) — this is the persistence
+  layer the shop/assembly will write through.
+- Test: `test_save_layout` (round-trip of slots/inventory/placements;
+  legacy-save upgrade; invalid-layout recovery returns the offending room to
+  inventory). 24/24 suites green.
+- **Commit:** `M4-6: save extension + layout persistence + recovery`.
+
 ### M4 module order (corrected per `ROOM_SYSTEM.md` reconciliation, 2026-06-12)
 `MILESTONE_4_v2.md`'s eleven modules are still the backbone, but three things
 from `ROOM_SYSTEM.md` change the order and add a module. This list is the
@@ -420,7 +438,7 @@ beat. All placeholder art.
   - `world.tscn`/`.gd` — **main scene**: map + crewed sub (built from loadout) + 3 fish + camera + HUDs + implosion/run reset + dock banking + **dock prompt / Tab opens the dry dock / sub rebuild on purchase**.
   - `shore_shelf.gd` — the map (terrain/water/sky + **cave lamp marker** + **scattered scrap pickups**).
   - `sub_test.tscn`, `sandbox.tscn` — M1 sandboxes (no water/buoyancy).
-- `tests/` — 23 headless suites, all passing: `test_input`, `test_crew`, `test_sub`,
+- `tests/` — 24 headless suites, all passing: `test_input`, `test_crew`, `test_sub`,
   `test_helm`, `test_world`, `test_water`, `test_station_flood`, `test_damage`,
   `test_repair`, `test_drowning`, `test_implosion`, `test_turret`, `test_fish`,
   `test_lower_deck` (Module A), `test_salvage` (Module B storage/bank/save),
@@ -435,7 +453,8 @@ beat. All placeholder art.
   serialization), **`test_validate`** (M4 Module 3: validate()'s 7 rules +
   slot overlap, and the load-recovery path), **`test_geometry`** (M4 Module 4a:
   the layout→geometry compiler — room rects, doorways, parity ladders, section
-  baking).
+  baking), **`test_save_layout`** (M4 Module 6: layout/slots/inventory
+  persistence, legacy-save upgrade, invalid-layout load recovery).
   Plus `capture_*` — throwaway windowed screenshot tools (png gitignored;
   `capture_m2` stages the full M2 tableau). They hang under `--headless`
   (no `quit()` — they're meant to be run and screenshotted, not asserted)
@@ -485,10 +504,14 @@ walls). Verdict needed before building the dock/shop on top of it: *does it feel
 like M3 apart from the accepted size changes?* See "Verify by playing —
 Checkpoint 1" below. Fix any feel regressions before continuing.
 
-After the checkpoint: **M4-5 polish** (restrict breach surfaces to exterior
-faces; add an asymmetric-layout water-conservation test) — minor, then **M4-6**
-(save extension) and onward per the M4 order. Note M4-5's hull/water/implosion
-generation already landed inside M4-4b.
+Checkpoint 1 was played (2 rounds of tunings applied — see above). **M4-6 (save
++ layout persistence) is now done too.** Next: **M4-7 — the dry-dock shop**:
+sell slots (escalating price, `GameFeel.dock` from M4-2) and rooms into the
+inventory, spending banked salvage; multi-resource (scrap + carcass) costs per
+`ROOM_SYSTEM.md` §4.2. Then **M4-8** (assembly screen: place inventory rooms
+into owned slots, `validate`-driven). M4-5 polish (breach exterior faces;
+asymmetric water-conservation test) is still minor/open; M4-5's
+hull/water/implosion generation already landed inside M4-4b.
 
 ## Verify by playing — Checkpoint 1 (the generated sub)
 Launch: `"D:\Godot_v4.4.1-stable_win64.exe\Godot_v4.4.1-stable_win64.exe" --path .`
