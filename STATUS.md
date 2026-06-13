@@ -1,21 +1,23 @@
 # STATUS — DEEPER
 
-_Read this at session start. Last updated: 2026-06-13 (M4-7c: the dock-shop
-**Shop tab** is wired up — wallet display, buy rooms into inventory, buy
-buildable slots. Next is the assembly screen M4-8.)_
+_Read this at session start. Last updated: 2026-06-13 (M4-8: the dock-shop
+**Assembly tab** is wired up — hull blueprint, buy slots, and place
+inventory rooms into owned slots (with mirrored wall-side toggle). Next is
+M4-9 (pods) → Checkpoint 2.)_
 
 ## Where we are
 **Milestone 3 is closed (Modules A-E).** Milestone 4 ("The Dry Dock & The
-Growing Sub") is well underway — **all 25 headless suites green.**
+Growing Sub") is well underway — **all 26 headless suites green.**
 
 **The submarine is now fully layout-driven** (built from a `SubLayout` via the
 `SubGeometry` pipeline; no hand-authored geometry). Snir **played Checkpoint 1**
 and the geometry is tuned (5m rooms / 1m sections, 0.9m ladders, elements
-snapped to their sections). The **entire dock-shop spend backend is built and
-tested** (buy slots, buy rooms into inventory, multi-resource wallet, save +
-load-recovery) — but there is **no dock UI yet**: nothing is buyable in-game.
-The very next work is the keyboard shop UI (M4-7c) and the assembly screen
-(M4-8). See "Suggested next step" near the bottom.
+snapped to their sections). The **dock UI is now complete for the room economy**:
+the dry dock has three tabs — Upgrades, Shop (buy rooms into inventory and buy
+slots), and Assembly (a hull blueprint where buyable slots show as ghost cells
+with prices, and owned inventory rooms can be placed into owned empty slots,
+with an A/D mirrored toggle for rooms with a firing face). Next up is M4-9
+(pods) → Checkpoint 2. See "Suggested next step" near the bottom.
 
 **Required reading for M4, in order:** `CLAUDE.md` → this file → `DECISIONS.md`
 → `MODULAR_SUB_IMPLEMENTATION.md` (grid/pipeline/validation/dock canon) →
@@ -273,6 +275,40 @@ generated tower spot.
   Esc closes and unpauses from the Shop tab). 26/26 suites green.
 - **Commit:** `M4-7c step 1/2` (Shop tab + buy rooms; buy slots).
 
+### Milestone 4 — Module 8: dry-dock Assembly tab (DONE)
+- `DryDock` (`scripts/ui/dry_dock.gd`) gains a fourth mode, `Mode.ASSEMBLY`.
+  **Tab** now cycles Upgrades → Shop → Assembly → Upgrades; Esc closes from
+  any tab.
+- **Assembly view** draws a top-down blueprint of the hull: each placed room
+  as a filled, labeled box; each owned-but-empty slot as an outlined "empty
+  slot" box; each currently-buyable slot position as a faint ghost cell
+  showing its scrap price (gold-highlighted when selected) — this replaces
+  the old text-based "Build a slot at (x,y)" list (the M4-7c follow-up request
+  from `DECISIONS.md`).
+- **Placing inventory rooms** (`_rebuild_assembly_entries`): for every owned
+  empty slot and every room currently in `layout.inventory`, Assembly adds a
+  "place_room" entry. W/S cycles through all entries (buy-slot ghosts and
+  place-room options together); Enter on a place-room entry calls
+  `SaveData.place_room` — no validate/spend logic duplicated in the UI. A
+  successful placement shows a confirmation note and rebuilds both the Shop
+  and Assembly lists (inventory count drops, the slot becomes a placement).
+  An illegal placement (e.g. would brick in a turret's firing face) shows the
+  first violation message from `SaveData.place_room_violations` and changes
+  nothing.
+- **Mirrored wall-side toggle**: for rooms with a firing face (the Turret
+  Room), pressing **A/D** while that entry is selected toggles a "(mirrored)"
+  flag shown on the ghost cell; Enter places it with that orientation. Useful
+  when the unmirrored side would point into the hull (refused) — mirroring it
+  points the firing face outward instead.
+- Test: `test_shop` gained 4 new backend cases (place a room happy path;
+  refused when the firing face would be blocked, with violation message;
+  refused without an owned slot; refused without inventory). `test_dock_shop_ui`
+  gained an Assembly-tab case driving the full Shop→buy room→Assembly→buy
+  slot→place room flow via `_assembly_key`. 26/26 suites green.
+- **Commit:** `M4-8 step 2` (place inventory rooms into owned slots, mirrored
+  toggle) — step 1 (hull blueprint + slot-buying ghost cells) was a prior
+  commit this session.
+
 ### M4 module order (corrected per `ROOM_SYSTEM.md` reconciliation, 2026-06-12)
 `MILESTONE_4_v2.md`'s eleven modules are still the backbone, but three things
 from `ROOM_SYSTEM.md` change the order and add a module. This list is the
@@ -300,13 +336,13 @@ current source of truth for M4 sequencing — supersedes the v2 numbering below:
    - **M4-7a** ✅ done — buy slots (`SaveData.buy_slot`, escalating scrap).
    - **M4-7b** ✅ done — multi-resource wallet + buy rooms into inventory
      (`SaveData.buy_room`, `can_afford_cost`, `ModuleDef.cost_bundle`).
-   - **M4-7c** ⬅ **NEXT** — the keyboard shop **UI** that calls the above.
-8. **M4-8** — assembly screen: places owned rooms into owned slots; left/right
-   wall choice for outside-mounted elements (guns, claws). **Also folds in the
-   M4-7c follow-up request:** show buyable slot positions as faint "+price"
-   ghost cells on a diagram of the current hull (not a text list) — see
-   `DECISIONS.md` (2026-06-13, M4-7c follow-up).
-9. **M4-9** — pods plumbing.
+   - **M4-7c** ✅ done — the keyboard shop **UI** that calls the above.
+8. **M4-8** ✅ done — assembly screen: places owned rooms into owned slots;
+   left/right (mirrored) wall choice for rooms with a firing face. **Also
+   folded in the M4-7c follow-up request:** buyable slot positions show as
+   faint "+price" ghost cells on a diagram of the current hull (not a text
+   list) — see `DECISIONS.md` (2026-06-13, M4-7c follow-up).
+9. **M4-9** ⬅ **NEXT** — pods plumbing.
    - **⛳ CHECKPOINT 2** — Snir plays: buy a slot, buy a room, place it,
      rearrange.
 10. **M4-10** — first hand-built purchasable room with a real mechanic (a
@@ -578,40 +614,41 @@ Is rising water scary or annoying? Is 3s repair too long under pressure? Do
 torpedoes feel chunky or just sluggish? Is the fish fight fun or a chore? Plus
 all M1 questions (crew weight, sub heft, camera framing).
 
-## Suggested next step — M4-8: the assembly screen
-M4-7c (the dock Shop tab) is done — see Module 7c above. Next: a grid-diagram
-"Assembly" view (third `DryDock` tab, or its own screen reachable from the
-dock) where the player places a room from `layout.inventory` into an owned
-empty slot (`layout.slots`), `SubValidator.validate`-driven, with an
-Apply→rebuild step (the world already rebuilds the sub on dock close). Then
-**M4-9** (pods) → **⛳ Checkpoint 2**. Minor open item: **M4-5 polish** (breach
-surfaces → exterior faces only; an asymmetric-layout water-conservation test).
+## Suggested next step — M4-9: pods plumbing
+M4-7c (Shop tab) and M4-8 (Assembly tab: hull blueprint, slot-buying ghost
+cells, placing inventory rooms with the mirrored toggle) are both done — see
+Module 7c and Module 8 above. Next: **M4-9** (pods plumbing — exterior pods
+that clip to a hull face, e.g. the floodlight pod), then **⛳ Checkpoint 2**
+(Snir plays: buy a slot, buy a room, place it, rearrange). Minor open item:
+**M4-5 polish** (breach surfaces → exterior faces only; an asymmetric-layout
+water-conservation test).
 
-## Verify by playing — M4-7c (the dock Shop tab)
+## Verify by playing — M4-8 (the dock Shop + Assembly tabs)
 Launch: `"D:\Godot_v4.4.1-stable_win64.exe\Godot_v4.4.1-stable_win64.exe" --path .`
 
 1. Drive the sub back to the **dock** and press **Tab** to open the dry dock
-   (as before — pauses the run). You should land on the familiar Upgrades list
-   (engine boost / repair training / second gun), now with a wallet line at
-   top showing **Scrap / Small carcass / Medium carcass / Large carcass**.
-2. Press **Tab** again — this switches to the new **Shop** tab. You should see
-   the **Turret Room** listed with its price (4 scrap), and below it one or
-   more **"Build a slot at (x, y)"** entries with an escalating scrap price.
-3. With enough scrap (collect some salvage first if needed), select the Turret
-   Room and press **Enter** — you should see a "bought into inventory!"
-   message and an "In inventory: 1" line appear under it. The wallet's scrap
-   count should drop by 4.
-4. Select a "Build a slot" entry and press **Enter** — you should see a "Slot
-   bought!" message, the scrap drop by that slot's price, and (on closing the
-   dock with **Esc**, which also unpauses) **the hull should visibly grow** by
-   one empty cell where that slot was.
-5. Try buying something you can't afford — you should get a red "not enough"
-   message and nothing should change.
-6. Press **Tab** to confirm you can switch back to the Upgrades tab, and
-   **Esc** from either tab closes the dock and unpauses the game.
-
-Note: the bought Turret Room sits in inventory only — there's nothing to
-place it into yet (that's M4-8), so it won't appear on the sub.
+   (pauses the run). You land on the Upgrades list, with a wallet line at top
+   showing **Scrap / Small carcass / Medium carcass / Large carcass**.
+2. Press **Tab** — this switches to the **Shop** tab. You should see the
+   **Turret Room** listed with its price (4 scrap).
+3. With enough scrap, select the Turret Room and press **Enter** — a "bought
+   into inventory!" message appears, "In inventory: 1" shows under it, and the
+   wallet's scrap drops by 4.
+4. Press **Tab** again — this switches to the new **Assembly** tab. You should
+   see a top-down diagram of the sub's current rooms (labeled boxes), plus
+   faint "ghost" cells around the hull showing scrap prices for buildable
+   slots.
+5. With enough scrap, select a ghost cell and press **Enter** — it becomes an
+   "empty slot" (outlined box) and the scrap drops by that slot's price.
+6. W/S past the empty slot — you should find a "Place: Turret Room" option
+   highlighted on that slot. Press **Enter** to place it. If it's refused
+   (firing face would point into the hull), press **A** or **D** to toggle
+   "(mirrored)" and press **Enter** again — it should now succeed, and "In
+   inventory" for the Turret Room should drop to 0.
+7. Press **Esc** to close the dock (unpauses) — **the hull should visibly grow**
+   with the new room where that slot was.
+8. Try buying something you can't afford anywhere — you get a red "not enough"
+   message and nothing changes.
 
 ### Watch out for (traps that already bit this milestone)
 - **`class_name` cache:** after adding a new `class_name` script, run
