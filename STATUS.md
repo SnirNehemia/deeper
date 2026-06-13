@@ -302,13 +302,19 @@ current source of truth for M4 sequencing — supersedes the v2 numbering below:
      (`SaveData.buy_room`, `can_afford_cost`, `ModuleDef.cost_bundle`).
    - **M4-7c** ⬅ **NEXT** — the keyboard shop **UI** that calls the above.
 8. **M4-8** — assembly screen: places owned rooms into owned slots; left/right
-   wall choice for outside-mounted elements (guns, claws).
+   wall choice for outside-mounted elements (guns, claws). **Also folds in the
+   M4-7c follow-up request:** show buyable slot positions as faint "+price"
+   ghost cells on a diagram of the current hull (not a text list) — see
+   `DECISIONS.md` (2026-06-13, M4-7c follow-up).
 9. **M4-9** — pods plumbing.
    - **⛳ CHECKPOINT 2** — Snir plays: buy a slot, buy a room, place it,
      rearrange.
 10. **M4-10** — first hand-built purchasable room with a real mechanic (a
     weapon room, per `ROOM_SYSTEM.md` §6) — the reference implementation for
-    the add-room skill.
+    the add-room skill. **Also adds the `ModuleDef` fields for the M4-7c
+    follow-up request:** a short `description` and an `icon`/`kind` (weapon,
+    arm, storage, ...), plus a Shop-tab inventory sidebar — see `DECISIONS.md`
+    (2026-06-13, M4-7c follow-up).
 11. **M4-11** — build the `add-deeper-room` skill (per
     `SKILL_STUB_add_room.md`), validated by re-deriving the M4-10 room from it.
 12. **M4-12** — second content room, built using the skill (e.g. the

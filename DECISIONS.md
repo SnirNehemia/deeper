@@ -415,6 +415,30 @@
   a turret room's firing face to be exterior, so M4-9 can't place one anywhere
   it'd be bricked in.
 
+## Settled (2026-06-13, M4-7c follow-up)
+- **Tab-eats-focus bug fixed:** `SalvageHud`'s Debug-mode toggle and its +1
+  scrap/+1 carcass buttons now set `focus_mode = Control.FOCUS_NONE`. Without
+  this, clicking them gave a `Button` keyboard focus, and Godot's UI controls
+  consume `Tab` for focus-navigation before `world.gd`'s `_unhandled_input`
+  ever sees it — so the dry dock stopped opening after any debug-button click.
+  Any future UI buttons added to the world (not inside a menu) should set this
+  too, or Tab-to-open-dock will silently break again.
+- **Two shop/assembly visual requests from Snir, parked for later modules
+  (not in scope for M4-7c):**
+  1. **Slot-buying on a sub blueprint:** instead of (or alongside) the text
+     "Build a slot at (x,y)" list, show a diagram of the current hull with
+     faint ghost cells over each buyable position, price labelled on top —
+     so buying a slot is a visual, spatial choice. **Belongs in M4-8** (the
+     assembly screen already needs this grid diagram for placing inventory
+     rooms into slots) — build it once, there, rather than twice.
+  2. **Richer room shop:** each purchasable room gets a short description, an
+     icon indicating its kind (weapon/arm/storage/etc.), and a sidebar listing
+     rooms currently in inventory. Needs new `ModuleDef` fields
+     (`description`, `icon`/`kind`) — **batch this with M4-10** (the first
+     hand-built content room), where that data schema is being defined anyway
+     for the add-room skill (`ROOM_SYSTEM.md` §6, `SKILL_STUB_add_room.md`).
+     Low payoff today since only the Turret Room is purchasable.
+
 ## Parked
 - **What station/ability lives in the conning tower?** It's a fixed, always-
   present single cell at the top of the sub (core, like the helm) — Snir is
