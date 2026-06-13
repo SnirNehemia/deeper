@@ -17,16 +17,18 @@ extends CanvasLayer
 
 signal closed(changed: bool)
 
-enum Mode { LIST, PLACEMENT, SHOP }
+enum Mode { LIST, PLACEMENT, SHOP, ASSEMBLY }
 
 var _mode: Mode = Mode.LIST
 var _index: int = 0
 var _shop_index: int = 0
+var _assembly_index: int = 0
 var _slot: SubLoadout.Slot = SubLoadout.Slot.STERN
 var _changed: bool = false
 var _note: String = ""
 var _entries: Array = []
 var _shop_entries: Array = []
+var _assembly_entries: Array = []
 var _view: _View
 
 func _ready() -> void:
@@ -34,6 +36,7 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_entries = SubLoadout.catalog()
 	_rebuild_shop_entries()
+	_rebuild_assembly_entries()
 	get_tree().paused = true
 
 	var bg := ColorRect.new()
@@ -59,6 +62,8 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			_list_key(key.physical_keycode)
 		Mode.SHOP:
 			_shop_key(key.physical_keycode)
+		Mode.ASSEMBLY:
+			_assembly_key(key.physical_keycode)
 		Mode.PLACEMENT:
 			_placement_key(key.physical_keycode)
 	_view.queue_redraw()
@@ -86,7 +91,23 @@ func _shop_key(code: int) -> void:
 				_shop_index = wrapi(_shop_index + 1, 0, _shop_entries.size())
 		KEY_ENTER, KEY_KP_ENTER, KEY_SPACE:
 			if not _shop_entries.is_empty():
-				_try_buy_shop_entry(_shop_entries[_shop_index])
+				_try_buy_room(_shop_entries[_shop_index]["def"])
+		KEY_TAB:
+			_mode = Mode.ASSEMBLY
+		KEY_ESCAPE:
+			_close()
+
+func _assembly_key(code: int) -> void:
+	match code:
+		KEY_UP, KEY_W:
+			if not _assembly_entries.is_empty():
+				_assembly_index = wrapi(_assembly_index - 1, 0, _assembly_entries.size())
+		KEY_DOWN, KEY_S:
+			if not _assembly_entries.is_empty():
+				_assembly_index = wrapi(_assembly_index + 1, 0, _assembly_entries.size())
+		KEY_ENTER, KEY_KP_ENTER, KEY_SPACE:
+			if not _assembly_entries.is_empty():
+				_try_buy_slot(_assembly_entries[_assembly_index]["pos"])
 		KEY_TAB:
 			_mode = Mode.LIST
 		KEY_ESCAPE:
@@ -122,26 +143,28 @@ func _try_buy(entry: Dictionary) -> void:
 		_changed = true
 		_note = "%s installed!" % entry["label"]
 
-## Rebuilds the shop list: purchasable room types, then one entry per
-## currently-buyable empty slot position. Called on open and after any
-## successful shop purchase (buying a slot changes which positions are
-## buyable next).
+## Rebuilds the shop list: one entry per purchasable room type. Called on
+## open and after a successful room purchase (so "In inventory: N" updates).
 func _rebuild_shop_entries() -> void:
 	_shop_entries = []
 	for def in ModuleCatalog.purchasable_rooms():
 		_shop_entries.append({"type": "room", "def": def})
-	for pos in SaveData.layout.buyable_slot_positions():
-		_shop_entries.append({"type": "slot", "pos": pos})
 	if _shop_entries.is_empty():
 		_shop_index = 0
 	else:
 		_shop_index = clampi(_shop_index, 0, _shop_entries.size() - 1)
 
-func _try_buy_shop_entry(entry: Dictionary) -> void:
-	if entry["type"] == "room":
-		_try_buy_room(entry["def"])
+## Rebuilds the assembly list: one entry per cell currently buyable as a slot
+## (ROOM_SYSTEM.md §4.1). Called on open and after a successful slot purchase
+## (buying a slot changes which positions are buyable next).
+func _rebuild_assembly_entries() -> void:
+	_assembly_entries = []
+	for pos in SaveData.layout.buyable_slot_positions():
+		_assembly_entries.append({"type": "buy_slot", "pos": pos})
+	if _assembly_entries.is_empty():
+		_assembly_index = 0
 	else:
-		_try_buy_slot(entry["pos"])
+		_assembly_index = clampi(_assembly_index, 0, _assembly_entries.size() - 1)
 
 func _try_buy_room(def: ModuleDef) -> void:
 	var cost := def.cost_bundle()
@@ -161,7 +184,7 @@ func _try_buy_slot(pos: Vector2i) -> void:
 	if SaveData.buy_slot(pos):
 		_changed = true
 		_note = "Slot bought at (%d, %d)!" % [pos.x, pos.y]
-		_rebuild_shop_entries()
+		_rebuild_assembly_entries()
 
 static func _cost_string(cost: Dictionary) -> String:
 	var parts: Array[String] = []
@@ -197,6 +220,8 @@ class _View extends Control:
 				_draw_placement(f)
 			DryDock.Mode.SHOP:
 				_draw_shop(f)
+			DryDock.Mode.ASSEMBLY:
+				_draw_assembly(f)
 			_:
 				_draw_list(f)
 
@@ -209,7 +234,9 @@ class _View extends Control:
 			DryDock.Mode.LIST:
 				hint = "W/S select   Enter buy   Tab: shop   Esc leave"
 			DryDock.Mode.SHOP:
-				hint = "W/S select   Enter buy   Tab: upgrades   Esc leave"
+				hint = "W/S select   Enter buy   Tab: assembly   Esc leave"
+			DryDock.Mode.ASSEMBLY:
+				hint = "W/S select   Enter build slot   Tab: upgrades   Esc leave"
 			_:
 				hint = "A/D pick the end   Enter confirm   Esc back"
 		f.draw_string(get_canvas_item(), Vector2(80, size.y - 60), hint,
@@ -254,33 +281,84 @@ class _View extends Control:
 			var selected := i == dock._shop_index
 			if selected:
 				draw_rect(Rect2(64, y - 30, 760, 64), Color(1, 1, 1, 0.10))
-			if entry["type"] == "room":
-				var def: ModuleDef = entry["def"]
-				var cost := def.cost_bundle()
-				var afford: bool = SaveData.can_afford_cost(cost)
-				var owned: int = int(SaveData.layout.inventory.get(def.id, 0))
-				var name_col := Color.WHITE if afford else Color(0.6, 0.6, 0.65)
-				f.draw_string(get_canvas_item(), Vector2(80, y + 26), def.display_name,
-					HORIZONTAL_ALIGNMENT_LEFT, -1, 26, name_col)
-				f.draw_string(get_canvas_item(), Vector2(560, y + 22), DryDock._cost_string(cost),
-					HORIZONTAL_ALIGNMENT_LEFT, -1, 24, name_col)
-				if owned > 0:
-					f.draw_string(get_canvas_item(), Vector2(80, y + 50), "In inventory: %d" % owned,
-						HORIZONTAL_ALIGNMENT_LEFT, -1, 17, Color(1, 1, 1, 0.55))
-			else:
-				var pos: Vector2i = entry["pos"]
-				var price := SaveData.next_slot_price()
-				var afford: bool = SaveData.banked_scrap >= price
-				var name_col := Color.WHITE if afford else Color(0.6, 0.6, 0.65)
-				f.draw_string(get_canvas_item(), Vector2(80, y + 26),
-					"Build a slot at (%d, %d)" % [pos.x, pos.y],
-					HORIZONTAL_ALIGNMENT_LEFT, -1, 26, name_col)
-				f.draw_string(get_canvas_item(), Vector2(560, y + 22), "%d sc" % price,
-					HORIZONTAL_ALIGNMENT_LEFT, -1, 24, name_col)
-				f.draw_string(get_canvas_item(), Vector2(80, y + 50),
-					"Grows the hull — an empty room shell, ready for a bought room",
+			var def: ModuleDef = entry["def"]
+			var cost := def.cost_bundle()
+			var afford: bool = SaveData.can_afford_cost(cost)
+			var owned: int = int(SaveData.layout.inventory.get(def.id, 0))
+			var name_col := Color.WHITE if afford else Color(0.6, 0.6, 0.65)
+			f.draw_string(get_canvas_item(), Vector2(80, y + 26), def.display_name,
+				HORIZONTAL_ALIGNMENT_LEFT, -1, 26, name_col)
+			f.draw_string(get_canvas_item(), Vector2(560, y + 22), DryDock._cost_string(cost),
+				HORIZONTAL_ALIGNMENT_LEFT, -1, 24, name_col)
+			if owned > 0:
+				f.draw_string(get_canvas_item(), Vector2(80, y + 50), "In inventory: %d" % owned,
 					HORIZONTAL_ALIGNMENT_LEFT, -1, 17, Color(1, 1, 1, 0.55))
 			y += 86.0
+
+	## A top-down blueprint of the hull: each occupied cell drawn as a filled
+	## box (room name), each owned-but-empty slot as an outlined box, and each
+	## currently-buyable slot position as a faint ghost box with its price —
+	## the selected one highlighted. Enter buys the selected ghost cell.
+	func _draw_assembly(f: Font) -> void:
+		f.draw_string(get_canvas_item(), Vector2(80, 170),
+			"ASSEMBLY — the sub's hull (faint cells are buyable slots)",
+			HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color("7aa0c0"))
+
+		var layout := SaveData.layout
+		var buyable: Array = layout.buyable_slot_positions()
+		var cells: Array = layout.occupied_cells().duplicate()
+		for c in buyable:
+			if c not in cells:
+				cells.append(c)
+		if cells.is_empty():
+			return
+
+		var min_pos := Vector2i(999, 999)
+		var max_pos := Vector2i(-999, -999)
+		for c in cells:
+			min_pos = Vector2i(min(min_pos.x, c.x), min(min_pos.y, c.y))
+			max_pos = Vector2i(max(max_pos.x, c.x), max(max_pos.y, c.y))
+		var span := max_pos - min_pos + Vector2i.ONE
+		const CELL_PX := 70.0
+		var origin := Vector2(size.x * 0.5 - span.x * CELL_PX * 0.5, 240.0)
+
+		var placed: Dictionary = {}  # cell -> display name
+		for p in layout.placements:
+			var def := ModuleCatalog.by_id(p.module_id)
+			var label := def.display_name if def != null else p.module_id
+			for cell in SubLayout.placement_cells(p):
+				placed[cell] = label
+
+		for cell in placed:
+			var r := _cell_rect(cell, min_pos, origin, CELL_PX)
+			draw_rect(r, Color(0.35, 0.4, 0.5, 0.9))
+			draw_rect(r, Color(1, 1, 1, 0.6), false, 2.0)
+			f.draw_string(get_canvas_item(), r.position + Vector2(6, 22), str(placed[cell]),
+				HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 8, 14, Color.WHITE)
+
+		for slot in layout.slots:
+			var r := _cell_rect(slot, min_pos, origin, CELL_PX)
+			draw_rect(r, Color(0.25, 0.28, 0.34, 0.6))
+			draw_rect(r, Color(1, 1, 1, 0.4), false, 2.0)
+			f.draw_string(get_canvas_item(), r.position + Vector2(6, 22), "empty slot",
+				HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 8, 13, Color(1, 1, 1, 0.6))
+
+		var price := SaveData.next_slot_price()
+		var afford: bool = SaveData.banked_scrap >= price
+		for i in dock._assembly_entries.size():
+			var pos: Vector2i = dock._assembly_entries[i]["pos"]
+			var r := _cell_rect(pos, min_pos, origin, CELL_PX)
+			var selected := i == dock._assembly_index
+			var ghost_col := Color("e0c060") if selected else Color(0.5, 0.6, 0.4, 0.35)
+			draw_rect(r, Color(ghost_col.r, ghost_col.g, ghost_col.b, 0.18 if not selected else 0.30))
+			draw_rect(r, ghost_col, false, 3.0 if selected else 1.5)
+			var price_col := Color.WHITE if afford else Color(1, 0.6, 0.4)
+			f.draw_string(get_canvas_item(), r.position + Vector2(6, 22), "%d sc" % price,
+				HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 8, 18, price_col)
+
+	func _cell_rect(cell: Vector2i, min_pos: Vector2i, origin: Vector2, cell_px: float) -> Rect2:
+		var local := Vector2(cell - min_pos) * cell_px
+		return Rect2(origin + local + Vector2(2, 2), Vector2(cell_px - 4, cell_px - 4))
 
 	func _draw_placement(f: Font) -> void:
 		f.draw_string(get_canvas_item(), Vector2(80, 190),

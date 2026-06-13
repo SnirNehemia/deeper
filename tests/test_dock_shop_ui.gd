@@ -1,9 +1,10 @@
 extends Node
 
-## Headless test for the M4-7c dry-dock Shop tab (rooms into inventory + the
-## wallet display state). Drives the same key handlers the player uses; the
-## actual spend/price logic lives in SaveData/ModuleCatalog and is already
-## covered by test_shop — this only checks the menu wiring.
+## Headless test for the M4-7c/M4-8 dry-dock Shop + Assembly tabs (rooms into
+## inventory, slot-buying on the hull blueprint, + the wallet display state).
+## Drives the same key handlers the player uses; the actual spend/price logic
+## lives in SaveData/ModuleCatalog and is already covered by test_shop — this
+## only checks the menu wiring.
 ##
 ## Run: godot --headless res://tests/test_dock_shop_ui.tscn
 
@@ -48,30 +49,28 @@ func _ready() -> void:
 	_check(SaveData.banked_scrap == scrap_before - int(cost.get("sc", 0)),
 		"buying the room spent the scrap portion of its cost")
 
-	# Buying a slot: find a "slot" entry, buy it, and check the layout grew.
-	var slot_index := -1
-	for i in dock._shop_entries.size():
-		if dock._shop_entries[i]["type"] == "slot":
-			slot_index = i
-			break
-	_check(slot_index != -1, "the shop also lists buyable slot positions")
-	var slot_pos: Vector2i = dock._shop_entries[slot_index]["pos"]
+	# Tab from the Shop opens Assembly: a blueprint listing buyable slot
+	# positions. Buying one grows the layout's owned slots.
+	dock._shop_key(KEY_TAB)
+	_check(dock._mode == DryDock.Mode.ASSEMBLY, "Tab from the Shop opens Assembly")
+	_check(not dock._assembly_entries.is_empty(), "Assembly lists at least one buyable slot position")
+	var slot_pos: Vector2i = dock._assembly_entries[dock._assembly_index]["pos"]
 	var slots_before := SaveData.layout.slots.size()
-	dock._shop_index = slot_index
-	dock._shop_key(KEY_ENTER)
+	dock._assembly_key(KEY_ENTER)
 	_check(SaveData.layout.slots.size() == slots_before + 1,
 		"buying a slot grows the layout's owned slots")
 	_check(slot_pos in SaveData.layout.slots, "the bought slot position is now owned")
 
 	# Tab returns to the Upgrades list.
-	dock._shop_key(KEY_TAB)
-	_check(dock._mode == DryDock.Mode.LIST, "Tab from the Shop returns to the Upgrades list")
+	dock._assembly_key(KEY_TAB)
+	_check(dock._mode == DryDock.Mode.LIST, "Tab from Assembly returns to the Upgrades list")
 
-	# Esc closes from either tab.
-	dock._shop_key(KEY_TAB)  # back to Shop
-	dock._shop_key(KEY_ESCAPE)
+	# Esc closes from any tab.
+	dock._list_key(KEY_TAB)      # Shop
+	dock._shop_key(KEY_TAB)      # Assembly
+	dock._assembly_key(KEY_ESCAPE)
 	await get_tree().process_frame
-	_check(not get_tree().paused, "Esc from the Shop unpauses and closes the dock")
+	_check(not get_tree().paused, "Esc from Assembly unpauses and closes the dock")
 
 	SaveData.reset_for_test()
 	if _failures == 0:
