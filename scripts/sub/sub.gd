@@ -102,6 +102,9 @@ var _claw_drop_floor_y: float = 0.0
 var _claw_hatch: Vector2 = Vector2.ZERO
 var _storage_pen: Vector2 = Vector2.ZERO
 var _respawn_local: Vector2 = Vector2.ZERO
+## Crew start-of-run seats in the conning tower, one per potential player
+## (up to 4). Empty if there's no tower (shouldn't happen in a valid layout).
+var _tower_seats: Array[Vector2] = []
 
 func _ready() -> void:
 	collision_layer = Layers.SUB_HULL
@@ -253,6 +256,16 @@ func _compute_anchors() -> void:
 	if tower != null:
 		_respawn_local = Vector2(tower.rect.get_center().x,
 			tower.rect.position.y + tower.rect.size.y - crew_half)
+		# Crew start-of-run seats (up to 4 players), spread across the tower
+		# floor in sections 2/4/1/5 (s3 stays clear for the ladder/respawn
+		# center). ROOM_SYSTEM.md crew-start rework, 2026-06-14.
+		var tower_floor_y := tower.rect.position.y + tower.rect.size.y - crew_half
+		_tower_seats = [
+			Vector2(_section_x(tower, 2), tower_floor_y),
+			Vector2(_section_x(tower, 4), tower_floor_y),
+			Vector2(_section_x(tower, 1), tower_floor_y),
+			Vector2(_section_x(tower, 5), tower_floor_y),
+		]
 	elif helm != null:
 		_respawn_local = _helm_seat
 
@@ -274,6 +287,14 @@ func hold_hatch_local() -> Vector2:
 	return _claw_hatch
 ## A sub-local spot in the conning tower for a respawning crew member to stand.
 func respawn_local() -> Vector2:
+	return _respawn_local
+
+## Sub-local start-of-run seat in the conning tower for player `index`
+## (0-based, up to 4). Falls back to `respawn_local()` if there's no
+## dedicated seat for that index.
+func tower_seat_local(index: int) -> Vector2:
+	if index < _tower_seats.size():
+		return _tower_seats[index]
 	return _respawn_local
 
 func _physics_process(delta: float) -> void:

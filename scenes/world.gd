@@ -9,8 +9,6 @@ const M := 48.0
 # Fresh-run spawn points: the sub floats at the dock; crew start in the
 # engine and middle rooms (local to the sub).
 const SUB_SPAWN := Vector2(45.0 * M, Sub.SURFACE_FLOAT_DEPTH)
-const P1_SPAWN := Vector2(-240, -60)
-const P2_SPAWN := Vector2(40, -60)
 
 ## Module B: how close to the dock spawn point the sub must be to bank
 ## on-board salvage into the persistent save.
@@ -91,13 +89,13 @@ func _spawn_sub_and_crew() -> void:
 	var p1 := Crew.new()
 	p1.player_index = 0
 	p1.body_color = PlaceholderArt.CREW_P1_COLOR
-	p1.position = P1_SPAWN  # engine room
+	p1.position = _sub.tower_seat_local(0)  # conning tower, seat 1
 	_sub.add_child(p1)
 
 	var p2 := Crew.new()
 	p2.player_index = 1
 	p2.body_color = PlaceholderArt.CREW_P2_COLOR
-	p2.position = P2_SPAWN    # middle room
+	p2.position = _sub.tower_seat_local(1)  # conning tower, seat 2
 	_sub.add_child(p2)
 	_crew = [p1, p2]
 
@@ -146,8 +144,8 @@ func _on_imploded() -> void:
 func reset_run() -> void:
 	_sub.reset_state()
 	_sub.global_position = SUB_SPAWN
-	_crew[0].reset_at(P1_SPAWN)
-	_crew[1].reset_at(P2_SPAWN)
+	_crew[0].reset_at(_sub.tower_seat_local(0))
+	_crew[1].reset_at(_sub.tower_seat_local(1))
 	get_tree().call_group("fish", "reset_fish")
 	get_tree().call_group("wreck", "reset_wreck")
 	get_tree().call_group("salvage_carcass", "queue_free")
