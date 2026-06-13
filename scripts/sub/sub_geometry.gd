@@ -29,6 +29,10 @@ const DOOR_H := 2.0 * PPM  # 96
 const DOOR_STEP_H := 0.3 * PPM  # ~14
 ## Width of a ladder floor-opening (matches the M3 conning/lower-deck holes).
 const HOLE_W := 1.0 * PPM  # 48
+## How far a ladder shaft pokes UP into the room above its floor opening — the
+## grab overlap so a crew standing up there can catch the ladder. Halved at
+## Checkpoint 1 (Snir: the ladder stuck up into the room above too far).
+const LADDER_OVERHANG := 0.5 * PPM  # 24 (was HOLE_W = 48)
 ## One of the five authoring sections, in px (3.75 m / 5 = 0.75 m).
 const SECTION_W := CELL_W / 5.0  # 36
 
@@ -192,7 +196,7 @@ func _build_ladders() -> void:
 		# Shaft spans from the upper room's floor (the opening) down through the
 		# lower room to its floor.
 		var lower_rect := cell_rect(below_cell)
-		ladder.top_y = room.rect.position.y + room.rect.size.y - HOLE_W  # small grab overlap above the opening
+		ladder.top_y = room.rect.position.y + room.rect.size.y - LADDER_OVERHANG  # grab overlap above the opening
 		ladder.bottom_y = lower_rect.position.y + lower_rect.size.y
 		ladders.append(ladder)
 

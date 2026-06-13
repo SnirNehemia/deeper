@@ -230,8 +230,10 @@ func _compute_anchors() -> void:
 
 	var storage := _room_by_id("storage")
 	if storage != null:
-		# Against the storage room's right wall, clear of its (left, s1 or s5) ladder.
-		_storage_pen = Vector2(storage.rect.position.x + storage.rect.size.x - 18.0 - 48.0,
+		# The storage cage sits in section s3 (ROOM_SYSTEM.md §6 — the centre
+		# section; upgrades add cages to s4 then s2). Section-aligned, not the
+		# old M3 wall-offset.
+		_storage_pen = Vector2(SubGeometry.section_center_x(storage.rect.position.x, 3),
 			storage.rect.position.y + storage.rect.size.y - 27.0)
 
 	# Respawn in the conning tower — the safest, last-to-flood spot.

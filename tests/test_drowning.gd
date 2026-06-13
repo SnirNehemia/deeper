@@ -52,7 +52,7 @@ func _test_drown_and_respawn() -> void:
 
 	var victim := Crew.new()
 	victim.player_index = 0
-	victim.position = Vector2(-240, -60)  # engine room — fully underwater
+	victim.position = Vector2(-SubGrid.CELL_W_PX, -60)  # engine room — fully underwater
 	sub.add_child(victim)
 
 	var buddy := Crew.new()

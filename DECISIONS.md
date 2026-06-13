@@ -391,10 +391,19 @@
   So the shaft is offset inward (still within s1/s5) for clearance, mirroring
   how the M3 hand-built sub hand-placed ladders clear of doorways. **Revisit at
   Checkpoint 1** if the ladder/door spacing reads wrong.
-- **Accepted geometry deltas (no compatibility shims):** 3.75m cell width,
-  uniform 3m lower deck (lost its squat 2.5m), full-size tower cell; room water
-  indices are placement order (engine 0, middle 1, helm 2, tower 3, storage 4,
-  claw 5 — claw/storage swapped from the old hand-built numbering).
+- **Accepted geometry deltas (no compatibility shims):** uniform 3m lower deck
+  (lost its squat 2.5m), full-size tower cell; room water indices are placement
+  order (engine 0, middle 1, helm 2, tower 3, storage 4, claw 5 — claw/storage
+  swapped from the old hand-built numbering).
+- **Cell width = 5m, sections = 1m (Checkpoint 1 playtest, 2026-06-13).** The
+  3.75m draft read too narrow and 7.5m too wide; 5m settled it, making each of
+  the 5 sections exactly 1m. (`SubGrid.CELL_W_M = 5.0`.)
+- **Ladder overhang into the room above = 24px** (was 48px) — the ladder poked
+  up into the upper room too far (Checkpoint 1). `SubGeometry.LADDER_OVERHANG`.
+- **Element placement is section-aligned, not wall-offset.** The storage cage
+  sits in section s3 (`ROOM_SYSTEM.md` §6), not the old M3 right-wall offset
+  that ignored the section grid. Other in-room elements should likewise anchor
+  to their authored section.
 
 ## Parked
 - **What station/ability lives in the conning tower?** It's a fixed, always-

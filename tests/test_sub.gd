@@ -118,11 +118,12 @@ func _test_crew_collision() -> void:
 	# A (P1) to the left of a stationary B (P2); A runs right into B.
 	var a := Crew.new()
 	a.player_index = 0
-	a.position = Vector2(-250, -60)  # engine room (x in [-270, -90]), left side
+	var a_start := -SubGrid.CELL_W_PX - 80.0  # engine room, left side
+	a.position = Vector2(a_start, -60)
 	sub.add_child(a)
 	var b := Crew.new()
 	b.player_index = 1
-	b.position = Vector2(-170, -60)  # engine room, to A's right
+	b.position = Vector2(-SubGrid.CELL_W_PX + 40.0, -60)  # engine room, to A's right
 	sub.add_child(b)
 
 	await _frames(60)  # let both settle on the floor
@@ -131,7 +132,7 @@ func _test_crew_collision() -> void:
 	_press(KEY_D)
 	await _frames(90)  # long enough to overtake B if there were no collision
 	_release(KEY_D)
-	_check(a.position.x > -250.0, "crew A actually moved right")
+	_check(a.position.x > a_start, "crew A actually moved right")
 	_check(a.position.x < b_x - 25.0, "crew A is blocked by crew B (can't pass through)")
 
 	sub.queue_free()

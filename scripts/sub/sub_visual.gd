@@ -134,24 +134,28 @@ func _draw_claw_console(sub: Sub) -> void:
 	draw_line(Vector2(hx - hw, floor_y), Vector2(hx - hw + 14.0, floor_y - 12.0),
 		PlaceholderArt.SUB_STRUCTURE, 3.0)
 
-## The storage pen in the storage room: a cage that fills with delivered salvage.
+## The storage pen in the storage room: a cage occupying section s3, that fills
+## with delivered salvage. Sized to one section wide so it visibly sits in its
+## section (ROOM_SYSTEM.md §6).
 func _draw_storage_pen(sub: Sub) -> void:
 	var center := sub.storage_pen_center()
-	# A pen rect sitting on the storage room floor, around the pen center.
-	var pen := Rect2(center.x - 48.0, center.y - 27.0, 96.0, 54.0)
+	var sec_w := SubGrid.CELL_W_PX / 5.0  # one section
+	var pen := Rect2(center.x - sec_w * 0.5, center.y - 27.0, sec_w, 54.0)
 	var floor_y := pen.position.y + pen.size.y
 	var bar := PlaceholderArt.LADDER_COLOR
 	draw_rect(Rect2(pen.position, Vector2(pen.size.x, 4.0)), bar)
 	var x := pen.position.x
-	while x <= pen.position.x + pen.size.x:
+	while x <= pen.position.x + pen.size.x + 0.1:
 		draw_line(Vector2(x, pen.position.y), Vector2(x, floor_y), bar, 2.0)
-		x += 16.0
+		x += sec_w * 0.25  # four bars across the section
+	# Stacked contents: scrap squares then carcass blobs, packed bottom-up.
 	var total: int = sub.storage_count()
-	var per_row := 5
+	var per_row := 3
+	var slot := pen.size.x / per_row
 	for i in total:
 		var col := i % per_row
 		var row := i / per_row
-		var p := Vector2(pen.position.x + 12.0 + col * 16.0, floor_y - 10.0 - row * 16.0)
+		var p := Vector2(pen.position.x + slot * (col + 0.5), floor_y - 10.0 - row * 14.0)
 		if i < sub.storage_scrap:
 			draw_rect(Rect2(p - Vector2(5, 5), Vector2(10, 10)), PlaceholderArt.SCRAP_COLOR)
 		else:

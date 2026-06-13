@@ -1,7 +1,8 @@
 # STATUS — DEEPER
 
-_Read this at session start. Last updated: 2026-06-13 (M4 Module 4b: the live
-sub is now layout-driven — **Checkpoint 1 playtest is ready**)._
+_Read this at session start. Last updated: 2026-06-13 (M4-4b layout-driven sub +
+Checkpoint 1 round 1 tunings: cell settled at 5m, ladder overhang halved,
+storage cage moved to section s3)._
 
 ## Where we are
 **Milestone 3 is closed (Modules A-E).** Milestone 4
@@ -144,8 +145,18 @@ generated tower spot.
   still apply.
 - **New room indices (placement order):** engine 0, middle 1, helm 2, tower 3,
   storage 4, claw 5 (claw/storage swapped vs the old hand-built order).
-- **Geometry deltas (baked into tests, no shims):** 3.75m-wide cells, uniform
-  3m lower deck (no longer squat), full-size tower cell.
+- **Geometry deltas (baked into tests, no shims):** 5m-wide cells (settled at
+  Checkpoint 1 — see below; 1m sections), uniform 3m lower deck (no longer
+  squat), full-size tower cell.
+- **Checkpoint 1 round-1 tunings (Snir playtested 2026-06-13):**
+  - Cell width: tried 3.75m (too narrow) → 7.5m (too wide) → **settled 5m**
+    (`SubGrid.CELL_W_M`), so each of the 5 sections is exactly 1m.
+  - Ladder overhang into the room above **halved** (48px → 24px,
+    `SubGeometry.LADDER_OVERHANG`) — the ladder stuck up too far.
+  - **Storage cage moved to section s3** (`ROOM_SYSTEM.md` §6). It was using a
+    leftover M3 wall-offset (right edge − 66px), so it didn't line up with any
+    section; now anchored to the centre section and drawn one section wide.
+  - Still open from the playtest: re-confirm these on the next play.
 - **Ladder clearance fix:** ladder shafts sit at the *inner* edge of their
   parity section (s1/s5), not the section center, so a climbing crew clears the
   doorway frame on that wall. The uniform 0.75m section is barely wider than the
@@ -475,9 +486,8 @@ Launch: `"D:\Godot_v4.4.1-stable_win64.exe\Godot_v4.4.1-stable_win64.exe" --path
 
 The sub should look and play almost exactly like the M3 sub, with these
 *intended* differences to eyeball:
-1. **Rooms are a touch wider** (3.75m vs 2.5m) — drive around, ram some terrain.
-   Does the sub still feel heavy-but-controllable, and does it frame well on
-   camera?
+1. **Rooms are wider** (5m vs 2.5m, settled after trying 3.75m/7.5m) — drive
+   around, ram some terrain. Heavy-but-controllable? Frames well on camera?
 2. **The lower deck (claw room + storage) is now full height** (3m, was squat
    2.5m) — climb down there; headroom should feel normal, not cramped.
 3. **The conning tower is now a full-size room** on top (was a small nook) —
