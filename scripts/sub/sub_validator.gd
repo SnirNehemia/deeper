@@ -122,6 +122,22 @@ static func validate(layout: SubLayout) -> Dictionary:
 			if firing_cell in occupied:
 				violations.append("The %s's gun is blocked by another room." % p.module_id)
 
+	# Rule 8: firing-face rooms sit at the far edge of their level — a
+	# turret's gun faces open water, so the room itself must be the
+	# leftmost or rightmost occupied cell in its grid row (2026-06-14).
+	for p in layout.placements:
+		var fdef := ModuleCatalog.by_id(p.module_id)
+		if fdef == null or not fdef.has_firing_face:
+			continue
+		var row_min_x := p.grid_pos.x
+		var row_max_x := p.grid_pos.x
+		for cell in occupied:
+			if cell.y == p.grid_pos.y:
+				row_min_x = min(row_min_x, cell.x)
+				row_max_x = max(row_max_x, cell.x)
+		if p.grid_pos.x != row_min_x and p.grid_pos.x != row_max_x:
+			violations.append("The %s must sit at the far left or right edge of its level." % p.module_id)
+
 	# Rule 6: pod faces — a pod attaches only to an exterior face of an
 	# occupied cell; one pod per face.
 	var pod_faces: Dictionary = {}

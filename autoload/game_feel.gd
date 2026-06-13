@@ -200,17 +200,24 @@ var claw: ClawFeel = ClawFeel.new()
 ## ROOM_SYSTEM.md §4.1). Buying a "slot" is a separate purchase from buying a
 ## room: a slot is an empty, generated room-shell bolted onto the hull
 ## (adjacent to it), and rooms from inventory are placed into owned empty
-## slots. Slot price escalates on slots-owned only, on its own track,
-## separate from any future per-room price escalation.
+## slots. Price depends on two things, both additive on top of the base:
+## every slot already owned makes every future slot a little pricier (a soft
+## cap on sub size), and deeper levels (farther from the conning tower) cost
+## more (2026-06-14 levels rework).
 class DockFeel:
-	## Cost of the first slot, in scrap.
-	var slot_base_price: int = 4
-	## Each owned slot raises the price of the next one by this fraction
-	## (soft cap on sub size).
-	var slot_escalation: float = 0.25
+	## Cost of a level-1 slot (the row directly under the tower) before any
+	## slots have been bought.
+	var slot_base_price: int = 2
+	## Each slot already owned adds this many scrap to the price of the next.
+	var slot_owned_increment: int = 1
+	## Each level below level 1 adds this many scrap to the price.
+	var slot_level_increment: int = 2
 
-	## Price of the next slot given how many the player already owns.
-	func slot_price(slots_owned: int) -> int:
-		return int(round(slot_base_price * (1.0 + slot_escalation * slots_owned)))
+	## Price of a slot at `level` (the tower's row is level 0, the row
+	## directly beneath it is level 1, and so on), given how many slots the
+	## player already owns.
+	func slot_price(level: int, slots_owned: int) -> int:
+		return slot_base_price + slots_owned * slot_owned_increment \
+			+ (level - 1) * slot_level_increment
 
 var dock: DockFeel = DockFeel.new()

@@ -15,6 +15,7 @@ func _ready() -> void:
 	_test_buying_a_slot_grows_the_hull_and_its_neighbors()
 	_test_bounds_guard_excludes_out_of_range_slots()
 	_test_price_escalation()
+	_test_levels()
 	_test_serialization_round_trip()
 
 	if _failures == 0:
@@ -110,19 +111,39 @@ func _test_bounds_guard_excludes_out_of_range_slots() -> void:
 
 func _test_price_escalation() -> void:
 	print("[price escalation]")
-	var base := GameFeel.dock.slot_price(0)
-	_check(base == GameFeel.dock.slot_base_price, "the first slot costs the base price")
+	var base := GameFeel.dock.slot_price(1, 0)
+	_check(base == GameFeel.dock.slot_base_price, "a level-1 slot with none owned costs the base price")
 
-	var p0 := GameFeel.dock.slot_price(0)
-	var p1 := GameFeel.dock.slot_price(1)
-	var p2 := GameFeel.dock.slot_price(2)
-	_check(p1 > p0, "the second slot costs more than the first")
-	_check(p2 > p1, "the third slot costs more than the second")
+	# Owning more slots raises the price of the next one, level held fixed.
+	var p0 := GameFeel.dock.slot_price(1, 0)
+	var p1 := GameFeel.dock.slot_price(1, 1)
+	var p2 := GameFeel.dock.slot_price(1, 2)
+	_check(p1 > p0, "owning one more slot raises the price")
+	_check(p2 > p1, "owning two more slots raises it again")
+	_check(p2 == GameFeel.dock.slot_base_price + 2 * GameFeel.dock.slot_owned_increment,
+		"the owned-slots increment is linear")
 
-	# Linear escalation: price(n) == base * (1 + esc * n).
-	var expected_p2 := int(round(GameFeel.dock.slot_base_price
-		* (1.0 + GameFeel.dock.slot_escalation * 2)))
-	_check(p2 == expected_p2, "escalation follows base * (1 + escalation * owned)")
+	# Deeper levels cost more, owned-count held fixed.
+	var l1 := GameFeel.dock.slot_price(1, 0)
+	var l2 := GameFeel.dock.slot_price(2, 0)
+	var l3 := GameFeel.dock.slot_price(3, 0)
+	_check(l2 > l1, "level 2 costs more than level 1")
+	_check(l3 > l2, "level 3 costs more than level 2")
+	_check(l3 == GameFeel.dock.slot_base_price + 2 * GameFeel.dock.slot_level_increment,
+		"the level increment is linear")
+
+func _test_levels() -> void:
+	print("[levels]")
+	var layout := SubLayout.starting_layout()
+	# The tower's own row (and above) is level <= 0 and never buyable.
+	_check(layout.level_of(Vector2i(1, -1)) == 0, "the tower's own row is level 0")
+	_check(layout.level_of(Vector2i(1, -2)) <= 0, "above the tower is level <= 0")
+	# The main row (one below the tower) is level 1; the row below that is level 2.
+	_check(layout.level_of(Vector2i(0, 0)) == 1, "the main row is level 1")
+	_check(layout.level_of(Vector2i(0, 1)) == 2, "the row below the main row is level 2")
+
+	for c in layout.buyable_slot_positions():
+		_check(layout.level_of(c) >= 1, "no buyable slot is on the tower's row or above")
 
 func _test_serialization_round_trip() -> void:
 	print("[serialization round trip]")

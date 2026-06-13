@@ -45,7 +45,7 @@ func _test_buy_slot_happy_path() -> void:
 	SaveData.reset_for_test()
 	SaveData.banked_scrap = 100
 	var pos: Vector2i = SaveData.layout.buyable_slot_positions()[0]
-	var price := SaveData.next_slot_price()
+	var price := SaveData.next_slot_price(pos)
 	var ok := SaveData.buy_slot(pos)
 	_check(ok, "buying a legal slot with enough scrap succeeds")
 	_check(pos in SaveData.layout.slots, "the bought slot is now part of the layout")
@@ -55,12 +55,13 @@ func _test_buy_slot_happy_path() -> void:
 func _test_buy_slot_refused_when_broke() -> void:
 	print("[too poor]")
 	SaveData.reset_for_test()
-	SaveData.banked_scrap = SaveData.next_slot_price() - 1  # one short
 	var pos: Vector2i = SaveData.layout.buyable_slot_positions()[0]
+	var price := SaveData.next_slot_price(pos)
+	SaveData.banked_scrap = price - 1  # one short
 	var ok := SaveData.buy_slot(pos)
 	_check(not ok, "buying a slot you can't afford is refused")
 	_check(SaveData.layout.slots.is_empty(), "no slot was added")
-	_check(SaveData.banked_scrap == SaveData.next_slot_price() - 1, "no scrap was spent")
+	_check(SaveData.banked_scrap == price - 1, "no scrap was spent")
 
 func _test_buy_slot_refused_for_illegal_position() -> void:
 	print("[illegal position]")
@@ -76,10 +77,10 @@ func _test_price_escalates_with_owned_slots() -> void:
 	print("[price escalation]")
 	SaveData.reset_for_test()
 	SaveData.banked_scrap = 1000
-	var first := SaveData.next_slot_price()
+	var first := GameFeel.dock.slot_price(1, SaveData.layout.slots.size())
 	SaveData.buy_slot(SaveData.layout.buyable_slot_positions()[0])
-	var second := SaveData.next_slot_price()
-	_check(second > first, "the second slot costs more than the first")
+	var second := GameFeel.dock.slot_price(1, SaveData.layout.slots.size())
+	_check(second > first, "owning one more slot raises the price of the next level-1 slot")
 
 func _test_purchase_persists() -> void:
 	print("[persistence]")

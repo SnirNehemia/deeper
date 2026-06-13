@@ -156,10 +156,30 @@ static func neighbors(cell: Vector2i) -> Array:
 		cell + Vector2i(0, 1), cell + Vector2i(0, -1),
 	]
 
+## The grid row occupied by the conning tower, or null if there is no tower
+## placement (defensive only — every valid layout has exactly one).
+func _tower_row() -> Variant:
+	for p in placements:
+		if p.module_id == "tower":
+			return p.grid_pos.y
+	return null
+
+## The "level" of a grid row for the slot economy (2026-06-14 levels rework,
+## ROOM_SYSTEM.md §4.1): the tower's row is level 0 and stays the tower's
+## alone forever; the row directly beneath it is level 1, the next is level
+## 2, and so on. Levels at or above the tower's row (<= 0) are never
+## buyable. If there's no tower (shouldn't happen), every row is level 1.
+func level_of(pos: Vector2i) -> int:
+	var tower_row: Variant = _tower_row()
+	if tower_row == null:
+		return 1
+	return pos.y - int(tower_row)
+
 ## Empty cells the player could buy as a new slot right now (ROOM_SYSTEM.md
 ## §4.1): not already occupied (by a placement or another slot), adjacent to
-## at least one occupied cell (the slot must touch the existing hull), and
-## within the bounds guard (SubGrid.MAX_CELLS) once added.
+## at least one occupied cell (the slot must touch the existing hull), within
+## the bounds guard (SubGrid.MAX_CELLS) once added, and on a level below the
+## conning tower's (the tower's row never gets neighbors offered for sale).
 func buyable_slot_positions() -> Array:
 	var occupied := occupied_cells()
 	var min_pos := Vector2i(999, 999)
@@ -172,6 +192,8 @@ func buyable_slot_positions() -> Array:
 	for cell in occupied:
 		for n in neighbors(cell):
 			if n in occupied or n in candidates:
+				continue
+			if level_of(n) < 1:
 				continue
 			var span_min := Vector2i(min(min_pos.x, n.x), min(min_pos.y, n.y))
 			var span_max := Vector2i(max(max_pos.x, n.x), max(max_pos.y, n.y))

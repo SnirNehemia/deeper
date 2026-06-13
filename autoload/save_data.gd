@@ -105,7 +105,7 @@ func purchase(id: String, slot: SubLoadout.Slot = SubLoadout.Slot.NONE) -> bool:
 func buy_slot(pos: Vector2i) -> bool:
 	if pos not in layout.buyable_slot_positions():
 		return false
-	var cost := GameFeel.dock.slot_price(layout.slots.size())
+	var cost := next_slot_price(pos)
 	if banked_scrap < cost:
 		return false
 	banked_scrap -= cost
@@ -113,9 +113,11 @@ func buy_slot(pos: Vector2i) -> bool:
 	save_data()
 	return true
 
-## The scrap price of the next slot, given how many are already owned.
-func next_slot_price() -> int:
-	return GameFeel.dock.slot_price(layout.slots.size())
+## The scrap price of a slot at `pos`, given its level (rows below the
+## conning tower) and how many slots are already owned (2026-06-14 levels
+## rework, ROOM_SYSTEM.md §4.1).
+func next_slot_price(pos: Vector2i) -> int:
+	return GameFeel.dock.slot_price(layout.level_of(pos), layout.slots.size())
 
 ## Current balance of a resource code (ROOM_SYSTEM.md §4.2).
 func resource_balance(code: String) -> int:

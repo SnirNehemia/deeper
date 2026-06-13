@@ -198,7 +198,7 @@ func _try_buy_room(def: ModuleDef) -> void:
 		_rebuild_shop_entries()
 
 func _try_buy_slot(pos: Vector2i) -> void:
-	var price := SaveData.next_slot_price()
+	var price := SaveData.next_slot_price(pos)
 	if SaveData.banked_scrap < price:
 		_note = "Not enough scrap (need %d sc)." % price
 		return
@@ -376,14 +376,14 @@ class _View extends Control:
 			f.draw_string(get_canvas_item(), r.position + Vector2(6, 22), "empty slot",
 				HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 8, 13, Color(1, 1, 1, 0.6))
 
-		var price := SaveData.next_slot_price()
-		var afford: bool = SaveData.banked_scrap >= price
 		for i in dock._assembly_entries.size():
 			var entry: Dictionary = dock._assembly_entries[i]
 			var pos: Vector2i = entry["pos"]
 			var r := _cell_rect(pos, min_pos, origin, CELL_PX)
 			var selected := i == dock._assembly_index
 			if entry["type"] == "buy_slot":
+				var price := SaveData.next_slot_price(pos)
+				var afford: bool = SaveData.banked_scrap >= price
 				var ghost_col := Color("e0c060") if selected else Color(0.5, 0.6, 0.4, 0.35)
 				draw_rect(r, Color(ghost_col.r, ghost_col.g, ghost_col.b, 0.18 if not selected else 0.30))
 				draw_rect(r, ghost_col, false, 3.0 if selected else 1.5)
