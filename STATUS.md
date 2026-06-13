@@ -162,6 +162,21 @@ eyes-open:
   swapped" without a forbidden compatibility shim. Treat M4-4b as a single
   focused unit: rewrite Sub+visual+stations, re-derive every coupled test, then
   verify the whole suite green in one pass.
+- **Churn-minimizing anchor (important):** `SubGeometry` centers rects on the
+  occupied bounding box (so the main-deck floor lands at y≈+72), but nearly
+  everything (seats, claw anchor, storage pen, crew spawns, the "floor top =
+  y=0" convention) assumes the main floor at y=0. So in `Sub`, translate the
+  compiled geometry by a fixed offset that puts the **helm row's floor at y=0**
+  (the helm anchors the origin, per `MODULAR_SUB_IMPLEMENTATION.md` §5). With
+  the symmetric 3-col Minnow+ the bbox x-center already lands on the middle
+  column (x=0), so only a y-shift is needed. Keep the compiler pure/unanchored
+  (its tests stay as-is); add a `SubGeometry.translate(offset)` the Sub calls
+  post-build, or apply the offset in `Sub`'s geometry accessors.
+- **Also dropped with the gun room:** the M3 `dry_dock.gd` "Add room"
+  (stern/bow) tab + its `Sub.*`-const schematic, and `SubLoadout`'s `gun_room`
+  build path, go quiet until M4-9 (the new dock shop/assembly is M4-7/M4-8).
+  Keep `dry_dock.gd` parsing (engine-boost/repair entries still work); stub or
+  remove the placement schematic that reads the old geometry consts.
 - Then **M4-5** (generated hull collider/water sills/breach surfaces/implosion
   volume on the generated sub) → **Checkpoint 1 playtest**.
 
