@@ -1,8 +1,8 @@
 # STATUS — DEEPER
 
-_Read this at session start. Last updated: 2026-06-13 (M4-7b: the dock-shop buy
-backend is done — slots, rooms, multi-resource wallet, persistence. Next is the
-dock-shop **UI** M4-7c + the assembly screen M4-8.)_
+_Read this at session start. Last updated: 2026-06-13 (M4-7c: the dock-shop
+**Shop tab** is wired up — wallet display, buy rooms into inventory, buy
+buildable slots. Next is the assembly screen M4-8.)_
 
 ## Where we are
 **Milestone 3 is closed (Modules A-E).** Milestone 4 ("The Dry Dock & The
@@ -247,6 +247,31 @@ generated tower spot.
 - **Still to do for M4-7:** (c) the keyboard shop UI tying slot + room buying
   together (sell slots, sell rooms, show wallet). Then **M4-8** assembly (place
   inventory rooms into owned slots, `validate`-driven; Apply rebuilds the sub).
+
+### Milestone 4 — Module 7c: dry-dock Shop tab (DONE)
+- `DryDock` (`scripts/ui/dry_dock.gd`) gains a third mode, `Mode.SHOP`,
+  alongside the existing M3 Upgrades list and the gun-room Placement view.
+  **Tab** cycles Upgrades ↔ Shop from either tab; Esc closes from any tab.
+- **Wallet header** now always shows all four resources: scrap, small/medium/
+  large carcass (was scrap+fish only).
+- **Shop list** (`_rebuild_shop_entries`): purchasable room types first
+  (`ModuleCatalog.purchasable_rooms()` — currently just the Turret Room,
+  `[4 sc]`), then one entry per `SaveData.layout.buyable_slot_positions()`
+  ("Build a slot at (x, y)" at `SaveData.next_slot_price()` scrap).
+  W/S navigate, Enter buys via `SaveData.buy_room`/`SaveData.buy_slot` — no
+  spend/validate logic duplicated in the UI. A successful buy shows a
+  confirmation note and rebuilds the list (slot positions/prices shift after
+  a slot purchase); an unaffordable pick shows what's missing and changes
+  nothing.
+- Bought rooms land in `layout.inventory` (shown as "In inventory: N" under
+  the room); bought slots grow `layout.slots` immediately — the world already
+  rebuilds the sub on dock close, so a new slot's empty room-shell appears in
+  the hull right away. Placing an inventory room into that slot is M4-8.
+- Test: `test_dock_shop_ui` (Tab opens/leaves the Shop, an unaffordable buy is
+  refused with a note and no state change, an affordable room purchase lands
+  in inventory and spends the wallet, a slot purchase grows `layout.slots`,
+  Esc closes and unpauses from the Shop tab). 26/26 suites green.
+- **Commit:** `M4-7c step 1/2` (Shop tab + buy rooms; buy slots).
 
 ### M4 module order (corrected per `ROOM_SYSTEM.md` reconciliation, 2026-06-12)
 `MILESTONE_4_v2.md`'s eleven modules are still the backbone, but three things
@@ -547,38 +572,40 @@ Is rising water scary or annoying? Is 3s repair too long under pressure? Do
 torpedoes feel chunky or just sluggish? Is the fish fight fun or a chore? Plus
 all M1 questions (crew weight, sub heft, camera framing).
 
-## Suggested next step — M4-7c: the keyboard dock-shop UI
-**The entire buy/save backend exists and is tested; what's missing is the menu
-that drives it.** Build a keyboard-only dock screen (no mouse — settled) that
-shows the wallet and lets the crew spend it. The controller functions to call
-already exist — **do not re-implement any spend/price/validate logic in the UI**:
-
-- Wallet: `SaveData.banked_scrap`, `SaveData.banked_fish` (small carcass),
-  `SaveData.banked_med_carcass`, `SaveData.banked_large_carcass`;
-  `SaveData.resource_balance(code)`, `SaveData.can_afford_cost(bundle)`.
-- Buy a room into inventory: `ModuleCatalog.purchasable_rooms()` →
-  `def.cost_bundle()` for the price; `SaveData.buy_room(id)` to purchase.
-- Buy a slot: `SaveData.layout.buyable_slot_positions()` →
-  `SaveData.next_slot_price()` for the price; `SaveData.buy_slot(pos)`.
-- After any purchase, the world should refresh the sub (it already rebuilds on
-  dock close — see `world.gd::_on_dry_dock_closed`).
-
-Reuse/extend the existing **`scripts/ui/dry_dock.gd`** (the M3 keyboard menu,
-already opens on Tab at the dock and pauses). Per `MODULAR_SUB_IMPLEMENTATION.md`
-§6 the dock has a **Shop tab** (list rooms with prices, buy into inventory) and
-an **Assembly tab** (a grid diagram — this is also where you buy a slot at a
-cursor cell, and place inventory rooms into owned slots). M4-7c is the **Shop
-tab + slot-buying**; the full place-into-slot flow is **M4-8**.
-
-Headless-testable parts (do these as `test_*` suites): the menu navigation +
-purchase wiring via the same controller functions the UI calls (see
-`test_dry_dock` for the M3 pattern of driving the menu's key handlers headlessly
-and asserting state). The pure rendering can't be asserted headlessly — cover it
-with verify-by-playing for Snir instead.
-
-Then **M4-8** (place rooms into slots, `validate`-driven, Apply→rebuild), then
+## Suggested next step — M4-8: the assembly screen
+M4-7c (the dock Shop tab) is done — see Module 7c above. Next: a grid-diagram
+"Assembly" view (third `DryDock` tab, or its own screen reachable from the
+dock) where the player places a room from `layout.inventory` into an owned
+empty slot (`layout.slots`), `SubValidator.validate`-driven, with an
+Apply→rebuild step (the world already rebuilds the sub on dock close). Then
 **M4-9** (pods) → **⛳ Checkpoint 2**. Minor open item: **M4-5 polish** (breach
 surfaces → exterior faces only; an asymmetric-layout water-conservation test).
+
+## Verify by playing — M4-7c (the dock Shop tab)
+Launch: `"D:\Godot_v4.4.1-stable_win64.exe\Godot_v4.4.1-stable_win64.exe" --path .`
+
+1. Drive the sub back to the **dock** and press **Tab** to open the dry dock
+   (as before — pauses the run). You should land on the familiar Upgrades list
+   (engine boost / repair training / second gun), now with a wallet line at
+   top showing **Scrap / Small carcass / Medium carcass / Large carcass**.
+2. Press **Tab** again — this switches to the new **Shop** tab. You should see
+   the **Turret Room** listed with its price (4 scrap), and below it one or
+   more **"Build a slot at (x, y)"** entries with an escalating scrap price.
+3. With enough scrap (collect some salvage first if needed), select the Turret
+   Room and press **Enter** — you should see a "bought into inventory!"
+   message and an "In inventory: 1" line appear under it. The wallet's scrap
+   count should drop by 4.
+4. Select a "Build a slot" entry and press **Enter** — you should see a "Slot
+   bought!" message, the scrap drop by that slot's price, and (on closing the
+   dock with **Esc**, which also unpauses) **the hull should visibly grow** by
+   one empty cell where that slot was.
+5. Try buying something you can't afford — you should get a red "not enough"
+   message and nothing should change.
+6. Press **Tab** to confirm you can switch back to the Upgrades tab, and
+   **Esc** from either tab closes the dock and unpauses the game.
+
+Note: the bought Turret Room sits in inventory only — there's nothing to
+place it into yet (that's M4-8), so it won't appear on the sub.
 
 ### Watch out for (traps that already bit this milestone)
 - **`class_name` cache:** after adding a new `class_name` script, run
