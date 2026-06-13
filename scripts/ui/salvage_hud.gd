@@ -31,6 +31,7 @@ func _ready() -> void:
 func _build_debug_controls() -> void:
 	var toggle := Button.new()
 	toggle.toggle_mode = true
+	toggle.focus_mode = Control.FOCUS_NONE  # don't eat Tab (opens the dry dock)
 	toggle.text = "Debug mode"
 	toggle.set_anchors_preset(Control.PRESET_TOP_RIGHT)
 	toggle.offset_left = -132
@@ -46,6 +47,7 @@ func _build_debug_controls() -> void:
 
 func _make_debug_button(text: String, left: float, kind: int) -> Button:
 	var btn := Button.new()
+	btn.focus_mode = Control.FOCUS_NONE  # don't eat Tab (opens the dry dock)
 	btn.text = text
 	btn.set_anchors_preset(Control.PRESET_TOP_RIGHT)
 	btn.offset_left = left
