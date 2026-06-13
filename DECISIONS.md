@@ -400,10 +400,20 @@
   the 5 sections exactly 1m. (`SubGrid.CELL_W_M = 5.0`.)
 - **Ladder overhang into the room above = 24px** (was 48px) — the ladder poked
   up into the upper room too far (Checkpoint 1). `SubGeometry.LADDER_OVERHANG`.
-- **Element placement is section-aligned, not wall-offset.** The storage cage
-  sits in section s3 (`ROOM_SYSTEM.md` §6), not the old M3 right-wall offset
-  that ignored the section grid. Other in-room elements should likewise anchor
-  to their authored section.
+- **Every in-room element is anchored to its authored section, not a wall
+  offset** (Checkpoint 1 r2). Per `ROOM_SYSTEM.md` §6: control-room (helm)
+  station s3, base-gun (middle) station s3, claw station s3 + claw base b3 +
+  dropping hatch s2, storage cage s3. `Sub._compute_anchors` computes each x via
+  `SubGeometry.section_center_x`. (The base gun's tube is still the M2 bow mount
+  — the proper wall-mounted gun room is M4-9.)
+- **Ladder width = 0.9m** (`HOLE_W = 0.9 * PPM`, narrowed from 1.0m at
+  Checkpoint 1 — the ladders read too wide). Hole, shaft, and rails all scale.
+- **Gun room stays scheduled for M4-9** (not corrected now). The current weapon
+  is the M2 base bow turret (gunner in the middle room, tube at the bow tip) —
+  the middle room has no exterior side wall, which is exactly why a real gun
+  belongs in its own room on an outer edge. `validate()` rule 5 already requires
+  a turret room's firing face to be exterior, so M4-9 can't place one anywhere
+  it'd be bricked in.
 
 ## Parked
 - **What station/ability lives in the conning tower?** It's a fixed, always-

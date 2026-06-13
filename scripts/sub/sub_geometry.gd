@@ -27,8 +27,9 @@ const WALL_T := 16.0
 const DOOR_H := 2.0 * PPM  # 96
 ## A doorway's low floor lip the crew hop over (M3 playtest #2).
 const DOOR_STEP_H := 0.3 * PPM  # ~14
-## Width of a ladder floor-opening (matches the M3 conning/lower-deck holes).
-const HOLE_W := 1.0 * PPM  # 48
+## Width of a ladder floor-opening / shaft (the visible ladder width). 0.9m
+## (narrowed from 1.0m at Checkpoint 1, Snir).
+const HOLE_W := 0.9 * PPM  # 43.2
 ## How far a ladder shaft pokes UP into the room above its floor opening — the
 ## grab overlap so a crew standing up there can catch the ladder. Halved at
 ## Checkpoint 1 (Snir: the ladder stuck up into the room above too far).

@@ -156,7 +156,17 @@ generated tower spot.
   - **Storage cage moved to section s3** (`ROOM_SYSTEM.md` §6). It was using a
     leftover M3 wall-offset (right edge − 66px), so it didn't line up with any
     section; now anchored to the centre section and drawn one section wide.
-  - Still open from the playtest: re-confirm these on the next play.
+- **Checkpoint 1 round-2 tunings (Snir, 2026-06-13):**
+  - Ladder width narrowed to 0.9m (`HOLE_W = 0.9 * PPM`) — read too wide.
+  - **All in-room elements snapped to their authored section** (not wall
+    offsets): helm/base-gun/claw stations s3, claw base b3, claw dropping hatch
+    s2, storage cage s3 (`ROOM_SYSTEM.md` §6). `Sub._compute_anchors` uses
+    `SubGeometry.section_center_x` for every element x.
+  - **Gun room confirmed deferred to M4-9.** The current weapon is the M2 base
+    bow turret (gunner middle room, tube at the bow); a proper room-with-its-
+    own-exterior-gun is M4-9, and `validate()` already requires its firing face
+    to be exterior (outer edge).
+  - Still open: re-confirm the 0.9m ladders + section-snapped elements on play.
 - **Ladder clearance fix:** ladder shafts sit at the *inner* edge of their
   parity section (s1/s5), not the section center, so a climbing crew clears the
   doorway frame on that wall. The uniform 0.75m section is barely wider than the

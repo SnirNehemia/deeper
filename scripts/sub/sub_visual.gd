@@ -126,7 +126,7 @@ func _draw_claw_console(sub: Sub) -> void:
 	draw_rect(Rect2(cx - 14.0, floor_y - 22.0, 28.0, 22.0), PlaceholderArt.SUB_STRUCTURE)
 	draw_circle(Vector2(cx, floor_y - 30.0), 6.0, PlaceholderArt.LADDER_COLOR)
 
-	var hx := claw.anchor_local.x
+	var hx := claw.hatch_x  # dropping hatch sits in section s2
 	var hw := 22.0
 	draw_rect(Rect2(hx - hw, floor_y - 3.0, hw * 2.0, 6.0), PlaceholderArt.SUB_INTERIOR)
 	draw_line(Vector2(hx - hw, floor_y), Vector2(hx + hw, floor_y),

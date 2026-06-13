@@ -19,6 +19,8 @@ extends Station
 var anchor_local: Vector2 = Vector2.ZERO
 ## Sub-local y of the claw room floor, where dropped catches land (set by Sub).
 var drop_floor_y: float = 0.0
+## Sub-local x of the dropping hatch (section s2) where catches enter the hold.
+var hatch_x: float = 0.0
 
 ## Joint angles (radians). shoulder = 0 points the upper arm straight DOWN and
 ## swings to either side; elbow bends the forearm relative to the upper arm.
@@ -159,7 +161,7 @@ func _drop_into_hold() -> void:
 		var item: SalvageItem = _caught[i]
 		if not is_instance_valid(item):
 			continue
-		var lx := (float(i) - (n - 1) * 0.5) * 30.0  # spread along the claw room floor
+		var lx := hatch_x + (float(i) - (n - 1) * 0.5) * 30.0  # spread around the s2 dropping hatch
 		var local := Vector2(lx, drop_floor_y - SalvageItem.RADIUS_PX)
 		item.call_deferred("drop_into_sub", sub, local)
 	_caught.clear()

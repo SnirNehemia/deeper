@@ -23,9 +23,10 @@ const WALL_T := 16.0
 const DOOR_H := 2.0 * PPM  # 96
 ## A low step on the floor in each doorway: crew hop to cross (playtest #2).
 const DOOR_STEP_H := 0.3 * PPM  # ~14
-## Ladder floor-opening width (matches the M3 holes); HOLE_HALF kept for crew.
-const HOLE_W := 1.0 * PPM   # 48
-const HOLE_HALF := HOLE_W * 0.5  # 24
+## Ladder floor-opening / shaft width (the visible ladder width); HOLE_HALF
+## kept for crew centering. 0.9m (narrowed from 1.0m at Checkpoint 1).
+const HOLE_W := 0.9 * PPM   # 43.2
+const HOLE_HALF := HOLE_W * 0.5  # 21.6
 
 ## Uniform cell size (one room), from the grid constants.
 const CELL_W := SubGrid.CELL_W_PX  # 180
@@ -98,6 +99,7 @@ var _turret_tube: Vector2 = Vector2.ZERO
 var _claw_seat: Vector2 = Vector2.ZERO
 var _claw_anchor: Vector2 = Vector2.ZERO
 var _claw_drop_floor_y: float = 0.0
+var _claw_hatch: Vector2 = Vector2.ZERO
 var _storage_pen: Vector2 = Vector2.ZERO
 var _respawn_local: Vector2 = Vector2.ZERO
 
@@ -203,37 +205,47 @@ func nearest_room(local_pos: Vector2) -> int:
 
 # --- Seat / anchor positions (sub-local), computed once from the geometry ---
 
+## Sub-local x of a given section within a room (1..5), via the compiler.
+func _section_x(room: SubGeometry.Room, section: int) -> float:
+	return SubGeometry.section_center_x(room.rect.position.x, section)
+
+## Element positions are anchored to their authored section (ROOM_SYSTEM.md §6),
+## never to a wall offset — so they line up on the section grid.
 func _compute_anchors() -> void:
 	var crew_half := PlaceholderArt.CREW_HEIGHT_M * PPM * 0.5
 
+	# Control room (helm): station in s3.
 	var helm := _room_by_id("helm")
 	if helm != null:
-		_helm_seat = Vector2(helm.rect.get_center().x, helm.rect.position.y + helm.rect.size.y - crew_half)
+		var floor_y := helm.rect.position.y + helm.rect.size.y
+		_helm_seat = Vector2(_section_x(helm, 3), floor_y - crew_half)
 		# Bow torpedo tube: just off the helm room's outer (bow) wall, mid-height.
+		# (The base M2 gun; the proper wall-mounted gun room arrives at M4-9.)
 		_turret_tube = Vector2(helm.rect.position.x + helm.rect.size.x + 36.0,
 			helm.rect.get_center().y)
 
-	# The base gunner seat lives in the "room" (middle flex room).
+	# Base gun room (the middle "room"): gunner station in s3.
 	var middle := _room_by_id("room")
 	if middle != null:
-		_turret_seat = Vector2(middle.rect.get_center().x,
+		_turret_seat = Vector2(_section_x(middle, 3),
 			middle.rect.position.y + middle.rect.size.y - crew_half)
 
+	# Claw room: station in s3, claw base at b3 (bottom of s3), dropping hatch
+	# at s2 (ROOM_SYSTEM.md §6).
 	var claw_room := _room_by_id("claw_room")
 	if claw_room != null:
-		_claw_seat = Vector2(claw_room.rect.get_center().x - 30.0,
-			claw_room.rect.position.y + claw_room.rect.size.y - crew_half)
-		# Keel anchor: bottom-center of the claw room belly (below its floor slab).
-		_claw_anchor = Vector2(claw_room.rect.get_center().x,
-			claw_room.rect.position.y + claw_room.rect.size.y + WALL_T)
-		_claw_drop_floor_y = claw_room.rect.position.y + claw_room.rect.size.y
+		var floor_y := claw_room.rect.position.y + claw_room.rect.size.y
+		_claw_seat = Vector2(_section_x(claw_room, 3), floor_y - crew_half)
+		# Keel anchor (claw base, b3): bottom of s3, below the floor slab.
+		_claw_anchor = Vector2(_section_x(claw_room, 3), floor_y + WALL_T)
+		_claw_drop_floor_y = floor_y
+		# Dropping hatch in s2 — where the arm delivers catches into the hold.
+		_claw_hatch = Vector2(_section_x(claw_room, 2), floor_y)
 
+	# Storage room: cage in s3 (upgrades add cages to s4 then s2).
 	var storage := _room_by_id("storage")
 	if storage != null:
-		# The storage cage sits in section s3 (ROOM_SYSTEM.md §6 — the centre
-		# section; upgrades add cages to s4 then s2). Section-aligned, not the
-		# old M3 wall-offset.
-		_storage_pen = Vector2(SubGeometry.section_center_x(storage.rect.position.x, 3),
+		_storage_pen = Vector2(_section_x(storage, 3),
 			storage.rect.position.y + storage.rect.size.y - 27.0)
 
 	# Respawn in the conning tower — the safest, last-to-flood spot.
@@ -256,10 +268,10 @@ func claw_anchor_local() -> Vector2:
 	return _claw_anchor
 func claw_drop_floor_y() -> float:
 	return _claw_drop_floor_y
-## The keel drop hatch on the claw room floor, where the claw delivers catches
-## into the hold (sub-local).
+## The dropping hatch on the claw room floor (section s2), where the claw
+## delivers catches into the hold (sub-local).
 func hold_hatch_local() -> Vector2:
-	return Vector2(_claw_anchor.x, _claw_drop_floor_y)
+	return _claw_hatch
 ## A sub-local spot in the conning tower for a respawning crew member to stand.
 func respawn_local() -> Vector2:
 	return _respawn_local
@@ -630,5 +642,6 @@ func _build_claw() -> void:
 	claw.position = _claw_seat
 	claw.anchor_local = _claw_anchor
 	claw.drop_floor_y = _claw_drop_floor_y
+	claw.hatch_x = _claw_hatch.x
 	add_child(claw)
 	_visual.claw = claw
