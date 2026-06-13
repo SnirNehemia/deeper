@@ -61,6 +61,40 @@ func _ready() -> void:
 		"buying a slot grows the layout's owned slots")
 	_check(slot_pos in SaveData.layout.slots, "the bought slot position is now owned")
 
+	# The bought turret room is now in inventory and we own at least one empty
+	# slot — Assembly should also offer a "place_room" entry for it.
+	var place_index := -1
+	for i in dock._assembly_entries.size():
+		if dock._assembly_entries[i]["type"] == "place_room":
+			place_index = i
+			break
+	_check(place_index != -1, "Assembly offers placing the inventory room into a slot")
+
+	if place_index != -1:
+		dock._assembly_index = place_index
+		var place_entry: Dictionary = dock._assembly_entries[place_index]
+		var place_pos: Vector2i = place_entry["pos"]
+		var place_id: String = place_entry["id"]
+		var inv_before := int(SaveData.layout.inventory.get(place_id, 0))
+		dock._assembly_key(KEY_ENTER)
+		var placed := false
+		for p in SaveData.layout.placements:
+			if p.module_id == place_id and p.grid_pos == place_pos:
+				placed = true
+		if placed:
+			_check(place_pos not in SaveData.layout.slots,
+				"placing a room consumes the owned slot")
+			_check(int(SaveData.layout.inventory.get(place_id, 0)) == inv_before - 1,
+				"placing a room removes it from inventory")
+		else:
+			# Placement was refused (e.g. firing face blocked) — try mirroring.
+			dock._assembly_key(KEY_A)
+			dock._assembly_key(KEY_ENTER)
+			for p in SaveData.layout.placements:
+				if p.module_id == place_id and p.grid_pos == place_pos:
+					placed = true
+			_check(placed, "placing the room (mirrored if needed) succeeds")
+
 	# Tab returns to the Upgrades list.
 	dock._assembly_key(KEY_TAB)
 	_check(dock._mode == DryDock.Mode.LIST, "Tab from Assembly returns to the Upgrades list")

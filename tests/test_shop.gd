@@ -20,6 +20,10 @@ func _ready() -> void:
 	_test_buy_room_refused_when_broke()
 	_test_buy_room_refused_for_core_or_unknown()
 	_test_multi_resource_cost()
+	_test_place_room_happy_path()
+	_test_place_room_refused_when_firing_face_blocked()
+	_test_place_room_refused_without_slot()
+	_test_place_room_refused_without_inventory()
 	SaveData.reset_for_test()
 
 	if _failures == 0:
@@ -134,3 +138,62 @@ func _test_multi_resource_cost() -> void:
 	_check(not SaveData.can_afford_cost(cost), "missing one resource tier => can't afford")
 	SaveData.banked_med_carcass = 1
 	_check(SaveData.can_afford_cost(cost), "all tiers covered => can afford")
+
+func _test_place_room_happy_path() -> void:
+	print("[place a room]")
+	SaveData.reset_for_test()
+	SaveData.banked_scrap = 1000
+	var pos := Vector2i(3, 0)  # adjacent to helm at (2,0); +x neighbor (4,0) is exterior
+	SaveData.buy_slot(pos)
+	SaveData.buy_room("turret_room")
+	var ok := SaveData.place_room("turret_room", pos, false)
+	_check(ok, "placing the turret room unmirrored (firing face clear) succeeds")
+	_check(pos not in SaveData.layout.slots, "the slot is consumed by the placement")
+	var found := false
+	for p in SaveData.layout.placements:
+		if p.module_id == "turret_room" and p.grid_pos == pos:
+			found = true
+	_check(found, "the turret room is now placed at the slot's position")
+	_check(SaveData.layout.inventory.get("turret_room", 0) == 0,
+		"the placed room is removed from inventory")
+	_check(SubValidator.validate(SaveData.layout)["ok"], "the sub still validates after placement")
+
+func _test_place_room_refused_when_firing_face_blocked() -> void:
+	print("[firing face blocked]")
+	SaveData.reset_for_test()
+	SaveData.banked_scrap = 1000
+	var pos := Vector2i(3, 0)
+	SaveData.buy_slot(pos)
+	SaveData.buy_room("turret_room")
+	# Mirrored fires -x into (2,0) = helm, which is occupied.
+	var ok := SaveData.place_room("turret_room", pos, true)
+	_check(not ok, "placing the turret room mirrored (firing face blocked) is refused")
+	_check(pos in SaveData.layout.slots, "the slot is still empty")
+	_check(SaveData.layout.inventory.get("turret_room", 0) == 1,
+		"the room is still in inventory")
+	_check(not SaveData.place_room_violations("turret_room", pos, true).is_empty(),
+		"the violation list explains why")
+
+func _test_place_room_refused_without_slot() -> void:
+	print("[no slot]")
+	SaveData.reset_for_test()
+	SaveData.banked_scrap = 1000
+	SaveData.buy_room("turret_room")
+	var ok := SaveData.place_room("turret_room", Vector2i(3, 0), false)
+	_check(not ok, "placing a room at a position with no owned slot is refused")
+	_check(SaveData.layout.inventory.get("turret_room", 0) == 1,
+		"the room remains in inventory")
+	_check(not SaveData.place_room_violations("turret_room", Vector2i(3, 0), false).is_empty(),
+		"the violation list explains there's no slot there")
+
+func _test_place_room_refused_without_inventory() -> void:
+	print("[no inventory]")
+	SaveData.reset_for_test()
+	SaveData.banked_scrap = 1000
+	var pos := Vector2i(3, 0)
+	SaveData.buy_slot(pos)
+	var ok := SaveData.place_room("turret_room", pos, false)
+	_check(not ok, "placing a room not owned in inventory is refused")
+	_check(pos in SaveData.layout.slots, "the slot remains empty")
+	_check(not SaveData.place_room_violations("turret_room", pos, false).is_empty(),
+		"the violation list explains the room isn't in inventory")

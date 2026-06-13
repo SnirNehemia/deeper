@@ -23,6 +23,7 @@ var _mode: Mode = Mode.LIST
 var _index: int = 0
 var _shop_index: int = 0
 var _assembly_index: int = 0
+var _place_mirrored: bool = false
 var _slot: SubLoadout.Slot = SubLoadout.Slot.STERN
 var _changed: bool = false
 var _note: String = ""
@@ -102,12 +103,23 @@ func _assembly_key(code: int) -> void:
 		KEY_UP, KEY_W:
 			if not _assembly_entries.is_empty():
 				_assembly_index = wrapi(_assembly_index - 1, 0, _assembly_entries.size())
+				_place_mirrored = false
 		KEY_DOWN, KEY_S:
 			if not _assembly_entries.is_empty():
 				_assembly_index = wrapi(_assembly_index + 1, 0, _assembly_entries.size())
+				_place_mirrored = false
+		KEY_LEFT, KEY_A, KEY_RIGHT, KEY_D:
+			if not _assembly_entries.is_empty():
+				var entry: Dictionary = _assembly_entries[_assembly_index]
+				if entry["type"] == "place_room" and entry["def"].has_firing_face:
+					_place_mirrored = not _place_mirrored
 		KEY_ENTER, KEY_KP_ENTER, KEY_SPACE:
 			if not _assembly_entries.is_empty():
-				_try_buy_slot(_assembly_entries[_assembly_index]["pos"])
+				var entry: Dictionary = _assembly_entries[_assembly_index]
+				if entry["type"] == "buy_slot":
+					_try_buy_slot(entry["pos"])
+				else:
+					_try_place_room(entry["pos"], entry["id"], _place_mirrored)
 		KEY_TAB:
 			_mode = Mode.LIST
 		KEY_ESCAPE:
@@ -161,10 +173,19 @@ func _rebuild_assembly_entries() -> void:
 	_assembly_entries = []
 	for pos in SaveData.layout.buyable_slot_positions():
 		_assembly_entries.append({"type": "buy_slot", "pos": pos})
+	for slot in SaveData.layout.slots:
+		for id in SaveData.layout.inventory:
+			if int(SaveData.layout.inventory[id]) <= 0:
+				continue
+			var def := ModuleCatalog.by_id(id)
+			if def == null or def.is_core or def.is_pod:
+				continue
+			_assembly_entries.append({"type": "place_room", "pos": slot, "id": id, "def": def})
 	if _assembly_entries.is_empty():
 		_assembly_index = 0
 	else:
 		_assembly_index = clampi(_assembly_index, 0, _assembly_entries.size() - 1)
+	_place_mirrored = false
 
 func _try_buy_room(def: ModuleDef) -> void:
 	var cost := def.cost_bundle()
@@ -184,6 +205,18 @@ func _try_buy_slot(pos: Vector2i) -> void:
 	if SaveData.buy_slot(pos):
 		_changed = true
 		_note = "Slot bought at (%d, %d)!" % [pos.x, pos.y]
+		_rebuild_assembly_entries()
+
+func _try_place_room(pos: Vector2i, id: String, mirrored: bool) -> void:
+	var violations := SaveData.place_room_violations(id, pos, mirrored)
+	if not violations.is_empty():
+		_note = violations[0]
+		return
+	if SaveData.place_room(id, pos, mirrored):
+		_changed = true
+		var def := ModuleCatalog.by_id(id)
+		_note = "%s placed!" % (def.display_name if def != null else id)
+		_rebuild_shop_entries()
 		_rebuild_assembly_entries()
 
 static func _cost_string(cost: Dictionary) -> String:
@@ -236,7 +269,7 @@ class _View extends Control:
 			DryDock.Mode.SHOP:
 				hint = "W/S select   Enter buy   Tab: assembly   Esc leave"
 			DryDock.Mode.ASSEMBLY:
-				hint = "W/S select   Enter build slot   Tab: upgrades   Esc leave"
+				hint = "W/S select   Enter build/place   A/D mirror   Tab: upgrades   Esc leave"
 			_:
 				hint = "A/D pick the end   Enter confirm   Esc back"
 		f.draw_string(get_canvas_item(), Vector2(80, size.y - 60), hint,
@@ -346,15 +379,27 @@ class _View extends Control:
 		var price := SaveData.next_slot_price()
 		var afford: bool = SaveData.banked_scrap >= price
 		for i in dock._assembly_entries.size():
-			var pos: Vector2i = dock._assembly_entries[i]["pos"]
+			var entry: Dictionary = dock._assembly_entries[i]
+			var pos: Vector2i = entry["pos"]
 			var r := _cell_rect(pos, min_pos, origin, CELL_PX)
 			var selected := i == dock._assembly_index
-			var ghost_col := Color("e0c060") if selected else Color(0.5, 0.6, 0.4, 0.35)
-			draw_rect(r, Color(ghost_col.r, ghost_col.g, ghost_col.b, 0.18 if not selected else 0.30))
-			draw_rect(r, ghost_col, false, 3.0 if selected else 1.5)
-			var price_col := Color.WHITE if afford else Color(1, 0.6, 0.4)
-			f.draw_string(get_canvas_item(), r.position + Vector2(6, 22), "%d sc" % price,
-				HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 8, 18, price_col)
+			if entry["type"] == "buy_slot":
+				var ghost_col := Color("e0c060") if selected else Color(0.5, 0.6, 0.4, 0.35)
+				draw_rect(r, Color(ghost_col.r, ghost_col.g, ghost_col.b, 0.18 if not selected else 0.30))
+				draw_rect(r, ghost_col, false, 3.0 if selected else 1.5)
+				var price_col := Color.WHITE if afford else Color(1, 0.6, 0.4)
+				f.draw_string(get_canvas_item(), r.position + Vector2(6, 22), "%d sc" % price,
+					HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 8, 18, price_col)
+			elif selected:
+				var def: ModuleDef = entry["def"]
+				var ghost_col := Color("6ad0a0")
+				draw_rect(r, Color(ghost_col.r, ghost_col.g, ghost_col.b, 0.30))
+				draw_rect(r, ghost_col, false, 3.0)
+				var label := "Place: %s" % def.display_name
+				if def.has_firing_face:
+					label += "  (mirrored)" if dock._place_mirrored else "  (A/D to mirror)"
+				f.draw_string(get_canvas_item(), r.position + Vector2(6, 22), label,
+					HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 8, 13, Color.WHITE)
 
 	func _cell_rect(cell: Vector2i, min_pos: Vector2i, origin: Vector2, cell_px: float) -> Rect2:
 		var local := Vector2(cell - min_pos) * cell_px

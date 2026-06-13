@@ -157,6 +157,47 @@ func buy_room(id: String) -> bool:
 	save_data()
 	return true
 
+## Place an inventory room into an owned empty slot (M4-8: the second half of
+## the ROOM_SYSTEM.md §4.1 room economy — a bought room from `buy_room` lands
+## here). `mirrored` only matters for modules with a special face (e.g. a
+## turret room's firing face) — it picks which side that face points to.
+## Fails (false), with no state change, if `pos` isn't an owned empty slot,
+## `id` isn't in inventory, `id` is core/pod/unknown, or placing it there
+## would make the layout fail `SubValidator.validate` (e.g. a turret's firing
+## face would be bricked in). On success: move the slot to a placement, take
+## one off inventory, persist.
+func place_room(id: String, pos: Vector2i, mirrored: bool = false) -> bool:
+	return _place_room_candidate(id, pos, mirrored)["violations"].is_empty() \
+		and _commit_place_room(id, pos, mirrored)
+
+## The validation violations that placing `id` at `pos` (with `mirrored`)
+## would cause, without committing anything — empty means the placement is
+## legal. Used by the assembly UI to explain a refused placement.
+func place_room_violations(id: String, pos: Vector2i, mirrored: bool = false) -> Array:
+	return _place_room_candidate(id, pos, mirrored)["violations"]
+
+func _place_room_candidate(id: String, pos: Vector2i, mirrored: bool) -> Dictionary:
+	if pos not in layout.slots:
+		return {"violations": ["There's no empty slot at %s." % pos]}
+	if int(layout.inventory.get(id, 0)) <= 0:
+		return {"violations": ["The %s isn't in inventory." % id]}
+	var def := ModuleCatalog.by_id(id)
+	if def == null or def.is_core or def.is_pod:
+		return {"violations": ["The %s can't be placed as a room." % id]}
+	var candidate := SubLayout.from_dict(layout.to_dict())
+	candidate.slots.erase(pos)
+	candidate.placements.append(SubLayout.Placement.new(id, pos, mirrored))
+	return SubValidator.validate(candidate)
+
+func _commit_place_room(id: String, pos: Vector2i, mirrored: bool) -> bool:
+	layout.slots.erase(pos)
+	layout.placements.append(SubLayout.Placement.new(id, pos, mirrored))
+	layout.inventory[id] = int(layout.inventory.get(id, 0)) - 1
+	if layout.inventory[id] <= 0:
+		layout.inventory.erase(id)
+	save_data()
+	return true
+
 ## Wipe the in-memory and on-disk save (used by tests).
 func reset_for_test() -> void:
 	banked_scrap = 0
