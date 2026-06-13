@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://c8q3geometry1m"]
+
+[ext_resource type="Script" path="res://tests/test_geometry.gd" id="1_geometry"]
+
+[node name="TestGeometry" type="Node"]
+script = ExtResource("1_geometry")
