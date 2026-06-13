@@ -367,6 +367,35 @@
   support room is stripped) — out of scope until a real save-compat break
   surfaces one.
 
+## Settled (2026-06-13, M4-4 — the layout-driven sub)
+- **One geometry pipeline, in code.** `SubGeometry.build(layout)` compiles a
+  `SubLayout` into room rects, auto-doorways (horizontal adjacency), and
+  parity-placed ladders (vertical adjacency); `Sub` generates all interior
+  collision, water cells, hull rects, and seat positions from it. No hand-
+  authored geometry remains in `sub.gd`. The s1-s5 authoring sections bake to
+  x-offsets in the compiler and never reach the live sub/water/validate.
+- **Helm-row floor anchors the origin at y=0.** The compiler centers on the
+  occupied bounding box; `Sub` re-anchors (via `SubGeometry.translate`) so the
+  helm row's floor is at y=0, preserving the "floor top = y=0" convention every
+  seat/claw/crew calc relies on.
+- **Gun room dropped until M4-9.** Making the sub layout-driven, the M3
+  `SubLoadout` bolt-on gun room has no home; it returns as a *placed* turret
+  room in M4-9. Until then the sub is the 6-room Minnow+, `engine_boost`/
+  `fast_repair` still apply, and the M3 dry-dock "second gun" purchase records
+  in the save but reshapes nothing. **Why:** `MILESTONE_4_v2.md` already
+  schedules the turret room as M4-9 content; bridging it in would be throwaway.
+- **Ladders sit at the inner edge of their parity section, not the section
+  centre.** The reserved ladder sections (s1/s5) hug the side walls, but a room
+  can have a doorway on the same wall, and the 0.75m section is barely wider
+  than the 0.7m crew — a wall-hugging ladder traps the crew on the door header.
+  So the shaft is offset inward (still within s1/s5) for clearance, mirroring
+  how the M3 hand-built sub hand-placed ladders clear of doorways. **Revisit at
+  Checkpoint 1** if the ladder/door spacing reads wrong.
+- **Accepted geometry deltas (no compatibility shims):** 3.75m cell width,
+  uniform 3m lower deck (lost its squat 2.5m), full-size tower cell; room water
+  indices are placement order (engine 0, middle 1, helm 2, tower 3, storage 4,
+  claw 5 — claw/storage swapped from the old hand-built numbering).
+
 ## Parked
 - **What station/ability lives in the conning tower?** It's a fixed, always-
   present single cell at the top of the sub (core, like the helm) — Snir is

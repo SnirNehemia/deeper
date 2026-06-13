@@ -1,7 +1,7 @@
 # STATUS — DEEPER
 
-_Read this at session start. Last updated: 2026-06-13 (M4 Module 4a: layout
-geometry compiler)._
+_Read this at session start. Last updated: 2026-06-13 (M4 Module 4b: the live
+sub is now layout-driven — **Checkpoint 1 playtest is ready**)._
 
 ## Where we are
 **Milestone 3 is closed (Modules A-E).** Milestone 4
@@ -127,58 +127,41 @@ the s1-s5 authoring/section-bake layer, and reorder the milestone (see
   connection topology). 23/23 suites green.
 - **Commit:** `M4-4a: layout geometry compiler (rooms + doors + parity ladders)`.
 
-### Milestone 4 — Module 4b: swap the live sub onto the compiler (NEXT, BIG)
-**Not started. This is the large, feel-defining refactor that culminates in
-the Checkpoint-1 playtest.** Scope mapped this session so the next push goes in
-eyes-open:
-- **What changes:** `Sub` (`scripts/sub/sub.gd`) stops hardcoding geometry and
-  builds its interior (walls, floors, ceilings, doorways, ladders, hatches),
-  water rooms, hull rects, and seat positions from `SubGeometry.build(layout)`,
-  with `layout` defaulting to `SubLayout.starting_layout()`. `sub_visual.gd` is
-  rewritten to draw from the same geometry.
-- **Settled design call (Snir, 2026-06-13):** the sub becomes the **6-room
-  Minnow+**; the M3 `SubLoadout` **gun room is dropped until M4-9** re-adds it
-  as a placeable turret room. `engine_boost`/`fast_repair` (stats, not
-  geometry) still apply. So `GUN_ROOM`/`ROOM_COUNT`/gun-room build paths and
-  the `test_loadout` gun-room assertions come out now and return at M4-9.
-- **New room indices (placement order):** engine 0, room/middle 1, helm 2,
-  tower 3, storage 4, claw 5. (Old order had claw 4 / storage 5 — they **swap**;
-  engine/middle/helm/tower 0-3 are unchanged, so most `test_water` cases hold.)
-- **Geometry deltas to bake into tests (not shim):** cell width 5m → 3.75m
-  (240px → 180px); lower deck 2.5m → 3m tall; the conning area becomes a
-  full-size tower cell, so `test_water`'s `room_volume(3) < room_volume(1)`
-  assertion must change (tower is no longer squat).
-- **Blast radius (≈20 files), all touched in the swap:** `sub.gd`,
-  `sub_visual.gd`, `crew.gd` (3 const refs), `dry_dock.gd` (layout diagram),
-  the 3 stations (`turret`/`claw`/`helm` reference `Sub.HALF_W`/`ROOM_H`/
-  `LOWER_BOTTOM_Y`/`LOWER_FLOOR_Y` consts — convert to instance values Sub sets
-  at build), and ~13 tests that reference `Sub.*` geometry consts or hand-tuned
-  crew/seat positions (`test_sub`, `test_crew`, `test_water`, `test_helm`,
-  `test_turret`, `test_station_flood`, `test_drowning`, `test_lower_deck`,
-  `test_claw`, `test_salvage`, `test_loadout`, `test_fish`, `test_damage`).
-- **Why it's one big step, not several small green ones:** `room_rect()` feeds
-  both interior AND water, and the new indices/sizes change both at once, so
-  there is no green intermediate between "compiler done" and "sub fully
-  swapped" without a forbidden compatibility shim. Treat M4-4b as a single
-  focused unit: rewrite Sub+visual+stations, re-derive every coupled test, then
-  verify the whole suite green in one pass.
-- **Churn-minimizing anchor (important):** `SubGeometry` centers rects on the
-  occupied bounding box (so the main-deck floor lands at y≈+72), but nearly
-  everything (seats, claw anchor, storage pen, crew spawns, the "floor top =
-  y=0" convention) assumes the main floor at y=0. So in `Sub`, translate the
-  compiled geometry by a fixed offset that puts the **helm row's floor at y=0**
-  (the helm anchors the origin, per `MODULAR_SUB_IMPLEMENTATION.md` §5). With
-  the symmetric 3-col Minnow+ the bbox x-center already lands on the middle
-  column (x=0), so only a y-shift is needed. Keep the compiler pure/unanchored
-  (its tests stay as-is); add a `SubGeometry.translate(offset)` the Sub calls
-  post-build, or apply the offset in `Sub`'s geometry accessors.
-- **Also dropped with the gun room:** the M3 `dry_dock.gd` "Add room"
-  (stern/bow) tab + its `Sub.*`-const schematic, and `SubLoadout`'s `gun_room`
-  build path, go quiet until M4-9 (the new dock shop/assembly is M4-7/M4-8).
-  Keep `dry_dock.gd` parsing (engine-boost/repair entries still work); stub or
-  remove the placement schematic that reads the old geometry consts.
-- Then **M4-5** (generated hull collider/water sills/breach surfaces/implosion
-  volume on the generated sub) → **Checkpoint 1 playtest**.
+### Milestone 4 — Module 4b: the live sub is now layout-driven (DONE)
+**The submarine is fully generated from its layout — the first M4 change that's
+visible in-game.** `Sub` (`scripts/sub/sub.gd`) no longer hardcodes geometry: it
+compiles `SubLayout` (default `starting_layout()`) via `SubGeometry`, re-anchors
+so the helm row's floor stays at y=0, and generates its interior collision
+(floors, ceilings, doorways, parity ladders, hatches), water rooms, hull rects,
+and seat/anchor positions from that. `sub_visual.gd` draws from the same
+geometry. Stations get their positions from the sub at build (turret tube on the
+helm's bow wall, claw keel anchor + drop floor); crew respawn uses the sub's
+generated tower spot.
+- **Gun room dropped until M4-9** (settled with Snir): the sub is the 6-room
+  Minnow+; the M3 `SubLoadout` gun room is ignored (its `test_loadout`
+  build/flood checks were removed, the M3 dry-dock placement schematic
+  de-coupled from the old `Sub.*` consts). `engine_boost`/`fast_repair` stats
+  still apply.
+- **New room indices (placement order):** engine 0, middle 1, helm 2, tower 3,
+  storage 4, claw 5 (claw/storage swapped vs the old hand-built order).
+- **Geometry deltas (baked into tests, no shims):** 3.75m-wide cells, uniform
+  3m lower deck (no longer squat), full-size tower cell.
+- **Ladder clearance fix:** ladder shafts sit at the *inner* edge of their
+  parity section (s1/s5), not the section center, so a climbing crew clears the
+  doorway frame on that wall. The uniform 0.75m section is barely wider than the
+  crew (0.7m), so a wall-hugging ladder trapped the crew on the door header
+  (the M3 hand-built sub hand-placed ladders clear of doorways for the same
+  reason). **Flag for Checkpoint 1:** confirm the ladder/door spacing reads OK.
+- **M4-5 largely folded in here:** because `room_rect()` feeds both the interior
+  AND the water/hull, the generated hull collider (one grown rect per occupied
+  cell), generated water cells + door/ladder sills, and the implosion threshold
+  (fraction × generated total volume) all came across in this same swap.
+  Remaining M4-5 polish (restrict breach surfaces to exterior faces; an
+  explicit asymmetric-layout water-conservation test) is minor and tracked but
+  does not change the Checkpoint-1 feel.
+- Test: every coupled suite re-derived to the new geometry. **All 23 headless
+  suites green; the main scene boots clean.**
+- **Commit:** `M4-4b: layout-driven sub (generated interior/visual/stations)`.
 
 ### M4 module order (corrected per `ROOM_SYSTEM.md` reconciliation, 2026-06-12)
 `MILESTONE_4_v2.md`'s eleven modules are still the backbone, but three things
@@ -416,7 +399,7 @@ beat. All placeholder art.
   - `world.tscn`/`.gd` — **main scene**: map + crewed sub (built from loadout) + 3 fish + camera + HUDs + implosion/run reset + dock banking + **dock prompt / Tab opens the dry dock / sub rebuild on purchase**.
   - `shore_shelf.gd` — the map (terrain/water/sky + **cave lamp marker** + **scattered scrap pickups**).
   - `sub_test.tscn`, `sandbox.tscn` — M1 sandboxes (no water/buoyancy).
-- `tests/` — 22 headless suites, all passing: `test_input`, `test_crew`, `test_sub`,
+- `tests/` — 23 headless suites, all passing: `test_input`, `test_crew`, `test_sub`,
   `test_helm`, `test_world`, `test_water`, `test_station_flood`, `test_damage`,
   `test_repair`, `test_drowning`, `test_implosion`, `test_turret`, `test_fish`,
   `test_lower_deck` (Module A), `test_salvage` (Module B storage/bank/save),
@@ -429,7 +412,9 @@ beat. All placeholder art.
   starting layout, serialization), **`test_slots`** (M4 Module 2: buyable
   slot positions, hull adjacency, bounds guard, price escalation,
   serialization), **`test_validate`** (M4 Module 3: validate()'s 7 rules +
-  slot overlap, and the load-recovery path).
+  slot overlap, and the load-recovery path), **`test_geometry`** (M4 Module 4a:
+  the layout→geometry compiler — room rects, doorways, parity ladders, section
+  baking).
   Plus `capture_*` — throwaway windowed screenshot tools (png gitignored;
   `capture_m2` stages the full M2 tableau). They hang under `--headless`
   (no `quit()` — they're meant to be run and screenshotted, not asserted)
@@ -472,17 +457,45 @@ torpedoes feel chunky or just sluggish? Is the fish fight fun or a chore? Plus
 all M1 questions (crew weight, sub heft, camera framing).
 
 ## Suggested next step
-**M4-4b: swap the live sub onto `SubGeometry`** (see the "Module 4b" section
-above for the full scope, settled gun-room decision, new room indices, geometry
-deltas, and ~20-file blast radius). It's one focused big-bang — rewrite
-`sub.gd` + `sub_visual.gd` + the 3 stations, re-derive every coupled test, then
-verify the whole suite green in a single pass (no green intermediate exists
-without a forbidden shim). Then **M4-5** (generated hull/water/breach/implosion)
-→ **Checkpoint 1 playtest** (does the wider 3.75m sub still feel right?).
+**⛳ CHECKPOINT 1 — Snir plays the generated sub (feel regression).** The sub now
+comes entirely from its layout, with the settled geometry changes live (wider
+3.75m rooms, taller 3m lower deck, full-size tower, ladders nudged off the
+walls). Verdict needed before building the dock/shop on top of it: *does it feel
+like M3 apart from the accepted size changes?* See "Verify by playing —
+Checkpoint 1" below. Fix any feel regressions before continuing.
 
-A separate, optional playtest of the **M3 close-out** (wrecks + bigger fish
-roster) is still available any time via the verify-by-playing steps below — it
-is independent of the M4 data/pipeline work, which is invisible in-game so far.
+After the checkpoint: **M4-5 polish** (restrict breach surfaces to exterior
+faces; add an asymmetric-layout water-conservation test) — minor, then **M4-6**
+(save extension) and onward per the M4 order. Note M4-5's hull/water/implosion
+generation already landed inside M4-4b.
+
+## Verify by playing — Checkpoint 1 (the generated sub)
+Launch: `"D:\Godot_v4.4.1-stable_win64.exe\Godot_v4.4.1-stable_win64.exe" --path .`
+(or open the project in Godot and press Play.)
+
+The sub should look and play almost exactly like the M3 sub, with these
+*intended* differences to eyeball:
+1. **Rooms are a touch wider** (3.75m vs 2.5m) — drive around, ram some terrain.
+   Does the sub still feel heavy-but-controllable, and does it frame well on
+   camera?
+2. **The lower deck (claw room + storage) is now full height** (3m, was squat
+   2.5m) — climb down there; headroom should feel normal, not cramped.
+3. **The conning tower is now a full-size room** on top (was a small nook) —
+   climb up into it; it should feel like a proper room.
+4. **Ladders sit a little inward from the walls** — climb every ladder (tower
+   ↔ middle, middle ↔ claw, engine ↔ storage). You should be able to climb up
+   and down cleanly and step off into the doorways without snagging.
+5. Everything else from M3 should still work: drive, breach/flood/repair, drown
+   + respawn (you reappear up in the tower), implode + reset, the claw
+   grab→drop→carry→stow loop, banking at the dock, and the dry dock menu
+   (engine boost / repair training still buy; the "second gun" option is
+   parked — buying it does nothing visible until a later milestone).
+
+Report anything that feels *worse* than M3 (room size, climbing, camera, heft),
+or any spot where the crew gets stuck.
+
+_(The independent **M3 close-out** playtest — wrecks + bigger fish roster — is
+also still available; ask for steps if you want it.)_
 
 Open questions for Snir (M3 close-out): is a wreck satisfying to crack open
 with a torpedo? Does the unguarded shallows wreck feel like a fair "easy
