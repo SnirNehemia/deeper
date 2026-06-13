@@ -214,11 +214,24 @@ generated tower spot.
 - Test: `test_shop` (happy path, too-poor refusal, illegal-position refusal,
   price escalation, save/reload persistence). 25/25 suites green.
 - **Commit:** `M4-7a: dry-dock shop slot purchasing logic`.
-- **Still to do for M4-7:** (b) multi-resource room costs — add carcass tiers
-  (`s_ca`/`m_ca`/`l_ca`) to the wallet + resource-bundle prices on the room
-  catalog (ROOM_SYSTEM.md §4.2/§6), buy a room into inventory; (c) the
-  keyboard shop UI (sell slots + rooms). Then M4-8 assembly (place inventory
-  rooms into owned slots).
+### Milestone 4 — Module 7b: multi-resource wallet + room purchasing (DONE)
+- **Wallet** (`SaveData`): the four ROOM_SYSTEM.md §4.2 spend resources —
+  `sc`=banked_scrap, `s_ca`=banked_fish (small carcass, the only tier that
+  drops today), `m_ca`/`l_ca`=new banked counters (fill once bigger enemies
+  exist, M5). All persist. `resource_balance(code)` / `can_afford_cost(bundle)`.
+- **Module costs** are resource bundles: `ModuleDef.cost` (e.g. `{"sc": 4}`) +
+  `cost_bundle()` (falls back to `price` scrap). `turret_room` = `{"sc": 4}`
+  (base gun room, ROOM_SYSTEM.md §6); `ModuleCatalog.purchasable_rooms()` lists
+  the buyable non-core, non-pod modules.
+- `SaveData.buy_room(id)`: spends the bundle, adds one to `layout.inventory`,
+  persists. Refuses core/pod/unknown ids and unaffordable bundles. Buying a
+  room does NOT place it — placement is the assembly screen (M4-8).
+- Test: `test_shop` extended (buy room into inventory, too-poor/core/pod/unknown
+  refusals, multi-resource affordability). 25/25 suites green.
+- **Commit:** `M4-7b: multi-resource wallet + room purchasing`.
+- **Still to do for M4-7:** (c) the keyboard shop UI tying slot + room buying
+  together (sell slots, sell rooms, show wallet). Then **M4-8** assembly (place
+  inventory rooms into owned slots, `validate`-driven; Apply rebuilds the sub).
 
 ### M4 module order (corrected per `ROOM_SYSTEM.md` reconciliation, 2026-06-12)
 `MILESTONE_4_v2.md`'s eleven modules are still the backbone, but three things

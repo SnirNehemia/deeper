@@ -18,8 +18,23 @@ extends Resource
 ## a future design pass (ROOM_SYSTEM.md §7) — do not generalize speculatively.
 @export var footprint: Vector2i = Vector2i(1, 1)
 
-## Scrap cost before price escalation (GameFeel.dock.escalation).
+## Scrap cost before price escalation (GameFeel.dock.escalation). Kept for the
+## simple/legacy single-currency case; `cost` (below) is the canonical price.
 @export var price: int = 0
+
+## Multi-resource price bundle (ROOM_SYSTEM.md §4.2): resource code -> amount,
+## e.g. {"sc": 4} or {"sc": 2, "s_ca": 3, "m_ca": 1}. Codes: sc = scrap,
+## s_ca/m_ca/l_ca = small/medium/large carcass. Empty means "use `price` scrap".
+@export var cost: Dictionary = {}
+
+## The resource bundle to charge for this module — `cost` if set, else `price`
+## scrap (so older single-price entries still work).
+func cost_bundle() -> Dictionary:
+	if not cost.is_empty():
+		return cost
+	if price > 0:
+		return {"sc": price}
+	return {}
 
 ## Core modules (helm, tower) exist exactly once, are never in inventory,
 ## and cannot be moved, sold, or revalidated away.

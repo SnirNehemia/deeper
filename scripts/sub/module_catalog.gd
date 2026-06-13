@@ -42,6 +42,7 @@ static func _turret_room() -> ModuleDef:
 	def.display_name = "Turret Room"
 	def.footprint = Vector2i(1, 1)
 	def.has_firing_face = true
+	def.cost = {"sc": 4}  # base gun room (ROOM_SYSTEM.md §6)
 	return def
 
 static func _floodlight_pod() -> ModuleDef:
@@ -50,4 +51,15 @@ static func _floodlight_pod() -> ModuleDef:
 	def.display_name = "Floodlight Pod"
 	def.is_pod = true
 	def.footprint = Vector2i(0, 0)
+	def.cost = {"sc": 4}  # MODULAR_SUB_IMPLEMENTATION.md §8
 	return def
+
+## The modules a player can buy into inventory at the dock right now: not core
+## (helm/tower), not pods (pods attach in the assembly screen, M4-9), and with
+## a non-empty price. Returns ModuleDefs.
+static func purchasable_rooms() -> Array:
+	var rooms: Array = []
+	for def in all():
+		if not def.is_core and not def.is_pod and not def.cost_bundle().is_empty():
+			rooms.append(def)
+	return rooms

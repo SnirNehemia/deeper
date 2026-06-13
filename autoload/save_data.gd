@@ -12,9 +12,15 @@ extends Node
 
 const SAVE_PATH := "user://save.json"
 
-## Salvage that's been banked (safe) by returning to the dock.
-var banked_scrap: int = 0
-var banked_fish: int = 0
+## Salvage that's been banked (safe) by returning to the dock. The carcass
+## tiers are the ROOM_SYSTEM.md §4.2 spend resources: banked_fish is the small
+## carcass (s_ca) — the only one that drops today; medium/large (m_ca/l_ca)
+## fill once bigger enemies exist (M5) but the wallet handles them now so room
+## prices can be multi-resource.
+var banked_scrap: int = 0       ## sc
+var banked_fish: int = 0        ## s_ca (small carcass)
+var banked_med_carcass: int = 0   ## m_ca
+var banked_large_carcass: int = 0 ## l_ca
 
 ## The submarine's persistent upgrade state (engine boost / repair training;
 ## the gun-room slot is parked until M4-9).
@@ -40,6 +46,8 @@ func load_data() -> void:
 	if data is Dictionary:
 		banked_scrap = int(data.get("banked_scrap", 0))
 		banked_fish = int(data.get("banked_fish", 0))
+		banked_med_carcass = int(data.get("banked_med_carcass", 0))
+		banked_large_carcass = int(data.get("banked_large_carcass", 0))
 		loadout.from_dict(data.get("loadout", {}))
 		if data.has("layout"):
 			# Validate + recover so a layout left illegal by a rules change
@@ -55,6 +63,8 @@ func save_data() -> void:
 	file.store_string(JSON.stringify({
 		"banked_scrap": banked_scrap,
 		"banked_fish": banked_fish,
+		"banked_med_carcass": banked_med_carcass,
+		"banked_large_carcass": banked_large_carcass,
 		"loadout": loadout.to_dict(),
 		"layout": layout.to_dict(),
 	}))
@@ -107,10 +117,52 @@ func buy_slot(pos: Vector2i) -> bool:
 func next_slot_price() -> int:
 	return GameFeel.dock.slot_price(layout.slots.size())
 
+## Current balance of a resource code (ROOM_SYSTEM.md §4.2).
+func resource_balance(code: String) -> int:
+	match code:
+		"sc": return banked_scrap
+		"s_ca": return banked_fish
+		"m_ca": return banked_med_carcass
+		"l_ca": return banked_large_carcass
+	return 0
+
+func _add_resource(code: String, amount: int) -> void:
+	match code:
+		"sc": banked_scrap += amount
+		"s_ca": banked_fish += amount
+		"m_ca": banked_med_carcass += amount
+		"l_ca": banked_large_carcass += amount
+
+## True if every resource in `cost` (code -> amount) is covered by the wallet.
+func can_afford_cost(cost: Dictionary) -> bool:
+	for code in cost:
+		if resource_balance(code) < int(cost[code]):
+			return false
+	return true
+
+## Buy a room module into inventory (ROOM_SYSTEM.md §4.1 — the contents
+## purchase, separate from buying a slot). Fails (false) for a non-purchasable
+## id (core/pod/unknown) or an unaffordable multi-resource cost. On success:
+## spend the bundle, add one to inventory, persist.
+func buy_room(id: String) -> bool:
+	var def := ModuleCatalog.by_id(id)
+	if def == null or def.is_core or def.is_pod:
+		return false
+	var cost := def.cost_bundle()
+	if cost.is_empty() or not can_afford_cost(cost):
+		return false
+	for code in cost:
+		_add_resource(code, -int(cost[code]))
+	layout.inventory[id] = int(layout.inventory.get(id, 0)) + 1
+	save_data()
+	return true
+
 ## Wipe the in-memory and on-disk save (used by tests).
 func reset_for_test() -> void:
 	banked_scrap = 0
 	banked_fish = 0
+	banked_med_carcass = 0
+	banked_large_carcass = 0
 	loadout = SubLoadout.new()
 	layout = SubLayout.starting_layout()
 	if FileAccess.file_exists(SAVE_PATH):

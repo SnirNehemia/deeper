@@ -16,6 +16,10 @@ func _ready() -> void:
 	_test_buy_slot_refused_for_illegal_position()
 	_test_price_escalates_with_owned_slots()
 	_test_purchase_persists()
+	_test_buy_room_into_inventory()
+	_test_buy_room_refused_when_broke()
+	_test_buy_room_refused_for_core_or_unknown()
+	_test_multi_resource_cost()
 	SaveData.reset_for_test()
 
 	if _failures == 0:
@@ -87,3 +91,46 @@ func _test_purchase_persists() -> void:
 	SaveData.load_data()
 	_check(pos in SaveData.layout.slots, "the bought slot survives a save/reload")
 	_check(SaveData.banked_scrap == scrap_after, "the post-purchase scrap survives a save/reload")
+
+func _test_buy_room_into_inventory() -> void:
+	print("[buy a room into inventory]")
+	SaveData.reset_for_test()
+	SaveData.banked_scrap = 20
+	var cost: Dictionary = ModuleCatalog.by_id("turret_room").cost_bundle()
+	var ok := SaveData.buy_room("turret_room")
+	_check(ok, "buying the turret room with enough scrap succeeds")
+	_check(SaveData.layout.inventory.get("turret_room", 0) == 1,
+		"the bought room lands in inventory (not placed yet)")
+	_check(SaveData.banked_scrap == 20 - int(cost.get("sc", 0)),
+		"the room's scrap cost was deducted")
+	# Buying a room does NOT place it — placements are unchanged (that's M4-8).
+	_check(SaveData.layout.placements.size() == 6, "buying a room leaves the placed rooms alone")
+
+func _test_buy_room_refused_when_broke() -> void:
+	print("[room too expensive]")
+	SaveData.reset_for_test()
+	SaveData.banked_scrap = 0
+	var ok := SaveData.buy_room("turret_room")
+	_check(not ok, "buying a room you can't afford is refused")
+	_check(SaveData.layout.inventory.is_empty(), "nothing was added to inventory")
+
+func _test_buy_room_refused_for_core_or_unknown() -> void:
+	print("[core / unknown rooms]")
+	SaveData.reset_for_test()
+	SaveData.banked_scrap = 1000
+	_check(not SaveData.buy_room("helm"), "the core helm can't be bought")
+	_check(not SaveData.buy_room("tower"), "the core tower can't be bought")
+	_check(not SaveData.buy_room("floodlight_pod"), "a pod isn't bought as a room (M4-9)")
+	_check(not SaveData.buy_room("does_not_exist"), "an unknown id is refused, not a crash")
+	_check(SaveData.banked_scrap == 1000, "no scrap spent on any refused buy")
+
+func _test_multi_resource_cost() -> void:
+	print("[multi-resource affordability]")
+	SaveData.reset_for_test()
+	var cost := {"sc": 2, "s_ca": 3, "m_ca": 1}
+	SaveData.banked_scrap = 2
+	SaveData.banked_fish = 3
+	SaveData.banked_med_carcass = 0   # short one medium carcass
+	_check(not SaveData.can_afford_cost(cost), "missing one resource tier => can't afford")
+	SaveData.banked_med_carcass = 1
+	_check(SaveData.can_afford_cost(cost), "all tiers covered => can afford")
