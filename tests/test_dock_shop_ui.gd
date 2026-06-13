@@ -21,7 +21,13 @@ func _ready() -> void:
 	# Tab switches to the Shop tab and back.
 	dock._list_key(KEY_TAB)
 	_check(dock._mode == DryDock.Mode.SHOP, "Tab from the Upgrades list opens the Shop")
-	_check(not dock._shop_entries.is_empty(), "the shop lists at least one purchasable room")
+	_check(not dock._shop_entries.is_empty(), "the shop lists at least one entry")
+
+	# The first entry should be the purchasable room (turret_room).
+	dock._shop_index = 0
+	var room_entry: Dictionary = dock._shop_entries[0]
+	_check(room_entry["type"] == "room", "the first shop entry is a purchasable room")
+	var def: ModuleDef = room_entry["def"]
 
 	# Buying with too little money is refused.
 	SaveData.banked_scrap = 0
@@ -30,7 +36,6 @@ func _ready() -> void:
 	_check(dock._note != "", "an affordability note is shown")
 
 	# Buying with enough money adds it to inventory and spends the wallet.
-	var def: ModuleDef = dock._shop_entries[dock._shop_index]
 	var cost := def.cost_bundle()
 	SaveData.banked_scrap = 100
 	SaveData.banked_fish = 100
@@ -42,6 +47,21 @@ func _ready() -> void:
 		"buying an affordable room adds it to inventory")
 	_check(SaveData.banked_scrap == scrap_before - int(cost.get("sc", 0)),
 		"buying the room spent the scrap portion of its cost")
+
+	# Buying a slot: find a "slot" entry, buy it, and check the layout grew.
+	var slot_index := -1
+	for i in dock._shop_entries.size():
+		if dock._shop_entries[i]["type"] == "slot":
+			slot_index = i
+			break
+	_check(slot_index != -1, "the shop also lists buyable slot positions")
+	var slot_pos: Vector2i = dock._shop_entries[slot_index]["pos"]
+	var slots_before := SaveData.layout.slots.size()
+	dock._shop_index = slot_index
+	dock._shop_key(KEY_ENTER)
+	_check(SaveData.layout.slots.size() == slots_before + 1,
+		"buying a slot grows the layout's owned slots")
+	_check(slot_pos in SaveData.layout.slots, "the bought slot position is now owned")
 
 	# Tab returns to the Upgrades list.
 	dock._shop_key(KEY_TAB)

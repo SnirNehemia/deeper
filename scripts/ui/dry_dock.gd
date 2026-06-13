@@ -33,7 +33,7 @@ func _ready() -> void:
 	layer = 20
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_entries = SubLoadout.catalog()
-	_shop_entries = ModuleCatalog.purchasable_rooms()
+	_rebuild_shop_entries()
 	get_tree().paused = true
 
 	var bg := ColorRect.new()
@@ -86,7 +86,7 @@ func _shop_key(code: int) -> void:
 				_shop_index = wrapi(_shop_index + 1, 0, _shop_entries.size())
 		KEY_ENTER, KEY_KP_ENTER, KEY_SPACE:
 			if not _shop_entries.is_empty():
-				_try_buy_room(_shop_entries[_shop_index])
+				_try_buy_shop_entry(_shop_entries[_shop_index])
 		KEY_TAB:
 			_mode = Mode.LIST
 		KEY_ESCAPE:
@@ -122,6 +122,27 @@ func _try_buy(entry: Dictionary) -> void:
 		_changed = true
 		_note = "%s installed!" % entry["label"]
 
+## Rebuilds the shop list: purchasable room types, then one entry per
+## currently-buyable empty slot position. Called on open and after any
+## successful shop purchase (buying a slot changes which positions are
+## buyable next).
+func _rebuild_shop_entries() -> void:
+	_shop_entries = []
+	for def in ModuleCatalog.purchasable_rooms():
+		_shop_entries.append({"type": "room", "def": def})
+	for pos in SaveData.layout.buyable_slot_positions():
+		_shop_entries.append({"type": "slot", "pos": pos})
+	if _shop_entries.is_empty():
+		_shop_index = 0
+	else:
+		_shop_index = clampi(_shop_index, 0, _shop_entries.size() - 1)
+
+func _try_buy_shop_entry(entry: Dictionary) -> void:
+	if entry["type"] == "room":
+		_try_buy_room(entry["def"])
+	else:
+		_try_buy_slot(entry["pos"])
+
 func _try_buy_room(def: ModuleDef) -> void:
 	var cost := def.cost_bundle()
 	if not SaveData.can_afford_cost(cost):
@@ -130,6 +151,17 @@ func _try_buy_room(def: ModuleDef) -> void:
 	if SaveData.buy_room(def.id):
 		_changed = true
 		_note = "%s bought into inventory!" % def.display_name
+		_rebuild_shop_entries()
+
+func _try_buy_slot(pos: Vector2i) -> void:
+	var price := SaveData.next_slot_price()
+	if SaveData.banked_scrap < price:
+		_note = "Not enough scrap (need %d sc)." % price
+		return
+	if SaveData.buy_slot(pos):
+		_changed = true
+		_note = "Slot bought at (%d, %d)!" % [pos.x, pos.y]
+		_rebuild_shop_entries()
 
 static func _cost_string(cost: Dictionary) -> String:
 	var parts: Array[String] = []
@@ -218,20 +250,35 @@ class _View extends Control:
 				HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(1, 1, 1, 0.6))
 			return
 		for i in dock._shop_entries.size():
-			var def: ModuleDef = dock._shop_entries[i]
-			var cost := def.cost_bundle()
-			var afford: bool = SaveData.can_afford_cost(cost)
-			var owned: int = int(SaveData.layout.inventory.get(def.id, 0))
+			var entry: Dictionary = dock._shop_entries[i]
 			var selected := i == dock._shop_index
 			if selected:
 				draw_rect(Rect2(64, y - 30, 760, 64), Color(1, 1, 1, 0.10))
-			var name_col := Color.WHITE if afford else Color(0.6, 0.6, 0.65)
-			f.draw_string(get_canvas_item(), Vector2(80, y + 26), def.display_name,
-				HORIZONTAL_ALIGNMENT_LEFT, -1, 26, name_col)
-			f.draw_string(get_canvas_item(), Vector2(560, y + 22), DryDock._cost_string(cost),
-				HORIZONTAL_ALIGNMENT_LEFT, -1, 24, name_col)
-			if owned > 0:
-				f.draw_string(get_canvas_item(), Vector2(80, y + 50), "In inventory: %d" % owned,
+			if entry["type"] == "room":
+				var def: ModuleDef = entry["def"]
+				var cost := def.cost_bundle()
+				var afford: bool = SaveData.can_afford_cost(cost)
+				var owned: int = int(SaveData.layout.inventory.get(def.id, 0))
+				var name_col := Color.WHITE if afford else Color(0.6, 0.6, 0.65)
+				f.draw_string(get_canvas_item(), Vector2(80, y + 26), def.display_name,
+					HORIZONTAL_ALIGNMENT_LEFT, -1, 26, name_col)
+				f.draw_string(get_canvas_item(), Vector2(560, y + 22), DryDock._cost_string(cost),
+					HORIZONTAL_ALIGNMENT_LEFT, -1, 24, name_col)
+				if owned > 0:
+					f.draw_string(get_canvas_item(), Vector2(80, y + 50), "In inventory: %d" % owned,
+						HORIZONTAL_ALIGNMENT_LEFT, -1, 17, Color(1, 1, 1, 0.55))
+			else:
+				var pos: Vector2i = entry["pos"]
+				var price := SaveData.next_slot_price()
+				var afford: bool = SaveData.banked_scrap >= price
+				var name_col := Color.WHITE if afford else Color(0.6, 0.6, 0.65)
+				f.draw_string(get_canvas_item(), Vector2(80, y + 26),
+					"Build a slot at (%d, %d)" % [pos.x, pos.y],
+					HORIZONTAL_ALIGNMENT_LEFT, -1, 26, name_col)
+				f.draw_string(get_canvas_item(), Vector2(560, y + 22), "%d sc" % price,
+					HORIZONTAL_ALIGNMENT_LEFT, -1, 24, name_col)
+				f.draw_string(get_canvas_item(), Vector2(80, y + 50),
+					"Grows the hull — an empty room shell, ready for a bought room",
 					HORIZONTAL_ALIGNMENT_LEFT, -1, 17, Color(1, 1, 1, 0.55))
 			y += 86.0
 
