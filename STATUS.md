@@ -1,7 +1,7 @@
 # STATUS — DEEPER
 
-_Read this at session start. Last updated: 2026-06-12 (M4 Module 2: slot
-economy data model)._
+_Read this at session start. Last updated: 2026-06-13 (M4 Module 4a: layout
+geometry compiler)._
 
 ## Where we are
 **Milestone 3 is closed (Modules A-E).** Milestone 4
@@ -102,6 +102,68 @@ the s1-s5 authoring/section-bake layer, and reorder the milestone (see
   `capture_*` scenes are windowed screenshot tools, not part of the count —
   they time out headless by design and are excluded from the suite run).
 - **Commit:** `M4-3: validation engine (validate + load recovery)`.
+
+### Milestone 4 — Module 4a: layout geometry compiler (`SubGeometry`)
+- `SubGeometry.build(layout)` (`scripts/sub/sub_geometry.gd`): the pure-data
+  core of the generation pipeline (`MODULAR_SUB_IMPLEMENTATION.md` §4 stages
+  1-2 + `ROOM_SYSTEM.md` §2-3). From a `SubLayout` it computes, in sub-local
+  space (centered on the occupied bounding box, +x bow, +y down):
+  - one interior **rect per placed room** (floor = bottom edge), each tagged
+    with the water index the live Sub uses (placement order);
+  - an auto-**doorway** for every horizontally adjacent room pair (shared
+    vertical wall, opening on the floor);
+  - an auto-**ladder** for every vertically stacked room pair, placed on the
+    parity section — odd floors (counting from the top row) → s1, even → s5
+    (`ROOM_SYSTEM.md` §3). The s1-s5 authoring sections are **baked to local
+    x-offsets here** and never reach the live Sub/water/validate
+    (`ROOM_SYSTEM.md` §8 invariant).
+  - `connections()` reports the door+ladder topology the water model consumes.
+- Bought-but-empty **slots are not rooms** (no interior generated) but DO
+  count toward the hull bounding box / centering, matching `occupied_cells()`.
+- **Pure data — nothing wired into the live Sub yet; the M3 hand-built sub
+  still runs unchanged.** This is the foundation the M4-4b swap consumes.
+- Test: `test_geometry` (room count/indexing, centering, cell size, door &
+  ladder adjacency, ladder parity sides, section baking, slots-as-hull,
+  connection topology). 23/23 suites green.
+- **Commit:** `M4-4a: layout geometry compiler (rooms + doors + parity ladders)`.
+
+### Milestone 4 — Module 4b: swap the live sub onto the compiler (NEXT, BIG)
+**Not started. This is the large, feel-defining refactor that culminates in
+the Checkpoint-1 playtest.** Scope mapped this session so the next push goes in
+eyes-open:
+- **What changes:** `Sub` (`scripts/sub/sub.gd`) stops hardcoding geometry and
+  builds its interior (walls, floors, ceilings, doorways, ladders, hatches),
+  water rooms, hull rects, and seat positions from `SubGeometry.build(layout)`,
+  with `layout` defaulting to `SubLayout.starting_layout()`. `sub_visual.gd` is
+  rewritten to draw from the same geometry.
+- **Settled design call (Snir, 2026-06-13):** the sub becomes the **6-room
+  Minnow+**; the M3 `SubLoadout` **gun room is dropped until M4-9** re-adds it
+  as a placeable turret room. `engine_boost`/`fast_repair` (stats, not
+  geometry) still apply. So `GUN_ROOM`/`ROOM_COUNT`/gun-room build paths and
+  the `test_loadout` gun-room assertions come out now and return at M4-9.
+- **New room indices (placement order):** engine 0, room/middle 1, helm 2,
+  tower 3, storage 4, claw 5. (Old order had claw 4 / storage 5 — they **swap**;
+  engine/middle/helm/tower 0-3 are unchanged, so most `test_water` cases hold.)
+- **Geometry deltas to bake into tests (not shim):** cell width 5m → 3.75m
+  (240px → 180px); lower deck 2.5m → 3m tall; the conning area becomes a
+  full-size tower cell, so `test_water`'s `room_volume(3) < room_volume(1)`
+  assertion must change (tower is no longer squat).
+- **Blast radius (≈20 files), all touched in the swap:** `sub.gd`,
+  `sub_visual.gd`, `crew.gd` (3 const refs), `dry_dock.gd` (layout diagram),
+  the 3 stations (`turret`/`claw`/`helm` reference `Sub.HALF_W`/`ROOM_H`/
+  `LOWER_BOTTOM_Y`/`LOWER_FLOOR_Y` consts — convert to instance values Sub sets
+  at build), and ~13 tests that reference `Sub.*` geometry consts or hand-tuned
+  crew/seat positions (`test_sub`, `test_crew`, `test_water`, `test_helm`,
+  `test_turret`, `test_station_flood`, `test_drowning`, `test_lower_deck`,
+  `test_claw`, `test_salvage`, `test_loadout`, `test_fish`, `test_damage`).
+- **Why it's one big step, not several small green ones:** `room_rect()` feeds
+  both interior AND water, and the new indices/sizes change both at once, so
+  there is no green intermediate between "compiler done" and "sub fully
+  swapped" without a forbidden compatibility shim. Treat M4-4b as a single
+  focused unit: rewrite Sub+visual+stations, re-derive every coupled test, then
+  verify the whole suite green in one pass.
+- Then **M4-5** (generated hull collider/water sills/breach surfaces/implosion
+  volume on the generated sub) → **Checkpoint 1 playtest**.
 
 ### M4 module order (corrected per `ROOM_SYSTEM.md` reconciliation, 2026-06-12)
 `MILESTONE_4_v2.md`'s eleven modules are still the backbone, but three things
@@ -395,13 +457,17 @@ torpedoes feel chunky or just sluggish? Is the fish fight fun or a chore? Plus
 all M1 questions (crew weight, sub heft, camera framing).
 
 ## Suggested next step
-**Playtest M3 close-out (verify-by-playing below) — the wrecks + bigger fish
-roster, alongside the existing claw/ferry loop.** Then, in parallel/after:
-**M4-4: generated interiors + connections** (the pipeline starts consuming
-the M4-1/1b/2/3 data: rooms, auto doors/ladders by adjacency, baking the
-s1-s5 authoring sections to coordinates). Still no visible gameplay change
-until M4-5 swaps in the generated hull/water — the hand-built sub keeps
-running as-is.
+**M4-4b: swap the live sub onto `SubGeometry`** (see the "Module 4b" section
+above for the full scope, settled gun-room decision, new room indices, geometry
+deltas, and ~20-file blast radius). It's one focused big-bang — rewrite
+`sub.gd` + `sub_visual.gd` + the 3 stations, re-derive every coupled test, then
+verify the whole suite green in a single pass (no green intermediate exists
+without a forbidden shim). Then **M4-5** (generated hull/water/breach/implosion)
+→ **Checkpoint 1 playtest** (does the wider 3.75m sub still feel right?).
+
+A separate, optional playtest of the **M3 close-out** (wrecks + bigger fish
+roster) is still available any time via the verify-by-playing steps below — it
+is independent of the M4 data/pipeline work, which is invisible in-game so far.
 
 Open questions for Snir (M3 close-out): is a wreck satisfying to crack open
 with a torpedo? Does the unguarded shallows wreck feel like a fair "easy
