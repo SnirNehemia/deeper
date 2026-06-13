@@ -1,21 +1,36 @@
 # STATUS — DEEPER
 
-_Read this at session start. Last updated: 2026-06-13 (M4-4b layout-driven sub +
-Checkpoint 1 round 1 tunings: cell settled at 5m, ladder overhang halved,
-storage cage moved to section s3)._
+_Read this at session start. Last updated: 2026-06-13 (M4-7b: the dock-shop buy
+backend is done — slots, rooms, multi-resource wallet, persistence. Next is the
+dock-shop **UI** M4-7c + the assembly screen M4-8.)_
 
 ## Where we are
-**Milestone 3 is closed (Modules A-E).** Milestone 4
-("The Dry Dock & The Growing Sub" — see `MILESTONE_4_v2.md`,
-`MODULAR_SUB_IMPLEMENTATION.md`, and **`ROOM_SYSTEM.md`**, which supersedes
-parts of the other two — read it first) is underway. All **20** headless
-suites green.
+**Milestone 3 is closed (Modules A-E).** Milestone 4 ("The Dry Dock & The
+Growing Sub") is well underway — **all 25 headless suites green.**
 
-**Read `ROOM_SYSTEM.md` and `SKILL_STUB_add_room.md` before touching anything
-in M4** — they replace the mixed-footprint catalog with one uniform cell, add
-the s1-s5 authoring/section-bake layer, and reorder the milestone (see
-"M4 module order" below). `SKILL_STUB_add_module.md` is dead — superseded by
-`SKILL_STUB_add_room.md`.
+**The submarine is now fully layout-driven** (built from a `SubLayout` via the
+`SubGeometry` pipeline; no hand-authored geometry). Snir **played Checkpoint 1**
+and the geometry is tuned (5m rooms / 1m sections, 0.9m ladders, elements
+snapped to their sections). The **entire dock-shop spend backend is built and
+tested** (buy slots, buy rooms into inventory, multi-resource wallet, save +
+load-recovery) — but there is **no dock UI yet**: nothing is buyable in-game.
+The very next work is the keyboard shop UI (M4-7c) and the assembly screen
+(M4-8). See "Suggested next step" near the bottom.
+
+**Required reading for M4, in order:** `CLAUDE.md` → this file → `DECISIONS.md`
+→ `MODULAR_SUB_IMPLEMENTATION.md` (grid/pipeline/validation/dock canon) →
+**`ROOM_SYSTEM.md`** (supersedes parts of the other two: one uniform cell, the
+s1-s5 authoring/section layer, two-step slot/room economy, multi-resource
+costs). `MILESTONE_4_v2.md` is the original build brief but its module
+*numbering* is superseded by "M4 module order" below. `SKILL_STUB_add_module.md`
+is dead — superseded by `SKILL_STUB_add_room.md`.
+
+**Sonnet discipline (this milestone is being built in small steps):** one small
+change at a time → headless-check it → **full suite green** → commit with a
+descriptive message. Never start the next step on red. After adding any new
+`class_name` script, run `--headless --path . --import` once. Explain everything
+to Snir in game-behaviour terms and end each task with verify-by-playing steps
+(he does not read code).
 
 ### Milestone 4 — Module 1b: grid resized to the uniform 3.75m cell
 - Per `ROOM_SYSTEM.md` §1-2: the mixed 2x1/1x1 footprint catalog is replaced
@@ -238,24 +253,29 @@ generated tower spot.
 from `ROOM_SYSTEM.md` change the order and add a module. This list is the
 current source of truth for M4 sequencing — supersedes the v2 numbering below:
 
-1. **M4-1 / M4-1b** (done) — grid + layout data model, resized to the uniform
-   3.75m cell.
-2. **M4-2 (new)** — **slot economy**: buyable empty room-shells (real,
-   walled, generated rooms with no station inside), adjacent to the existing
-   hull, escalating price separate from room prices. Gates everything below —
-   a bought room has nowhere to go without a bought slot.
-3. **M4-3** — validation engine (`validate(layout)`, all 7 rules + slot/
-   ladder-parity checks).
-4. **M4-4** — generated interiors + connections (rooms, auto-doors, auto
-   ladders with floor-parity sides, the section-bake step).
-5. **M4-5** — generated hull, water cells, damage, implosion on the new cell
-   size.
-   - **⛳ CHECKPOINT 1** — Snir plays: does the wider/uniform-cell sub still
-     feel right?
-6. **M4-6** — save extension (scrap + inventory + slots + layout, with the
-   "invalid layout → inventory, nothing lost" recovery).
-7. **M4-7** — dock shop: sells slots **and** rooms; multi-resource cost
-   engine (scrap + small/medium/large carcasses, `ROOM_SYSTEM.md` §4.2).
+1. **M4-1 / M4-1b** ✅ done — grid + layout data model (uniform cell, settled at
+   5m after Checkpoint 1).
+2. **M4-2** ✅ done — **slot economy** data model: buyable empty room-shells
+   adjacent to the hull, escalating price separate from room prices. Gates
+   everything below — a bought room has nowhere to go without a bought slot.
+3. **M4-3** ✅ done — validation engine (`SubValidator.validate`, 7 rules + slot
+   overlap, + `recover()` load fallback).
+4. **M4-4** ✅ done — generated interiors + connections (`SubGeometry` compiler
+   M4-4a, live sub swap M4-4b: rooms, auto-doors, auto ladders with floor-parity
+   sides, the section-bake step).
+5. **M4-5** ✅ folded into M4-4b — generated hull, water cells, breach surfaces,
+   implosion on the new cell. _Minor polish still open: restrict breach surfaces
+   to exterior faces; add an asymmetric-layout water-conservation test._
+   - **⛳ CHECKPOINT 1** ✅ PLAYED (2026-06-13) — Snir tuned the geometry: 5m
+     rooms / 1m sections, 0.9m ladders, halved ladder overhang, every in-room
+     element snapped to its authored section.
+6. **M4-6** ✅ done — save extension (scrap + carcass tiers + inventory + slots +
+   layout, with the "invalid layout → inventory, nothing lost" recovery).
+7. **M4-7** — dock shop: sells slots **and** rooms; multi-resource cost engine.
+   - **M4-7a** ✅ done — buy slots (`SaveData.buy_slot`, escalating scrap).
+   - **M4-7b** ✅ done — multi-resource wallet + buy rooms into inventory
+     (`SaveData.buy_room`, `can_afford_cost`, `ModuleDef.cost_bundle`).
+   - **M4-7c** ⬅ **NEXT** — the keyboard shop **UI** that calls the above.
 8. **M4-8** — assembly screen: places owned rooms into owned slots; left/right
    wall choice for outside-mounted elements (guns, claws).
 9. **M4-9** — pods plumbing.
@@ -527,22 +547,57 @@ Is rising water scary or annoying? Is 3s repair too long under pressure? Do
 torpedoes feel chunky or just sluggish? Is the fish fight fun or a chore? Plus
 all M1 questions (crew weight, sub heft, camera framing).
 
-## Suggested next step
-**⛳ CHECKPOINT 1 — Snir plays the generated sub (feel regression).** The sub now
-comes entirely from its layout, with the settled geometry changes live (wider
-3.75m rooms, taller 3m lower deck, full-size tower, ladders nudged off the
-walls). Verdict needed before building the dock/shop on top of it: *does it feel
-like M3 apart from the accepted size changes?* See "Verify by playing —
-Checkpoint 1" below. Fix any feel regressions before continuing.
+## Suggested next step — M4-7c: the keyboard dock-shop UI
+**The entire buy/save backend exists and is tested; what's missing is the menu
+that drives it.** Build a keyboard-only dock screen (no mouse — settled) that
+shows the wallet and lets the crew spend it. The controller functions to call
+already exist — **do not re-implement any spend/price/validate logic in the UI**:
 
-Checkpoint 1 was played (2 rounds of tunings applied — see above). **M4-6 (save
-+ layout persistence) is now done too.** Next: **M4-7 — the dry-dock shop**:
-sell slots (escalating price, `GameFeel.dock` from M4-2) and rooms into the
-inventory, spending banked salvage; multi-resource (scrap + carcass) costs per
-`ROOM_SYSTEM.md` §4.2. Then **M4-8** (assembly screen: place inventory rooms
-into owned slots, `validate`-driven). M4-5 polish (breach exterior faces;
-asymmetric water-conservation test) is still minor/open; M4-5's
-hull/water/implosion generation already landed inside M4-4b.
+- Wallet: `SaveData.banked_scrap`, `SaveData.banked_fish` (small carcass),
+  `SaveData.banked_med_carcass`, `SaveData.banked_large_carcass`;
+  `SaveData.resource_balance(code)`, `SaveData.can_afford_cost(bundle)`.
+- Buy a room into inventory: `ModuleCatalog.purchasable_rooms()` →
+  `def.cost_bundle()` for the price; `SaveData.buy_room(id)` to purchase.
+- Buy a slot: `SaveData.layout.buyable_slot_positions()` →
+  `SaveData.next_slot_price()` for the price; `SaveData.buy_slot(pos)`.
+- After any purchase, the world should refresh the sub (it already rebuilds on
+  dock close — see `world.gd::_on_dry_dock_closed`).
+
+Reuse/extend the existing **`scripts/ui/dry_dock.gd`** (the M3 keyboard menu,
+already opens on Tab at the dock and pauses). Per `MODULAR_SUB_IMPLEMENTATION.md`
+§6 the dock has a **Shop tab** (list rooms with prices, buy into inventory) and
+an **Assembly tab** (a grid diagram — this is also where you buy a slot at a
+cursor cell, and place inventory rooms into owned slots). M4-7c is the **Shop
+tab + slot-buying**; the full place-into-slot flow is **M4-8**.
+
+Headless-testable parts (do these as `test_*` suites): the menu navigation +
+purchase wiring via the same controller functions the UI calls (see
+`test_dry_dock` for the M3 pattern of driving the menu's key handlers headlessly
+and asserting state). The pure rendering can't be asserted headlessly — cover it
+with verify-by-playing for Snir instead.
+
+Then **M4-8** (place rooms into slots, `validate`-driven, Apply→rebuild), then
+**M4-9** (pods) → **⛳ Checkpoint 2**. Minor open item: **M4-5 polish** (breach
+surfaces → exterior faces only; an asymmetric-layout water-conservation test).
+
+### Watch out for (traps that already bit this milestone)
+- **`class_name` cache:** after adding a new `class_name` script, run
+  `"GODOT_PATH" --headless --path . --import` once or headless runs fail with
+  "Could not resolve class".
+- **Vacuous async tests:** a few suites (e.g. `test_water`) call their
+  `await`-ing sub-tests from `_ready` *without* `await`, so they quit before the
+  assertions run and pass *vacuously* (tell-tale: "ObjectDB instances leaked at
+  exit"). Don't trust those as coverage; if you touch their area, make `_ready`
+  actually `await`. The keyed-input / menu tests (`test_dry_dock`, `test_helm`,
+  `test_sub`, …) DO await and are real.
+- **Test coordinates from constants, not literals:** the cell width has changed
+  twice via playtest. Tests derive room positions from `SubGrid.CELL_W_PX` etc.
+  so a future tweak doesn't break them — keep doing that.
+- **The gun room is parked until ~M4-10** (placeable turret room). The current
+  weapon is the M2 base bow gun. `validate()` rule 5 already forces a turret
+  room's firing face to be exterior, so it can only ever go on an outer edge.
+- **Snir must push to GitHub** — there is no git auth in this environment. Commit
+  locally per step; remind him to push.
 
 ## Verify by playing — Checkpoint 1 (the generated sub)
 Launch: `"D:\Godot_v4.4.1-stable_win64.exe\Godot_v4.4.1-stable_win64.exe" --path .`
