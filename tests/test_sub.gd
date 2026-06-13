@@ -52,6 +52,13 @@ func _new_sub() -> Sub:
 	add_child(sub)
 	return sub
 
+## The sub-local x of the ladder shaft from the middle room up to the tower.
+func _tower_ladder_x(sub: Sub) -> float:
+	for l in sub.geometry.ladders:
+		if l.upper_cell == Vector2i(1, -1):
+			return l.x
+	return 0.0
+
 func _test_dimensions() -> void:
 	print("[dimensions]")
 	# Crew shortened to 4/5 of the original 1.5 m.
@@ -79,14 +86,13 @@ func _test_traversal_and_ladder() -> void:
 		await get_tree().physics_frame
 	_release(KEY_D)
 	_release(KEY_W)
-	_check(crew.position.x > Sub.DIV_X + 20.0, "crew hops the door steps into the helm room")
+	_check(crew.position.x > sub.room_rect(2).position.x + 20.0,
+		"crew hops the door steps into the helm room")
 
-	# Back to the ladder column and climb up.
-	_press(KEY_A)
-	await _frames(60)
-	_release(KEY_A)
-	await _frames(20)
-	crew.position.x = 0.0
+	# Onto the tower ladder column (middle room -> tower, parity section s1) and
+	# climb up.
+	var ladder_x := _tower_ladder_x(sub)
+	crew.position.x = ladder_x
 	crew.velocity = Vector2.ZERO
 	await _frames(5)
 	var floor_y := crew.position.y
@@ -94,7 +100,7 @@ func _test_traversal_and_ladder() -> void:
 	_press(KEY_W)
 	await _frames(90)
 	_release(KEY_W)
-	_check(crew.position.y < floor_y - Sub.ROOM_H * 0.5, "crew climbed up the ladder")
+	_check(crew.position.y < floor_y - Sub.CELL_H * 0.5, "crew climbed up the ladder")
 
 	# Climb back down to the floor.
 	_press(KEY_S)
@@ -112,11 +118,11 @@ func _test_crew_collision() -> void:
 	# A (P1) to the left of a stationary B (P2); A runs right into B.
 	var a := Crew.new()
 	a.player_index = 0
-	a.position = Vector2(-300, -60)
+	a.position = Vector2(-250, -60)  # engine room (x in [-270, -90]), left side
 	sub.add_child(a)
 	var b := Crew.new()
 	b.player_index = 1
-	b.position = Vector2(-240, -60)
+	b.position = Vector2(-170, -60)  # engine room, to A's right
 	sub.add_child(b)
 
 	await _frames(60)  # let both settle on the floor
@@ -125,7 +131,7 @@ func _test_crew_collision() -> void:
 	_press(KEY_D)
 	await _frames(90)  # long enough to overtake B if there were no collision
 	_release(KEY_D)
-	_check(a.position.x > -300.0, "crew A actually moved right")
+	_check(a.position.x > -250.0, "crew A actually moved right")
 	_check(a.position.x < b_x - 25.0, "crew A is blocked by crew B (can't pass through)")
 
 	sub.queue_free()
@@ -133,11 +139,16 @@ func _test_crew_collision() -> void:
 
 func _test_hatch() -> void:
 	print("[conning hatch]")
+	# Let any prior sub-test's queued-free sub + crew fully clear the physics
+	# space first, so a lingering crew body can't block this one's descent.
+	await _frames(10)
 	var sub := _new_sub()
 	var crew := Crew.new()
 	crew.player_index = 0
-	# Drop onto the hatch deck at the top of the ladder (local deck top ~ y=-160).
-	crew.position = Vector2(0, -200)
+	# Drop onto the hatch deck over the tower's ladder opening (tower floor at
+	# y = -144; drop in from above so it lands on the hatch, not through it).
+	var ladder_x := _tower_ladder_x(sub)
+	crew.position = Vector2(ladder_x, -200)
 	sub.add_child(crew)
 
 	await _frames(60)
@@ -153,7 +164,7 @@ func _test_hatch() -> void:
 	_press(KEY_S)
 	await _frames(90)
 	_release(KEY_S)
-	_check(crew.position.y > deck_y + Sub.ROOM_H * 0.5, "pressing down drops through the hatch")
+	_check(crew.position.y > deck_y + Sub.CELL_H * 0.5, "pressing down drops through the hatch")
 
 	sub.queue_free()
 	await _frames(2)

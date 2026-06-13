@@ -95,7 +95,8 @@ func _test_bite() -> void:
 	# Fish right at the hull's bow edge, inside its own territory.
 	var fish := Fish.new()
 	fish.sub = sub
-	fish.position = Vector2(Sub.HALF_W + 30.0, -72.0)
+	# Just off the helm room's bow wall, mid-height (within the hull margin).
+	fish.position = Vector2(sub.room_rect(2).end.x + 30.0, -72.0)
 	add_child(fish)
 	await _frames(30)  # overlap registers; chase + bite
 

@@ -53,7 +53,7 @@ func _test_flooded_helm_ejects() -> void:
 
 	var driver := Crew.new()
 	driver.player_index = 0
-	driver.position = Vector2(Sub.HELM_X, Sub.HELM_SEAT_Y)
+	driver.position = sub.helm_seat_local()
 	sub.add_child(driver)
 
 	await _frames(10)
@@ -91,7 +91,7 @@ func _test_swim_dampening() -> void:
 	add_child(dry_sub)
 	var dry_crew := Crew.new()
 	dry_crew.player_index = 0
-	dry_crew.position = Vector2(-Sub.HALF_W + Sub.ROOM_W * 0.5, -60)  # engine room
+	dry_crew.position = Vector2(-180.0, -60)  # engine room center  # engine room
 	dry_sub.add_child(dry_crew)
 
 	var wet_sub := Sub.new()
@@ -100,7 +100,7 @@ func _test_swim_dampening() -> void:
 	wet_sub.water_levels[0] = 1.0  # fully flood the engine room
 	var wet_crew := Crew.new()
 	wet_crew.player_index = 1
-	wet_crew.position = Vector2(-Sub.HALF_W + Sub.ROOM_W * 0.5, -60)
+	wet_crew.position = Vector2(-180.0, -60)  # engine room center
 	wet_sub.add_child(wet_crew)
 
 	await _frames(5)
@@ -130,7 +130,7 @@ func _test_feet_vs_waist() -> void:
 	sub.water_levels[0] = 0.1  # ~0.3 m in a 3 m room — ankle-deep
 	var crew := Crew.new()
 	crew.player_index = 0
-	crew.position = Vector2(-Sub.HALF_W + Sub.ROOM_W * 0.5, -60)  # engine room
+	crew.position = Vector2(-180.0, -60)  # engine room center  # engine room
 	sub.add_child(crew)
 
 	await _frames(20)  # settle onto the floor, into the puddle
@@ -153,7 +153,7 @@ func _test_jump_reduced_when_deep() -> void:
 	add_child(dry_sub)
 	var dry_crew := Crew.new()
 	dry_crew.player_index = 0
-	dry_crew.position = Vector2(-Sub.HALF_W + Sub.ROOM_W * 0.5, -60)
+	dry_crew.position = Vector2(-180.0, -60)  # engine room center
 	dry_sub.add_child(dry_crew)
 
 	# Wet crew, waist-deep (0.7 > half height).
@@ -163,7 +163,7 @@ func _test_jump_reduced_when_deep() -> void:
 	wet_sub.water_levels[0] = 0.7
 	var wet_crew := Crew.new()
 	wet_crew.player_index = 1
-	wet_crew.position = Vector2(-Sub.HALF_W + Sub.ROOM_W * 0.5, -60)
+	wet_crew.position = Vector2(-180.0, -60)  # engine room center
 	wet_sub.add_child(wet_crew)
 
 	await _frames(20)  # settle on the floor

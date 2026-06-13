@@ -15,8 +15,10 @@ extends Station
 ## cosmetic pitch; grabbing uses that same tilted tip position.
 
 ## Where the arm is anchored on the keel, in sub-local space (bottom-center of
-## the claw room's belly).
-const ANCHOR_LOCAL := Vector2(0.0, Sub.LOWER_BOTTOM_Y)
+## the claw room's belly). Set by Sub at build time from the generated geometry.
+var anchor_local: Vector2 = Vector2.ZERO
+## Sub-local y of the claw room floor, where dropped catches land (set by Sub).
+var drop_floor_y: float = 0.0
 
 ## Joint angles (radians). shoulder = 0 points the upper arm straight DOWN and
 ## swings to either side; elbow bends the forearm relative to the upper arm.
@@ -70,7 +72,7 @@ func fore_len() -> float:
 
 ## Elbow joint position: down the upper arm from the anchor.
 func joint_local() -> Vector2:
-	return ANCHOR_LOCAL + Vector2.DOWN.rotated(shoulder_angle) * upper_len()
+	return anchor_local + Vector2.DOWN.rotated(shoulder_angle) * upper_len()
 
 ## Cage (tip) position: down the forearm from the elbow.
 func tip_local() -> Vector2:
@@ -93,7 +95,7 @@ func cage_full() -> bool:
 
 ## True when the cage is folded back near the keel anchor, ready to dump.
 func is_home() -> bool:
-	return tip_local().distance_to(ANCHOR_LOCAL) <= GameFeel.claw.home_radius_m * Sub.PPM
+	return tip_local().distance_to(anchor_local) <= GameFeel.claw.home_radius_m * Sub.PPM
 
 ## How fully the cage hatch is clamped shut (0 open .. 1 shut), for the visual.
 func clamp_amount() -> float:
@@ -158,6 +160,6 @@ func _drop_into_hold() -> void:
 		if not is_instance_valid(item):
 			continue
 		var lx := (float(i) - (n - 1) * 0.5) * 30.0  # spread along the claw room floor
-		var local := Vector2(lx, Sub.LOWER_FLOOR_Y - SalvageItem.RADIUS_PX)
+		var local := Vector2(lx, drop_floor_y - SalvageItem.RADIUS_PX)
 		item.call_deferred("drop_into_sub", sub, local)
 	_caught.clear()

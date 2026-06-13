@@ -314,9 +314,10 @@ func _respawn() -> void:
 	is_dead = false
 	air_seconds = GameFeel.water.air_time
 	# Back on your feet up in the conning tower (playtest #2) — the safest,
-	# last-to-flood spot. Stand beside the ladder on the conning deck.
-	position = Vector2(Sub.CONN_HALF * 0.5,
-		Sub.DECK_Y - PlaceholderArt.CREW_HEIGHT_M * GameFeel.PIXELS_PER_METER * 0.5)
+	# last-to-flood spot. The sub computes the spot from its generated geometry.
+	var s := get_parent() as Sub
+	if s != null:
+		position = s.respawn_local()
 	velocity = Vector2.ZERO
 	collision_layer = Layers.CREW
 	collision_mask = _MASK_FOOT

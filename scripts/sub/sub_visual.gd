@@ -1,13 +1,13 @@
 class_name SubVisual
 extends Node2D
 
-## Placeholder art for the submarine, kept on its own node so the sub can apply
-## a cosmetic pitch tilt (rotate this) while the physics body and the crew stay
-## perfectly upright. Reads the geometry constants from Sub.
+## Placeholder art for the submarine, on its own node so the sub can apply a
+## cosmetic pitch tilt (rotate this) while the physics body and crew stay
+## upright. Draws entirely from the parent Sub's compiled geometry (rooms,
+## doors, ladders) — no hand-authored constants.
 
-## The turret stations, set by Sub. Each tube + barrel is drawn here (rather
-## than on the station node) so they tilt with the hull's pitch (playtest #8).
-## One for the base bow gun, plus the bought gun-room gun if present.
+## The turret stations, set by Sub. Each tube + barrel is drawn here so they
+## tilt with the hull's pitch (playtest #8).
 var turrets: Array[TurretStation] = []
 
 ## The salvage claw station, set by Sub. Its belly arm is drawn here so it
@@ -15,86 +15,53 @@ var turrets: Array[TurretStation] = []
 var claw: ClawStation = null
 
 func _draw() -> void:
-	var deck_y := Sub.CEIL_Y - Sub.WALL_T
-	var conn_ceil_y := deck_y - 2.0 * Sub.PPM
-
 	var sub := get_parent() as Sub
+	if sub == null or sub.geometry == null:
+		return
 
 	# Outer hull silhouette: one continuous shape, drawn as overlapping rounded
-	# rects (main deck, lower deck, conning tower, + a bought gun room) — each
-	# room block expanded by a uniform margin, so it reads as a single hull
-	# rather than separate "blobs" (playtest #1 of Module A).
-	var rects: Array = sub.hull_rects() if sub != null else \
-		[Sub.HULL_MAIN_RECT, Sub.HULL_LOWER_RECT, Sub.HULL_CONN_RECT]
-	for r in rects:
+	# rects (one per occupied cell), so it reads as a single hull.
+	for r in sub.hull_rects():
 		_draw_round_rect(r, 24.0, PlaceholderArt.HULL_COLOR)
 
-	# Room interiors.
-	for i in 3:
-		var room_x := -Sub.HALF_W + i * Sub.ROOM_W
-		draw_rect(Rect2(room_x, Sub.CEIL_Y, Sub.ROOM_W, Sub.ROOM_H), PlaceholderArt.SUB_INTERIOR)
-	# Conning interior.
-	draw_rect(Rect2(-Sub.CONN_HALF, conn_ceil_y, Sub.CONN_HALF * 2.0, deck_y - conn_ceil_y),
-		PlaceholderArt.SUB_INTERIOR)
-	# Lower deck interiors (claw room below middle, storage room below engine).
-	draw_rect(Rect2(-Sub.DIV_X, 0.0, Sub.ROOM_W, Sub.LOWER_ROOM_H), PlaceholderArt.SUB_INTERIOR)
-	draw_rect(Rect2(-Sub.HALF_W, 0.0, Sub.ROOM_W, Sub.LOWER_ROOM_H), PlaceholderArt.SUB_INTERIOR)
+	# Room interiors + a floor highlight per room.
+	for room in sub.geometry.rooms:
+		draw_rect(room.rect, PlaceholderArt.SUB_INTERIOR)
+		draw_rect(Rect2(room.rect.position.x, room.rect.position.y + room.rect.size.y - 6.0,
+			room.rect.size.x, 6.0), PlaceholderArt.SUB_FLOOR)
 
-	# Floor deck highlight.
-	draw_rect(Rect2(-Sub.HALF_W, 0, Sub.HALF_W * 2.0, 6.0), PlaceholderArt.SUB_FLOOR)
-
-	# Doorway headers (visual).
-	var header_h := Sub.ROOM_H - Sub.DOOR_H
-	for sx in [-Sub.DIV_X, Sub.DIV_X]:
-		draw_rect(Rect2(sx - Sub.WALL_T * 0.5, Sub.CEIL_Y, Sub.WALL_T, header_h),
+	# Doorway headers + steps (structure) on each shared vertical wall.
+	for door in sub.geometry.doors:
+		var room := sub.geometry.rooms[door.a_index]
+		var header_h := room.rect.size.y - Sub.DOOR_H
+		draw_rect(Rect2(door.wall_x - Sub.WALL_T * 0.5, room.rect.position.y, Sub.WALL_T, header_h),
 			PlaceholderArt.SUB_STRUCTURE)
-		# Door step on the floor (the little lip crew hop over).
-		draw_rect(Rect2(sx - Sub.WALL_T * 0.5, -Sub.DOOR_STEP_H, Sub.WALL_T, Sub.DOOR_STEP_H),
-			PlaceholderArt.SUB_STRUCTURE)
+		draw_rect(Rect2(door.wall_x - Sub.WALL_T * 0.5, door.floor_y - Sub.DOOR_STEP_H,
+			Sub.WALL_T, Sub.DOOR_STEP_H), PlaceholderArt.SUB_STRUCTURE)
 
-	# Conning deck (structure) across the conning floor, including the hatch.
-	draw_rect(Rect2(-Sub.CONN_HALF, Sub.CEIL_Y - Sub.WALL_T, Sub.CONN_HALF * 2.0, Sub.WALL_T),
-		PlaceholderArt.SUB_STRUCTURE)
+	# Ladders (rails + rungs) in each shaft.
+	for ladder in sub.geometry.ladders:
+		_draw_ladder(ladder.x, ladder.top_y, ladder.bottom_y)
 
-	# Ladder rails + rungs (middle room up to the conning area).
-	_draw_ladder(0.0, conn_ceil_y, 0.0)
-	# Lower-deck ladders: middle room down to the claw room, engine room down
-	# to the storage room.
-	_draw_ladder(Sub.CLAW_LADDER_X, -20.0, Sub.LOWER_FLOOR_Y)
-	_draw_ladder(Sub.STORAGE_LADDER_X, -20.0, Sub.LOWER_FLOOR_Y)
-
-	# Doorway between storage and the claw room (lower deck), with its header
-	# and door step.
-	var lower_header_h := Sub.LOWER_ROOM_H - Sub.DOOR_H
-	draw_rect(Rect2(-Sub.DIV_X - Sub.WALL_T * 0.5, 0.0, Sub.WALL_T, lower_header_h),
-		PlaceholderArt.SUB_STRUCTURE)
-	draw_rect(Rect2(-Sub.DIV_X - Sub.WALL_T * 0.5, Sub.LOWER_FLOOR_Y - Sub.DOOR_STEP_H,
-		Sub.WALL_T, Sub.DOOR_STEP_H), PlaceholderArt.SUB_STRUCTURE)
-
-	# Helm console, sitting on the floor in the bow room (tilts with the hull).
-	var hx := Sub.HELM_X
-	draw_rect(Rect2(hx - 16.0, -24.0, 32.0, 24.0), PlaceholderArt.SUB_STRUCTURE)
-	draw_rect(Rect2(hx - 3.0, -40.0, 6.0, 16.0), PlaceholderArt.SUB_STRUCTURE)
-	draw_circle(Vector2(hx, -42.0), 7.0, PlaceholderArt.LADDER_COLOR)
-
-	# Gunner console in the middle flex room.
-	var tx := Sub.TURRET_SEAT_X
-	draw_rect(Rect2(tx - 14.0, -22.0, 28.0, 22.0), PlaceholderArt.SUB_STRUCTURE)
-	draw_circle(Vector2(tx, -30.0), 6.0, PlaceholderArt.HULL_COLOR)
-
-	if sub != null and sub.has_gun_room():
-		_draw_gun_room(sub)
+	# Consoles at the seats.
+	_draw_console(sub.helm_seat_local())
+	_draw_console(sub.turret_seat_local())
 
 	for t in turrets:
 		_draw_turret(t)
-	_draw_claw_console()
-	if sub != null:
-		_draw_storage_pen(sub)
+	_draw_claw_console(sub)
+	_draw_storage_pen(sub)
 	_draw_claw()
-	_draw_water()
+	_draw_water(sub)
+
+## A small console box + dial standing on the floor at a seat (sub-local).
+func _draw_console(seat: Vector2) -> void:
+	var floor_y := seat.y + PlaceholderArt.CREW_HEIGHT_M * Sub.PPM * 0.5
+	draw_rect(Rect2(seat.x - 14.0, floor_y - 22.0, 28.0, 22.0), PlaceholderArt.SUB_STRUCTURE)
+	draw_circle(Vector2(seat.x, floor_y - 30.0), 6.0, PlaceholderArt.LADDER_COLOR)
 
 ## A torpedo tube + aimed barrel for one gun, drawn in hull-local space so it
-## pitches with the sub. Reads the live aim + occupancy from the station.
+## pitches with the sub. Reads live aim + occupancy from the station.
 func _draw_turret(t: TurretStation) -> void:
 	if t == null:
 		return
@@ -108,70 +75,41 @@ func _draw_turret(t: TurretStation) -> void:
 		if t.is_ready_to_fire():
 			draw_circle(tube + dir * 150.0, 4.0, Color(1.0, 1.0, 1.0, 0.6))
 
-## The bought gun room's interior: its room background, floor highlight, the
-## doorway into the neighbouring end room, and a gunner console.
-func _draw_gun_room(sub: Sub) -> void:
-	var r := sub.room_rect(Sub.GUN_ROOM)
-	draw_rect(r, PlaceholderArt.SUB_INTERIOR)
-	draw_rect(Rect2(r.position.x, 0.0, r.size.x, 6.0), PlaceholderArt.SUB_FLOOR)
-	# Doorway header + step at the inner boundary with the end room.
-	var inner := sub.gun_room_side() * Sub.HALF_W
-	var header_h := Sub.ROOM_H - Sub.DOOR_H
-	draw_rect(Rect2(inner - Sub.WALL_T * 0.5, Sub.CEIL_Y, Sub.WALL_T, header_h),
-		PlaceholderArt.SUB_STRUCTURE)
-	draw_rect(Rect2(inner - Sub.WALL_T * 0.5, -Sub.DOOR_STEP_H, Sub.WALL_T, Sub.DOOR_STEP_H),
-		PlaceholderArt.SUB_STRUCTURE)
-	# Gunner console.
-	var gx := r.get_center().x
-	draw_rect(Rect2(gx - 14.0, -22.0, 28.0, 22.0), PlaceholderArt.SUB_STRUCTURE)
-	draw_circle(Vector2(gx, -30.0), 6.0, PlaceholderArt.HULL_COLOR)
-
-## The belly salvage claw: a two-joint articulated arm (upper arm + forearm
-## with a pivot between them) ending in a cage that opens/closes. Drawn in
-## hull-local space so it pitches with the sub.
+## The belly salvage claw: a two-joint arm ending in a cage. Drawn in hull-local
+## space so it pitches with the sub.
 func _draw_claw() -> void:
 	if claw == null:
 		return
-	var anchor := ClawStation.ANCHOR_LOCAL
-	# A small port/shoulder housing on the keel where the arm exits.
+	var anchor := claw.anchor_local
 	draw_rect(Rect2(anchor + Vector2(-12.0, -7.0), Vector2(24.0, 12.0)),
 		PlaceholderArt.SUB_STRUCTURE)
 
 	var joint := claw.joint_local()
 	var tip := claw.tip_local()
-	# Upper arm, then forearm; pivots drawn as knuckles at each joint.
 	draw_line(anchor, joint, PlaceholderArt.SUB_STRUCTURE, 7.0)
 	draw_line(joint, tip, PlaceholderArt.SUB_STRUCTURE, 6.0)
 	draw_circle(anchor, 6.0, PlaceholderArt.HULL_COLOR)
 	draw_circle(joint, 6.0, PlaceholderArt.HULL_COLOR)
-
-	# The cage at the tip: an actual basket whose mouth (facing outward) has a
-	# hatch that swings shut as clamp_amount() rises. Caught salvage rides
-	# inside it (drawn by the items themselves, above the hull) so you can see
-	# what you've trapped.
 	_draw_cage(joint, tip)
 
-## A basket cage at the arm tip, opening outward, with a hinged hatch across
-## the mouth that closes (clamp_amount -> 1) when it's holding salvage.
+## A basket cage at the arm tip, opening outward, with a hinged hatch that
+## closes (clamp_amount -> 1) when holding salvage.
 func _draw_cage(joint: Vector2, tip: Vector2) -> void:
 	var fwd := (tip - joint).normalized() if tip.distance_to(joint) > 0.1 else Vector2.DOWN
 	var side := fwd.orthogonal()
 	var c := PlaceholderArt.LADDER_COLOR
-	var hw := 22.0          # half-width across the mouth
+	var hw := 22.0
 	var back := tip - fwd * 8.0
 	var mouth := tip + fwd * 22.0
 	var bl := back + side * hw
 	var br := back - side * hw
 	var ml := mouth + side * hw
 	var mr := mouth - side * hw
-	# Basket: back wall + two side walls + a mid rib for a caged look.
 	draw_line(bl, br, c, 3.0)
 	draw_line(bl, ml, c, 3.0)
 	draw_line(br, mr, c, 3.0)
 	var rib := tip + fwd * 8.0
 	draw_line(rib + side * hw, rib - side * hw, c, 2.0)
-	# Hinged hatch doors across the mouth: meet in the middle when shut, swing
-	# outward when open.
 	var openness := 1.0 - claw.clamp_amount()
 	var center := mouth
 	var l_open := ml + fwd * 10.0 + side * 6.0
@@ -179,43 +117,35 @@ func _draw_cage(joint: Vector2, tip: Vector2) -> void:
 	draw_line(ml, center.lerp(l_open, openness), c, 3.0)
 	draw_line(mr, center.lerp(r_open, openness), c, 3.0)
 
-## The claw operator's console in the lower claw room, styled like the helm /
-## turret consoles so it reads as "a station". Plus the keel drop hatch the
-## claw lowers catches through into the hold.
-func _draw_claw_console() -> void:
+## The claw operator's console + the keel drop hatch the claw lowers through.
+func _draw_claw_console(sub: Sub) -> void:
 	if claw == null:
 		return
 	var cx := claw.position.x
-	var floor_y := Sub.LOWER_FLOOR_Y
+	var floor_y := sub.claw_drop_floor_y()
 	draw_rect(Rect2(cx - 14.0, floor_y - 22.0, 28.0, 22.0), PlaceholderArt.SUB_STRUCTURE)
 	draw_circle(Vector2(cx, floor_y - 30.0), 6.0, PlaceholderArt.LADDER_COLOR)
 
-	# Drop hatch in the claw room floor, at the arm base, where catches come up
-	# into the hold. A framed opening with a hinged lid.
-	var hx := Sub.HOLD_HATCH_LOCAL.x
+	var hx := claw.anchor_local.x
 	var hw := 22.0
 	draw_rect(Rect2(hx - hw, floor_y - 3.0, hw * 2.0, 6.0), PlaceholderArt.SUB_INTERIOR)
 	draw_line(Vector2(hx - hw, floor_y), Vector2(hx + hw, floor_y),
 		PlaceholderArt.LADDER_COLOR, 2.0)
-	# Hinged lid leaning open against the floor.
 	draw_line(Vector2(hx - hw, floor_y), Vector2(hx - hw + 14.0, floor_y - 12.0),
 		PlaceholderArt.SUB_STRUCTURE, 3.0)
 
-## The storage pen in the storage room: a little cage that fills with the
-## salvage the claw has delivered (up to the storage capacity).
+## The storage pen in the storage room: a cage that fills with delivered salvage.
 func _draw_storage_pen(sub: Sub) -> void:
-	var room := sub.room_rect(5)  # storage room
-	var floor_y := room.position.y + room.size.y
-	# Against the room's RIGHT wall, clear of the storage ladder on the left.
-	var pen := Rect2(room.position.x + room.size.x - 96.0 - 18.0, floor_y - 54.0, 96.0, 54.0)
-	# Cage bars.
+	var center := sub.storage_pen_center()
+	# A pen rect sitting on the storage room floor, around the pen center.
+	var pen := Rect2(center.x - 48.0, center.y - 27.0, 96.0, 54.0)
+	var floor_y := pen.position.y + pen.size.y
 	var bar := PlaceholderArt.LADDER_COLOR
-	draw_rect(Rect2(pen.position, Vector2(pen.size.x, 4.0)), bar)  # top rail
+	draw_rect(Rect2(pen.position, Vector2(pen.size.x, 4.0)), bar)
 	var x := pen.position.x
 	while x <= pen.position.x + pen.size.x:
 		draw_line(Vector2(x, pen.position.y), Vector2(x, floor_y), bar, 2.0)
 		x += 16.0
-	# Contents: scrap squares then carcass blobs, packed bottom-up.
 	var total: int = sub.storage_count()
 	var per_row := 5
 	for i in total:
@@ -227,12 +157,8 @@ func _draw_storage_pen(sub: Sub) -> void:
 		else:
 			draw_circle(p, 5.0, PlaceholderArt.CARCASS_COLOR)
 
-## Flooding water: a flat rect rising from the floor of each room, clipped to
-## the room rectangle. Drawn last so it sits over the interior/structure.
-func _draw_water() -> void:
-	var sub := get_parent() as Sub
-	if sub == null:
-		return
+## Flooding water: a flat rect rising from each room's floor. Drawn last.
+func _draw_water(sub: Sub) -> void:
 	for i in sub.active_room_count():
 		var level: float = sub.water_levels[i]
 		if level <= 0.0:
@@ -243,7 +169,7 @@ func _draw_water() -> void:
 			PlaceholderArt.INTERIOR_WATER)
 
 ## Ladder rails + rungs: a vertical column centered on `center_x`, spanning
-## local-y from `top_y` to `bottom_y` (top_y < bottom_y).
+## local-y from `top_y` to `bottom_y`.
 func _draw_ladder(center_x: float, top_y: float, bottom_y: float) -> void:
 	var rail_x := Sub.HOLE_HALF - 6.0
 	var height := bottom_y - top_y

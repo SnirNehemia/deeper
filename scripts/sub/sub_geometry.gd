@@ -89,6 +89,20 @@ static func ladder_section(floor_number: int) -> int:
 static func section_center_x(cell_left: float, section: int) -> float:
 	return cell_left + (section - 0.5) * SECTION_W
 
+## A ladder's shaft x within its parity section, positioned toward the section's
+## INNER edge (away from the side wall) so a climbing crew clears any doorway
+## frame on that wall. The reserved ladder sections (s1/s5) sit against the side
+## walls, but a room can also have a doorway on the same wall; the section is
+## only ~0.75 m and the crew nearly that wide, so a wall-hugging ladder would
+## trap the crew on the door header (the M3 hand-built sub hand-placed ladders
+## clear of doorways for the same reason). This keeps the ladder inside s1/s5
+## but offset enough for the crew to pass.
+const LADDER_WALL_CLEARANCE := 30.0  # px from the side wall (within a 36px section)
+static func ladder_shaft_x(cell_left: float, cell_right: float, section: int) -> float:
+	if section == 1:
+		return cell_left + LADDER_WALL_CLEARANCE
+	return cell_right - LADDER_WALL_CLEARANCE
+
 ## Build the geometry for a layout. Pure: reads only the layout (and the
 ## catalog, for footprints). Slots are NOT rooms — they have no interior to
 ## generate yet (an empty slot is open hull space until a room is placed into
@@ -133,8 +147,8 @@ func cell_rect(cell: Vector2i) -> Rect2:
 	var span := grid_max - grid_min + Vector2i.ONE
 	var total_w := span.x * CELL_W
 	var total_h := span.y * CELL_H
-	var left := (cell.x - grid_min.x) * CELL_W - total_w * 0.5
-	var top := (cell.y - grid_min.y) * CELL_H - total_h * 0.5
+	var left := (cell.x - grid_min.x) * CELL_W - total_w * 0.5 + _offset.x
+	var top := (cell.y - grid_min.y) * CELL_H - total_h * 0.5 + _offset.y
 	return Rect2(left, top, CELL_W, CELL_H)
 
 ## Floor number of a grid row, counted from the topmost occupied row (= floor
@@ -173,13 +187,35 @@ func _build_ladders() -> void:
 		ladder.upper_index = room.water_index
 		ladder.lower_index = _index_by_cell[below_cell]
 		ladder.section = ladder_section(floor_number(room.cell))
-		ladder.x = section_center_x(room.rect.position.x, ladder.section)
+		ladder.x = ladder_shaft_x(room.rect.position.x,
+			room.rect.position.x + room.rect.size.x, ladder.section)
 		# Shaft spans from the upper room's floor (the opening) down through the
 		# lower room to its floor.
 		var lower_rect := cell_rect(below_cell)
 		ladder.top_y = room.rect.position.y + room.rect.size.y - HOLE_W  # small grab overlap above the opening
 		ladder.bottom_y = lower_rect.position.y + lower_rect.size.y
 		ladders.append(ladder)
+
+## Shift all compiled geometry by `offset` (sub-local px). The compiler centers
+## on the occupied bounding box; the live Sub calls this to re-anchor so the
+## helm row's floor sits at y=0 (the "floor top = y=0" convention the crew,
+## seats, claw, and storage all assume). Pure translation — leaves grid coords
+## and section baking untouched.
+func translate(offset: Vector2) -> void:
+	for room in rooms:
+		room.rect.position += offset
+	for door in doors:
+		door.wall_x += offset.x
+		door.floor_y += offset.y
+	for ladder in ladders:
+		ladder.x += offset.x
+		ladder.top_y += offset.y
+		ladder.bottom_y += offset.y
+	_offset += offset
+
+## Accumulated translation applied via translate() (so cell_rect stays
+## consistent with the already-translated room rects).
+var _offset: Vector2 = Vector2.ZERO
 
 ## Water index of a placed room at a cell, or -1 if no room sits there.
 func index_at(cell: Vector2i) -> int:

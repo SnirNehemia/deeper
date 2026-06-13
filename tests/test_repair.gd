@@ -100,7 +100,7 @@ func _test_auto_drain() -> void:
 	await _frames(600)  # ~10s more
 	_check(sub.water_levels[0] < mid_level, "drain keeps going")
 	var total := 0.0
-	for i in Sub.ROOM_COUNT:
+	for i in sub.active_room_count():
 		total += sub.water_levels[i]
 	_check(total < 0.05, "the water is essentially gone within ~12s")
 

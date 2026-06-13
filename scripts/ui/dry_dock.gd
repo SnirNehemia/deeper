@@ -164,16 +164,20 @@ class _View extends Control:
 			"SUBMARINE DESIGN  —  choose where the gun room bolts on:",
 			HORIZONTAL_ALIGNMENT_LEFT, -1, 24, Color.WHITE)
 		# A little side-on schematic of the sub with the two hardpoint slots.
+		# (Stylized placeholder boxes — the real layout-driven design screen is
+		# the M4 dock; this M3 view just picks a stern/bow end.)
 		var center := Vector2(size.x * 0.5, size.y * 0.5 + 20.0)
 		var s := 0.62
-		# Existing rooms (dim).
+		var cw := 240.0  # schematic cell width
+		var ch := 144.0  # schematic cell height
+		# Existing rooms (dim): a 3-cell main row, a tower above, a 2-cell lower row.
 		var body := Color(0.45, 0.48, 0.56)
-		_box(Rect2(-Sub.HALF_W, Sub.CEIL_Y, Sub.HALF_W * 2.0, Sub.ROOM_H), center, s, body)
-		_box(Sub.HULL_CONN_RECT.grow(-Sub.HULL_MARGIN), center, s, body)
-		_box(Rect2(-Sub.HALF_W, 0.0, Sub.HALF_W + Sub.DIV_X, Sub.LOWER_ROOM_H), center, s, body)
+		_box(Rect2(-cw * 1.5, -ch, cw * 3.0, ch), center, s, body)         # main row
+		_box(Rect2(-cw * 0.5, -ch * 2.0, cw, ch), center, s, body)         # tower
+		_box(Rect2(-cw * 1.5, 0.0, cw * 2.0, ch), center, s, body)         # lower row
 		# Slot outlines; the chosen one glows.
-		var stern := Rect2(-Sub.HALF_W - Sub.ROOM_W, Sub.CEIL_Y, Sub.ROOM_W, Sub.ROOM_H)
-		var bow := Rect2(Sub.HALF_W, Sub.CEIL_Y, Sub.ROOM_W, Sub.ROOM_H)
+		var stern := Rect2(-cw * 1.5 - cw, -ch, cw, ch)
+		var bow := Rect2(cw * 1.5, -ch, cw, ch)
 		_slot_box(stern, center, s, dock._slot == SubLoadout.Slot.STERN, "STERN  (gun aft)", f)
 		_slot_box(bow, center, s, dock._slot == SubLoadout.Slot.BOW, "BOW  (gun fwd)", f)
 

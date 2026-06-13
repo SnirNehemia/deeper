@@ -18,8 +18,8 @@ func _ready() -> void:
 	GameFeel.water.drain_rate = 0.0
 	await _test_room_geometry()
 	await _test_door_step_connectivity()
-	await _test_ladder_climb(Sub.CLAW_LADDER_X, "claw")
-	await _test_ladder_climb(Sub.STORAGE_LADDER_X, "storage")
+	await _test_ladder_climb(Vector2i(1, 0), "claw")     # middle -> claw room
+	await _test_ladder_climb(Vector2i(0, 0), "storage")  # engine -> storage room
 
 	if _failures == 0:
 		print("LOWER DECK TESTS PASSED")
@@ -60,10 +60,12 @@ func _test_room_geometry() -> void:
 	print("[lower deck geometry]")
 	var sub := _new_sub()
 
-	_check(Sub.ROOM_COUNT == 6, "water model has 6 rooms")
+	_check(sub.active_room_count() == 6, "water model has 6 rooms")
 
-	var claw := sub.room_rect(4)
-	var storage := sub.room_rect(5)
+	# New placement-order indices: engine 0, middle 1, helm 2, tower 3,
+	# storage 4, claw 5 (claw/storage swapped vs the old hand-built order).
+	var claw := sub.room_rect(5)
+	var storage := sub.room_rect(4)
 	var middle := sub.room_rect(1)
 	var engine := sub.room_rect(0)
 
@@ -79,9 +81,9 @@ func _test_room_geometry() -> void:
 			and absf(storage.size.x - engine.size.x) < 1.0,
 		"storage room is directly under the engine room (same x-span)")
 
-	_check(is_equal_approx(claw.size.y, Sub.LOWER_ROOM_H)
-			and is_equal_approx(storage.size.y, Sub.LOWER_ROOM_H),
-		"lower deck rooms are squatter than the main deck (2.5 m)")
+	_check(is_equal_approx(claw.size.y, Sub.CELL_H)
+			and is_equal_approx(storage.size.y, Sub.CELL_H),
+		"lower deck rooms are the uniform 3 m cell height (settled M4 delta)")
 
 	# Claw and storage share an edge (the doorway between them).
 	_check(is_equal_approx(claw.position.x, storage.position.x + storage.size.x),
@@ -95,12 +97,15 @@ func _test_door_step_connectivity() -> void:
 	var sub := _new_sub()
 	# Pool water in storage above its (squatter-room) door sill: it should
 	# spill into the claw room next door.
-	var sill: float = GameFeel.water.door_sill_m / GameFeel.water.lower_room_height_m
+	# Lower deck is now the uniform 3 m height, so its doors use the same sill
+	# as the main deck. Flood the claw room (index 5); it spills through the
+	# claw<->storage doorway into the storage room (index 4).
+	var sill: float = GameFeel.water.door_sill_m / GameFeel.water.room_height_m
 	sub.water_levels = [0.0, 0.0, 0.0, 0.0, 0.0, sill + 0.3]
 
 	await _frames(120)
 	_check(sub.water_levels[4] > 0.01,
-		"water above the lower-deck door sill spills from storage into the claw room")
+		"water above the door sill spills from the claw room into the storage room")
 
 	sub.queue_free()
 	await _frames(2)
@@ -108,9 +113,16 @@ func _test_door_step_connectivity() -> void:
 ## Drives a crew member down a lower-deck ladder from a normal standing
 ## position on the main deck, then back up (playtest #1: ladders were too
 ## fiddly to grab and the storage one couldn't be climbed down at all).
-func _test_ladder_climb(ladder_x: float, label: String) -> void:
+func _test_ladder_climb(upper_cell: Vector2i, label: String) -> void:
 	print("[%s ladder]" % label)
 	var sub := _new_sub()
+	# The ladder shaft x for the stack starting at this upper (main-deck) cell.
+	var ladder_x := 0.0
+	for l in sub.geometry.ladders:
+		if l.upper_cell == upper_cell:
+			ladder_x = l.x
+	var mid_floor := sub.claw_drop_floor_y() * 0.5  # halfway between main (0) and lower (144) floors
+
 	var crew := Crew.new()
 	crew.player_index = 0
 	crew.position = Vector2(ladder_x, -100.0)
@@ -124,7 +136,7 @@ func _test_ladder_climb(ladder_x: float, label: String) -> void:
 	await _frames(90)
 	_release(KEY_S)
 	await _frames(30)
-	_check(crew.position.y > Sub.LOWER_FLOOR_Y * 0.5,
+	_check(crew.position.y > mid_floor,
 		"%s ladder: crew climbs down to the lower deck" % label)
 
 	# Press up: climb back to the main deck.
@@ -132,7 +144,7 @@ func _test_ladder_climb(ladder_x: float, label: String) -> void:
 	await _frames(90)
 	_release(KEY_W)
 	await _frames(30)
-	_check(crew.position.y < Sub.LOWER_FLOOR_Y * 0.5,
+	_check(crew.position.y < mid_floor,
 		"%s ladder: crew climbs back up to the main deck" % label)
 
 	sub.queue_free()

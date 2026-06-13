@@ -8,13 +8,10 @@ extends Station
 ## threats. `use` fires slow torpedoes with infinite ammo. The barrel itself is
 ## drawn by SubVisual so it tilts with the hull (playtest #6/#8).
 
-## Where the default bow tube sits on the hull, in sub-local space.
-const TUBE_LOCAL := Vector2(Sub.HALF_W + 36.0, -Sub.ROOM_H * 0.5)
-
 ## This gun's tube position (sub-local) and which way it faces: +1 = aims off
-## the bow (right), -1 = aims off the stern (left). Set by Sub at build time so
-## a bought stern/bow gun can sit anywhere; the original turret uses the bow.
-var tube_local: Vector2 = TUBE_LOCAL
+## the bow (right), -1 = aims off the stern (left). Always set by Sub at build
+## time from the generated geometry (the helm room's bow wall).
+var tube_local: Vector2 = Vector2.ZERO
 var facing: float = 1.0
 
 ## Current aim angle in radians (0 = straight along the gun's facing, + = down).

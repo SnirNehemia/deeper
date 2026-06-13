@@ -57,7 +57,7 @@ func _test_drown_and_respawn() -> void:
 
 	var buddy := Crew.new()
 	buddy.player_index = 1
-	buddy.position = Vector2(Sub.HELM_X - 100, -60)  # helm room — dry
+	buddy.position = Vector2(sub.helm_seat_local().x, -60)  # helm room — dry
 	sub.add_child(buddy)
 
 	await _frames(10)

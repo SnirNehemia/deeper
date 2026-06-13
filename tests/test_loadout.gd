@@ -1,9 +1,14 @@
 extends Node
 
 ## Headless test for Module D: the dry-dock loadout — buying upgrades with
-## banked scrap, persisting them, and the sub building itself from them
-## (engine boost, faster repairs, and a player-placed second gun room that
-## adds a 7th water room + a second turret).
+## banked scrap, persisting them, and the sub building itself from them (engine
+## boost, faster repairs).
+##
+## NOTE (M4-4b): the second gun room is no longer a SubLoadout bolt-on — the sub
+## is layout-driven now, and the turret room returns as a placeable room in
+## M4-9. The gun-room build/flood checks were removed here and move to the
+## M4-9 turret-room test. Buying "gun_room" still records in the save (the M3
+## dry dock UI), it just no longer reshapes the sub.
 ##
 ## Run: godot --headless res://tests/test_loadout.tscn
 
@@ -13,8 +18,6 @@ func _ready() -> void:
 	SaveData.reset_for_test()
 	_test_purchase_and_save()
 	await _test_engine_and_repair_mults()
-	await _test_gun_room_build()
-	await _test_gun_room_water()
 	SaveData.reset_for_test()
 
 	if _failures == 0:
@@ -94,48 +97,4 @@ func _test_engine_and_repair_mults() -> void:
 	base.queue_free()
 	fast.queue_free()
 	repair.queue_free()
-	await _frames(2)
-
-func _test_gun_room_build() -> void:
-	print("[gun room build]")
-	var sub := Sub.new()
-	var lo := SubLoadout.new()
-	lo.gun_room = SubLoadout.Slot.STERN
-	sub.loadout = lo
-	add_child(sub)
-	await _frames(2)
-
-	_check(sub.active_room_count() == 7, "a gun room gives the sub a 7th water room")
-	_check(sub.water_levels.size() == 7, "water levels resized for the gun room")
-	_check(_count_turrets(sub) == 2, "the sub now has two turret stations")
-
-	var gun := sub.room_rect(Sub.GUN_ROOM)
-	_check(is_equal_approx(gun.position.x, -Sub.HALF_W - Sub.ROOM_W),
-		"a STERN gun room bolts onto the left end")
-	_check(sub.room_index_at(gun.get_center()) == Sub.GUN_ROOM,
-		"the gun room is locatable by position")
-
-	sub.queue_free()
-	await _frames(2)
-
-func _test_gun_room_water() -> void:
-	print("[gun room flooding]")
-	var sub := Sub.new()
-	var lo := SubLoadout.new()
-	lo.gun_room = SubLoadout.Slot.STERN
-	sub.loadout = lo
-	add_child(sub)
-	GameFeel.water.drain_rate = 0.0
-	await _frames(2)
-
-	# Flood the gun room above its door sill; it should spill into the engine
-	# room (0), which is the room it shares a doorway with on the stern side.
-	var sill: float = GameFeel.water.door_sill_m / GameFeel.water.room_height_m
-	sub.water_levels[Sub.GUN_ROOM] = sill + 0.3
-	await _frames(120)
-	_check(sub.water_levels[0] > 0.01,
-		"water in the gun room spills through its doorway into the engine room")
-
-	GameFeel.water.drain_rate = 1.0 / 12.0  # restore for any later suites
-	sub.queue_free()
 	await _frames(2)

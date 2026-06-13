@@ -51,7 +51,7 @@ func _run() -> void:
 	# Driver (P1) placed right at the helm seat.
 	var driver := Crew.new()
 	driver.player_index = 0
-	driver.position = Vector2(Sub.HELM_X, Sub.HELM_SEAT_Y)
+	driver.position = sub.helm_seat_local()
 	sub.add_child(driver)
 
 	# A free crew (P2) standing in the middle room — should ride along untouched.

@@ -63,7 +63,7 @@ func _test_joint_controls() -> void:
 	await _frames(2)
 	var claw := _find_claw(sub)
 	_check(claw != null, "sub built a claw station")
-	_check(claw.room_index == 4, "claw console is in the lower claw room")
+	_check(claw.room_index == 5, "claw console is in the lower claw room")
 	_check(claw.is_home(), "the arm starts folded at home")
 
 	claw.shoulder_angle = 0.0
@@ -133,7 +133,7 @@ func _test_carry() -> void:
 	var item := SalvageItem.make_scrap(Vector2.ZERO)
 	sub.add_child(item)
 	await _frames(1)
-	item.drop_into_sub(sub, Sub.HOLD_HATCH_LOCAL)
+	item.drop_into_sub(sub, sub.hold_hatch_local())
 	_check(item.is_loose(), "the catch is loose in the hold")
 
 	var crew := Crew.new()
@@ -142,7 +142,7 @@ func _test_carry() -> void:
 	await _frames(1)
 
 	# Stand on the hatch and pick it up.
-	crew.position = Sub.HOLD_HATCH_LOCAL + Vector2(0, -10)
+	crew.position = sub.hold_hatch_local() + Vector2(0, -10)
 	crew._carry_action()
 	_check(crew.is_carrying(), "a crew on the hatch picks up the loose catch")
 	_check(item.state == SalvageItem.State.CARRIED, "the item is now carried")
@@ -160,11 +160,11 @@ func _test_carry() -> void:
 	var item2 := SalvageItem.make_scrap(Vector2.ZERO)
 	sub.add_child(item2)
 	await _frames(1)
-	item2.drop_into_sub(sub, Sub.HOLD_HATCH_LOCAL)
-	crew.position = Sub.HOLD_HATCH_LOCAL + Vector2(0, -10)
+	item2.drop_into_sub(sub, sub.hold_hatch_local())
+	crew.position = sub.hold_hatch_local() + Vector2(0, -10)
 	crew._carry_action()
 	_check(crew.is_carrying(), "picked up the second catch")
-	crew.position = Vector2(60, Sub.LOWER_FLOOR_Y - 10)  # away from the pen
+	crew.position = Vector2(60, sub.claw_drop_floor_y() - 10)  # away from the pen
 	crew._carry_action()
 	_check(not crew.is_carrying(), "dropping away from the pen frees our hands")
 	_check(item2.is_loose(), "the dropped catch is loose again on the floor")

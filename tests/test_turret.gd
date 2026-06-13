@@ -65,7 +65,7 @@ func _test_seat_and_aim() -> void:
 	add_child(sub)
 	var gunner := Crew.new()
 	gunner.player_index = 0
-	gunner.position = Vector2(Sub.TURRET_SEAT_X, Sub.HELM_SEAT_Y)
+	gunner.position = sub.turret_seat_local()
 	sub.add_child(gunner)
 	await _frames(10)
 
@@ -129,7 +129,7 @@ func _test_fire_and_despawn() -> void:
 	add_child(sub)
 	var gunner := Crew.new()
 	gunner.player_index = 0
-	gunner.position = Vector2(Sub.TURRET_SEAT_X, Sub.HELM_SEAT_Y)
+	gunner.position = sub.turret_seat_local()
 	sub.add_child(gunner)
 
 	# A terrain wall ahead of the bow for torpedoes to hit.
