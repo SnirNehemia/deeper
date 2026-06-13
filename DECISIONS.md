@@ -348,6 +348,25 @@
   hand-built content room (10) → add-room skill (11) → second room via the
   skill (12) → close-out (13).
 
+## Settled (2026-06-13, M4-3)
+- **`validate(layout)` lives in `SubValidator` (`scripts/sub/sub_validator.gd`)**,
+  not on `SubLayout` — keeps the data class dumb and gives the rules/recovery
+  function their own home, per `MODULAR_SUB_IMPLEMENTATION.md` §10 "one
+  validator." All 7 §5 rules implemented, plus the slot-overlap addition from
+  `ROOM_SYSTEM.md` §4.1 (a slot can't overlap a placement's cell).
+- **Connectivity treats bought slots as hull**, same as placed rooms — both
+  must reach the helm via grid adjacency. This anticipates the M4-4 pipeline
+  generating real doors/ladders along the same adjacency.
+- **Load-recovery (`SubValidator.recover`)** uses a "first claim wins" rule:
+  core placements (helm/tower) always keep their cells; non-core placements
+  keep theirs if unclaimed, otherwise return to inventory; slots/pods that no
+  longer fit are silently dropped (no separate refund — per §5, this is the
+  designed recovery path, not an error). This handles the realistic case
+  (a stray overlapping room from a rule change) cleanly; it does not attempt
+  to repair deeper structural breaks (e.g. a tower left unsupported after its
+  support room is stripped) — out of scope until a real save-compat break
+  surfaces one.
+
 ## Parked
 - **What station/ability lives in the conning tower?** It's a fixed, always-
   present single cell at the top of the sub (core, like the helm) — Snir is

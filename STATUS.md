@@ -65,6 +65,44 @@ the s1-s5 authoring/section-bake layer, and reorder the milestone (see
   21/21 suites green.
 - **Commit:** `M4-2: slot economy data model + price escalation`.
 
+### Milestone 4 — Module 3: validation engine
+- `SubValidator.validate(layout) -> {ok, violations[]}` (`scripts/sub/sub_validator.gd`):
+  the single authority on layout legality, per `MODULAR_SUB_IMPLEMENTATION.md`
+  §5's 7 rules plus the slot-overlap addition from `ROOM_SYSTEM.md` §4.1.
+  Pure data, no side effects, callable headlessly:
+  1. Core fixed — exactly one helm and one tower among placements; neither
+     ever sits in inventory.
+  2. Connectivity — every occupied cell (placed rooms **and** bought slots)
+     reaches the helm via grid adjacency (stand-in for the auto doors/ladders
+     the pipeline will generate from the same adjacency).
+  3. Tower support — the cell below the tower is occupied.
+  4. No overlap — no two placements share a cell; a slot can't overlap a
+     placement either.
+  5. Clear firing face — a turret room's firing face (the cell its gun points
+     into, flipped by `mirrored`) must be exterior.
+  6. Pod faces — a pod's host cell must be occupied and its face must be
+     exterior; one pod per cell+face.
+  7. Bounds sanity — the occupied-cell bounding box (placements + slots) fits
+     `SubGrid.MAX_CELLS`.
+- `SubValidator.recover(layout)`: the §5 load-time recovery path — on a
+  failing layout, core placements keep their cells, non-core placements keep
+  theirs on a first-claim basis (losers return to inventory, scrap untouched),
+  slots/pods that no longer fit are dropped. Re-validates clean for the cases
+  that matter (a stray overlapping room). Never crashes, never deletes a
+  module outright.
+- **Pure data/logic — no UI, no pipeline wiring yet.** Nothing changes
+  in-game; this is the function M4-4's generation pipeline, the M4-8 assembly
+  screen, and boot-load will all call as their one shared legality check.
+- Test: `test_validate` — starting layout (with/without a bought slot)
+  validates; missing/duplicate helm or tower, overlapping placements, a slot
+  overlapping a room, an unsupported tower, a disconnected room, a bricked-in
+  turret firing face, bad/duplicate pod faces, and an over-bounds layout are
+  all correctly rejected; `recover()` restores a broken layout to a valid one
+  and returns the bumped module to inventory. 22/22 suites green (the
+  `capture_*` scenes are windowed screenshot tools, not part of the count —
+  they time out headless by design and are excluded from the suite run).
+- **Commit:** `M4-3: validation engine (validate + load recovery)`.
+
 ### M4 module order (corrected per `ROOM_SYSTEM.md` reconciliation, 2026-06-12)
 `MILESTONE_4_v2.md`'s eleven modules are still the backbone, but three things
 from `ROOM_SYSTEM.md` change the order and add a module. This list is the
@@ -301,7 +339,7 @@ beat. All placeholder art.
   - `world.tscn`/`.gd` — **main scene**: map + crewed sub (built from loadout) + 3 fish + camera + HUDs + implosion/run reset + dock banking + **dock prompt / Tab opens the dry dock / sub rebuild on purchase**.
   - `shore_shelf.gd` — the map (terrain/water/sky + **cave lamp marker** + **scattered scrap pickups**).
   - `sub_test.tscn`, `sandbox.tscn` — M1 sandboxes (no water/buoyancy).
-- `tests/` — 21 headless suites, all passing: `test_input`, `test_crew`, `test_sub`,
+- `tests/` — 22 headless suites, all passing: `test_input`, `test_crew`, `test_sub`,
   `test_helm`, `test_world`, `test_water`, `test_station_flood`, `test_damage`,
   `test_repair`, `test_drowning`, `test_implosion`, `test_turret`, `test_fish`,
   `test_lower_deck` (Module A), `test_salvage` (Module B storage/bank/save),
@@ -313,9 +351,12 @@ beat. All placeholder art.
   **`test_layout`** (M4 Module 1/1b: grid constants, catalog, footprints,
   starting layout, serialization), **`test_slots`** (M4 Module 2: buyable
   slot positions, hull adjacency, bounds guard, price escalation,
-  serialization).
+  serialization), **`test_validate`** (M4 Module 3: validate()'s 7 rules +
+  slot overlap, and the load-recovery path).
   Plus `capture_*` — throwaway windowed screenshot tools (png gitignored;
-  `capture_m2` stages the full M2 tableau).
+  `capture_m2` stages the full M2 tableau). They hang under `--headless`
+  (no `quit()` — they're meant to be run and screenshotted, not asserted)
+  and are excluded from the suite count/run.
 
 ## Milestone 2 acceptance criteria — all implemented & headless-tested
 - Ramming terrain >2 m/s breaches the nearest room, leak scales with speed; gentle bumps free. ✓
@@ -356,11 +397,11 @@ all M1 questions (crew weight, sub heft, camera framing).
 ## Suggested next step
 **Playtest M3 close-out (verify-by-playing below) — the wrecks + bigger fish
 roster, alongside the existing claw/ferry loop.** Then, in parallel/after:
-**M4-3: the validation engine** (`validate(layout)`, all 7 rules from
-`MODULAR_SUB_IMPLEMENTATION.md` §5 plus the slot/ladder-parity checks added by
-`ROOM_SYSTEM.md`). Still no visible gameplay change from M4 yet — the
-hand-built sub keeps running as-is until M4-4/M4-5 swap in the generated
-interior/hull.
+**M4-4: generated interiors + connections** (the pipeline starts consuming
+the M4-1/1b/2/3 data: rooms, auto doors/ladders by adjacency, baking the
+s1-s5 authoring sections to coordinates). Still no visible gameplay change
+until M4-5 swaps in the generated hull/water — the hand-built sub keeps
+running as-is.
 
 Open questions for Snir (M3 close-out): is a wreck satisfying to crack open
 with a torpedo? Does the unguarded shallows wreck feel like a fair "easy
