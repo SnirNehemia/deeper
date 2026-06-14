@@ -144,6 +144,21 @@ func _ready() -> void:
 	_check(get_tree().paused, "the dock refuses to close without the helm placed")
 	_check(dock._note != "", "a note explains why the dock won't close")
 
+	# If this slot offers more than one inventory room (it should, by now —
+	# turret_room and the helm), Q/E cycles which one Enter/M will use
+	# (2026-06-15 inventory picker).
+	var helm_action: Dictionary = dock._assembly_actions.get(helm_pos, {})
+	var helm_ids: Array = helm_action.get("place_room", [])
+	_check(helm_ids.size() > 1, "this slot offers more than one room to place")
+	if helm_ids.size() > 1:
+		var start_id := dock._place_room_choice(helm_action)
+		dock._assembly_key(KEY_E)
+		var next_id := dock._place_room_choice(dock._assembly_actions.get(helm_pos, {}))
+		_check(next_id != start_id, "E cycles to a different inventory room")
+		dock._assembly_key(KEY_Q)
+		_check(dock._place_room_choice(dock._assembly_actions.get(helm_pos, {})) == start_id,
+			"Q cycles back to the original choice")
+
 	# Place the helm back — now closing is allowed again. (Other rooms may
 	# also be in inventory by now, so go straight to SaveData rather than
 	# relying on the UI's first-in-inventory pick for this slot.)

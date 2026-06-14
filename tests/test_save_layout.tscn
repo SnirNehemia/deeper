@@ -1,4 +1,4 @@
-[gd_scene load_steps=2 format=3 uid="uid://c8q3savelayout1m"]
+[gd_scene load_steps=2 format=3 uid="uid://s5gw1wvxbixg"]
 
 [ext_resource type="Script" path="res://tests/test_save_layout.gd" id="1_savelayout"]
 

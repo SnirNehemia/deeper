@@ -38,6 +38,10 @@ var _assembly_actions: Dictionary = {}
 ## tower so the marker can pass over/rest on them, even though Enter there
 ## does nothing.
 var _assembly_cells: Dictionary = {}
+## When a slot's "place_room" action offers more than one inventory room,
+## Q/E cycle through them and this is the index of the one Enter will place
+## (2026-06-15 inventory picker).
+var _place_picker_index: int = 0
 var _view: _View
 
 func _ready() -> void:
@@ -119,10 +123,14 @@ func _assembly_key(code: int) -> void:
 		KEY_M:
 			var action: Dictionary = _assembly_actions.get(_assembly_cursor, {})
 			if action.has("place_room"):
-				var id: String = action["place_room"][0]
+				var id: String = _place_room_choice(action)
 				var def := ModuleCatalog.by_id(id)
 				if def != null and def.has_firing_face:
 					_place_mirrored = not _place_mirrored
+		KEY_Q:
+			_cycle_place_choice(-1)
+		KEY_E:
+			_cycle_place_choice(1)
 		KEY_ENTER, KEY_KP_ENTER, KEY_SPACE:
 			_try_assembly_action()
 		KEY_TAB:
@@ -140,14 +148,33 @@ func _move_assembly_cursor(dir: Vector2i) -> void:
 	if _assembly_cells.has(candidate):
 		_assembly_cursor = candidate
 		_place_mirrored = false
+		_place_picker_index = 0
+
+## Cycles which inventory room Enter/M will use for the cursor's "place_room"
+## slot (2026-06-15 picker) — Q/E step through `action["place_room"]`. No-op
+## if the cursor isn't on a place_room cell or it only offers one room.
+func _cycle_place_choice(dir: int) -> void:
+	var action: Dictionary = _assembly_actions.get(_assembly_cursor, {})
+	var ids: Array = action.get("place_room", [])
+	if ids.size() <= 1:
+		return
+	_place_picker_index = wrapi(_place_picker_index + dir, 0, ids.size())
+	_place_mirrored = false
+
+## The inventory room id Enter would place at `action`'s cell right now —
+## `action["place_room"][_place_picker_index]`, clamped in case the inventory
+## shrank since the index was last picked.
+func _place_room_choice(action: Dictionary) -> String:
+	var ids: Array = action.get("place_room", [])
+	var idx := clampi(_place_picker_index, 0, ids.size() - 1)
+	return ids[idx]
 
 func _try_assembly_action() -> void:
 	var action: Dictionary = _assembly_actions.get(_assembly_cursor, {})
 	if action.has("buy_slot"):
 		_try_buy_slot(_assembly_cursor)
 	elif action.has("place_room"):
-		var id: String = action["place_room"][0]
-		_try_place_room(_assembly_cursor, id, _place_mirrored)
+		_try_place_room(_assembly_cursor, _place_room_choice(action), _place_mirrored)
 	elif action.has("return_room"):
 		_try_return_room(_assembly_cursor)
 
@@ -234,6 +261,7 @@ func _rebuild_assembly_entries() -> void:
 		else:
 			_assembly_cursor = _assembly_cells.keys()[0]
 	_place_mirrored = false
+	_place_picker_index = 0
 
 func _try_buy_room(def: ModuleDef) -> void:
 	var cost := def.cost_bundle()
@@ -347,7 +375,7 @@ class _View extends Control:
 			DryDock.Mode.SHOP:
 				hint = "W/S select   Enter buy   Tab: assembly   Esc leave"
 			DryDock.Mode.ASSEMBLY:
-				hint = "Arrows move   Enter buy/place/return   M mirror   Tab: upgrades   Esc leave"
+				hint = "Arrows move   Enter buy/place/return   Q/E pick room   M mirror   Tab: upgrades   Esc leave"
 			_:
 				hint = "A/D pick the end   Enter confirm   Esc back"
 		f.draw_string(get_canvas_item(), Vector2(80, size.y - 60), hint,
@@ -468,12 +496,15 @@ class _View extends Control:
 				f.draw_string(get_canvas_item(), r.position + Vector2(6, 22), "%d sc" % price,
 					HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 8, 18, price_col)
 			elif action.has("place_room") and selected:
-				var id: String = action["place_room"][0]
+				var ids: Array = action["place_room"]
+				var id: String = dock._place_room_choice(action)
 				var def := ModuleCatalog.by_id(id)
 				var ghost_col := Color("6ad0a0")
 				draw_rect(r, Color(ghost_col.r, ghost_col.g, ghost_col.b, 0.30))
 				draw_rect(r, ghost_col, false, 3.0)
 				var label := "Place: %s" % (def.display_name if def != null else id)
+				if ids.size() > 1:
+					label += "  (%d/%d, Q/E to change)" % [dock._place_picker_index + 1, ids.size()]
 				if def != null and def.has_firing_face:
 					label += "  (mirrored)" if dock._place_mirrored else "  (M to mirror)"
 				f.draw_string(get_canvas_item(), r.position + Vector2(6, 22), label,
