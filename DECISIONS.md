@@ -531,6 +531,27 @@ Snir's 7-part request, scoped via AskUserQuestion:
   position"/"upgrade" options, Floodlight Room bundled with its pod) remain
   accepted-but-pending — see STATUS.md "Next."
 
+## Settled (2026-06-17, round 6 — Assembly UI polish)
+- **Item 3 done**: an "INVENTORY (unplaced)" panel is pinned to the right
+  edge of the dry dock in both Shop and Assembly, listing every owned-but-
+  unplaced room/pod with its count.
+- **Cell-action and pod-face menus are now real dropdowns** — a floating
+  panel of rows anchored near the selected cell (flips/shifts to stay
+  on-screen), highlighted row filled in. Replaces the old single crammed
+  line of text. Face options are labelled "Left face"/"Right face"/etc.
+- **A placed gun's reserved firing-face cell is now labelled** ("reserved /
+  gun's line of fire") in the Assembly blueprint instead of being a blank,
+  unexplained gap — this was Snir's "some slots aren't available and I don't
+  understand why."
+- Fixed the unreadable double-text on a selected owned slot (the
+  "Interact: open menu" prompt now draws below the "empty slot" label
+  instead of on top of it).
+- Item 4's "feature position" (gun firing-side choice) and "upgrade" stub
+  menu options, and item 5 (Floodlight Room bundled with its pod), remain
+  accepted-but-pending — see STATUS.md "Next." Snir noted the dropdown should
+  make pod placement clearer once these land; revisit with him after he's
+  tried the new dropdown.
+
 ## Parked
 - **What station/ability lives in the conning tower?** It's a fixed, always-
   present single cell at the top of the sub (core, like the helm) — Snir is

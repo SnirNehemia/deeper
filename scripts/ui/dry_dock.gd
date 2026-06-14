@@ -504,6 +504,7 @@ class _View extends Control:
 				_draw_shop(f)
 			DryDock.Mode.ASSEMBLY:
 				_draw_assembly(f)
+		_draw_inventory_panel(f)
 
 		# Footer note + controls.
 		if dock._note != "":
@@ -564,8 +565,12 @@ class _View extends Control:
 
 		var layout := SaveData.layout
 		var buyable: Array = layout.buyable_slot_positions()
+		var reserved: Array = layout.reserved_cells()
 		var cells: Array = layout.occupied_cells().duplicate()
 		for c in buyable:
+			if c not in cells:
+				cells.append(c)
+		for c in reserved:
 			if c not in cells:
 				cells.append(c)
 		if cells.is_empty():
@@ -601,6 +606,20 @@ class _View extends Control:
 			f.draw_string(get_canvas_item(), r.position + Vector2(6, 22), "empty slot",
 				HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 8, 13, Color(1, 1, 1, 0.6))
 
+		# Cells permanently off-limits because a placed gun fires through them
+		# (validate() rule 5) — marked instead of left blank, so it's clear
+		# why no price/slot ever appears here (Snir's feedback, 2026-06-17).
+		for cell in reserved:
+			if cell in layout.occupied_cells():
+				continue
+			var r := _cell_rect(cell, min_pos, origin, CELL_PX)
+			draw_rect(r, Color(0.5, 0.2, 0.2, 0.25))
+			draw_rect(r, Color(0.8, 0.4, 0.4, 0.5), false, 1.5)
+			f.draw_string(get_canvas_item(), r.position + Vector2(6, 22), "reserved",
+				HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 8, 13, Color(1, 0.7, 0.7, 0.8))
+			f.draw_string(get_canvas_item(), r.position + Vector2(6, 40), "(gun's line of fire)",
+				HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 8, 11, Color(1, 0.7, 0.7, 0.6))
+
 		for pos in dock._assembly_actions:
 			var action: Dictionary = dock._assembly_actions[pos]
 			var r := _cell_rect(pos, min_pos, origin, CELL_PX)
@@ -620,22 +639,21 @@ class _View extends Control:
 					var ghost_col := Color("6ad0ff")
 					draw_rect(r, Color(ghost_col.r, ghost_col.g, ghost_col.b, 0.30))
 					draw_rect(r, ghost_col, false, 3.0)
-					var face_label := "Face: %s (%d/%d)  Interact attach, Esc cancel" % [
-						str(dock._faces[dock._face_index]), dock._face_index + 1, dock._faces.size()]
-					f.draw_string(get_canvas_item(), r.position + Vector2(6, 22), face_label,
-						HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 8, 12, Color.WHITE)
+					var face_items: Array = []
+					for face in dock._faces:
+						face_items.append("%s face" % str(face).capitalize())
+					_draw_dropdown(f, r, face_items, dock._face_index)
 				elif selected and dock._menu_open:
 					var ghost_col := Color("6ad0a0")
 					draw_rect(r, Color(ghost_col.r, ghost_col.g, ghost_col.b, 0.30))
 					draw_rect(r, ghost_col, false, 3.0)
-					var item: Dictionary = menu[dock._menu_index]
-					var label := "%s  (%d/%d, Use to cycle)" % [
-						dock._menu_item_label(item), dock._menu_index + 1, menu.size()]
-					f.draw_string(get_canvas_item(), r.position + Vector2(6, 22), label,
-						HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 8, 12, Color.WHITE)
+					var labels: Array = []
+					for item in menu:
+						labels.append(dock._menu_item_label(item))
+					_draw_dropdown(f, r, labels, dock._menu_index)
 				elif selected:
 					draw_rect(r, Color("e0c060"), false, 3.0)
-					f.draw_string(get_canvas_item(), r.position + Vector2(6, 22), "Interact: open menu",
+					f.draw_string(get_canvas_item(), r.position + Vector2(6, 46), "Interact: open menu",
 						HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 8, 12, Color(1, 1, 1, 0.8))
 			elif selected:
 				draw_rect(r, Color(1, 1, 1, 0.2), false, 3.0)
@@ -650,3 +668,52 @@ class _View extends Control:
 	func _cell_rect(cell: Vector2i, min_pos: Vector2i, origin: Vector2, cell_px: float) -> Rect2:
 		var local := Vector2(cell - min_pos) * cell_px
 		return Rect2(origin + local + Vector2(2, 2), Vector2(cell_px - 4, cell_px - 4))
+
+	## The "rooms/pods you've bought but haven't placed yet" list, pinned to
+	## the right edge of the screen in both Shop and Assembly (item 3 of
+	## Snir's 2026-06-16 brief). Mirrors `SaveData.layout.inventory`.
+	func _draw_inventory_panel(f: Font) -> void:
+		var x := size.x - 420.0
+		f.draw_string(get_canvas_item(), Vector2(x, 170), "INVENTORY (unplaced)",
+			HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color("7aa0c0"))
+		var y := 210.0
+		var any := false
+		for id in SaveData.layout.inventory:
+			var count := int(SaveData.layout.inventory[id])
+			if count <= 0:
+				continue
+			any = true
+			var def := ModuleCatalog.by_id(id)
+			var name: String = def.display_name if def != null else id
+			f.draw_string(get_canvas_item(), Vector2(x, y), "%s  x%d" % [name, count],
+				HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Color.WHITE)
+			y += 30.0
+		if not any:
+			f.draw_string(get_canvas_item(), Vector2(x, y), "(nothing in inventory)",
+				HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color(1, 1, 1, 0.5))
+
+	## A real dropdown list anchored under (or, if it'd run off the bottom,
+	## above) `anchor` — one row per `items` entry, the `highlighted` row
+	## picked out with a filled highlight bar (2026-06-17 dropdown rework,
+	## replacing the single-line "(n/m, Use to cycle)" label).
+	func _draw_dropdown(f: Font, anchor: Rect2, items: Array, highlighted: int) -> void:
+		const ROW_H := 32.0
+		const PAD := 10.0
+		var w := 160.0
+		for item in items:
+			w = max(w, f.get_string_size(str(item), HORIZONTAL_ALIGNMENT_LEFT, -1, 18).x + PAD * 2.0)
+		var h := ROW_H * items.size()
+		var pos := Vector2(anchor.position.x, anchor.position.y + anchor.size.y + 4.0)
+		if pos.y + h > size.y - 90.0:
+			pos.y = anchor.position.y - h - 4.0
+		if pos.x + w > size.x - 20.0:
+			pos.x = size.x - 20.0 - w
+		draw_rect(Rect2(pos, Vector2(w, h)), Color(0.05, 0.08, 0.12, 0.98))
+		draw_rect(Rect2(pos, Vector2(w, h)), Color(1, 1, 1, 0.5), false, 2.0)
+		for i in items.size():
+			var row := Rect2(pos + Vector2(0, ROW_H * i), Vector2(w, ROW_H))
+			if i == highlighted:
+				draw_rect(row, Color(0.35, 0.6, 0.45, 0.6))
+				draw_rect(row, Color("6ad0a0"), false, 2.0)
+			f.draw_string(get_canvas_item(), row.position + Vector2(PAD, ROW_H * 0.68), str(items[i]),
+				HORIZONTAL_ALIGNMENT_LEFT, w - PAD * 2.0, 18, Color.WHITE)

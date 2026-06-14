@@ -1,14 +1,14 @@
 # STATUS — DEEPER
 
-_Read this at session start. Last updated: 2026-06-16 (M4-14: the dry dock's
-old "Upgrades" tab is gone. The dock now opens straight to the Shop, and Tab
-cycles Shop <-> Assembly only. The Engine Boost and Repair Training upgrades
-(and the old M3 "second gun room" hardpoint-picker flow) are dropped for now —
-a future upgrade-tree pass can bring them back. Next: items 3-5 from Snir's
-latest brief — an inventory-rooms list on the right side of the Shop/Assembly
-screens, the Assembly dropdown's "feature position" (gun side) and "upgrade"
-stub options, and the Floodlight Room becoming a single bundled
-room+pod purchase with a placement-side choice.)_
+_Read this at session start. Last updated: 2026-06-17 (M4-15: Assembly UI
+polish pass after Snir's playtest of M4-14 — added a right-hand "Inventory
+(unplaced)" panel (visible in both Shop and Assembly), turned the cell
+action/face menus into a real dropdown list (a panel of rows, the highlighted
+one filled in), fixed the "empty slot"/"Interact: open menu" text overlap, and
+marked a placed gun's reserved firing-face cell instead of leaving it blank.
+Next: item 4's still-missing "feature position" (gun firing side) and
+"upgrade" stub menu options, and item 5 — the Floodlight Room as a single
+bundled room+pod purchase with a placement-side choice.)_
 
 ## Where we are
 **Milestone 3 is closed (Modules A-E).** Milestone 4 ("The Dry Dock & The
@@ -610,6 +610,52 @@ list (Second Gun + Control Room / Engine Boost / Repair Training) — is gone.
   clean with `--headless --path . --quit`.
 - **Commit:** `M4-14: drop the dry dock's Upgrades tab, open straight to Shop`.
 
+### Milestone 4 — Module 15: Assembly UI polish (inventory list, real dropdown, reserved-cell label) (DONE, 2026-06-17)
+After playing M4-14, Snir flagged five things about the Assembly screen:
+
+1. The cell-action/face menus were a single line of text crammed into the
+   cell ("Place: Turret Room (firing bow-ward...)  (1/3, Use to cycle)") —
+   he wanted a real dropdown list, like a combo-box popup.
+2. The "list of purchased rooms" (inventory) promised in item 3 wasn't on
+   screen anywhere.
+3. Some cells in the blueprint show no price and aren't selectable, with no
+   explanation.
+4. The highlighted cell showed two labels drawn on top of each other
+   (unreadable).
+5. He still doesn't understand how to place pods on the outside of the sub —
+   expected the dropdown fix (1) to help.
+
+Fixes:
+- **Real dropdown (`_View._draw_dropdown`)**: a floating panel of rows — one
+  per menu item (or per exterior face, during pod placement) — anchored just
+  below the selected cell (flips above if it'd run off the bottom of the
+  screen, and shifts left if it'd run off the right edge). The highlighted
+  row gets a filled/outlined highlight bar. Replaces the old single-line
+  "(n/m, Use to cycle)" label for both the cell-action menu and the
+  pod face-selector. Face options are now labelled "Left face" / "Right
+  face" / "Top face" / "Bottom face" rather than raw `"left"`/`"right"`/etc.
+- **Inventory panel (`_View._draw_inventory_panel`)**: a permanent "INVENTORY
+  (unplaced)" list pinned to the right edge of the screen, showing every
+  owned-but-unplaced room/pod with its count — visible in both Shop and
+  Assembly (item 3, done).
+- **Reserved-cell label**: `SubLayout.buyable_slot_positions()`'s firing-face
+  exclusion logic is extracted into a new `SubLayout.reserved_cells()`. The
+  Assembly blueprint now draws those cells (a placed gun's firing-face cell)
+  with a dim red box labelled "reserved / (gun's line of fire)" instead of
+  leaving them blank — this is the cell to the right of the Turret Room and
+  the one in the Bullet Room's firing line that previously looked like an
+  unexplained gap.
+- **Text-overlap fix**: the "Interact: open menu" prompt for a
+  selected-but-unopened cell now draws lower in the cell (y+46 instead of
+  y+22), clear of the "empty slot" / room-name label that also sits at y+22.
+- Headless-verified: `test_dock_shop_ui.tscn` -> "DOCK SHOP UI TESTS PASSED",
+  `test_shop.tscn` -> "SHOP TESTS PASSED", `test_slots.tscn` -> "SLOT TESTS
+  PASSED", project loads clean with `--headless --path . --quit`.
+- Item 4's "feature position"/"upgrade" stub menu options and item 5
+  (Floodlight Room bundled with its pod) are still pending — see "Next."
+- **Commit:** `M4-15: Assembly UI polish — inventory panel, real dropdown,
+  reserved-cell label, fix overlapping text`.
+
 ### M4 module order (corrected per `ROOM_SYSTEM.md` reconciliation, 2026-06-12)
 `MILESTONE_4_v2.md`'s eleven modules are still the backbone, but three things
 from `ROOM_SYSTEM.md` change the order and add a module. This list is the
@@ -1111,3 +1157,21 @@ deck/ladders/banking/victory beat — still apply; see git history. The dry-dock
 5. Everything else should feel the same: Esc leaves the dock (refused while
    the helm is in inventory), buying/placing/returning rooms and pods in
    Assembly works as before.
+
+## Verify by playing — Module 15 (Assembly UI polish)
+1. Launch: `"GODOT_PATH" --path .`
+2. Open the dry dock. On the right edge of the screen you should now see an
+   "INVENTORY (unplaced)" panel. It's empty at the start (nothing bought yet)
+   — buy a room or pod in the Shop and it should appear here with "x1".
+3. Switch to Assembly (Tab). The cell to the right of the Turret Room (and
+   the matching cell in the Bullet Room's firing line) is now shown as a dim
+   red box labelled "reserved / (gun's line of fire)" — that's why it was
+   never buyable.
+4. Move onto an owned empty slot or a placed room and press Interact to open
+   its menu — you should now see a real dropdown list (a small panel below
+   the cell, one row per option), not a single crammed line. Use (Q for P1)
+   cycles the highlighted row.
+5. Try attaching a pod (e.g. buy the Floodlight Room + its pod, place the
+   room, then open its menu and pick "Attach pod"): the face picker is now
+   also a dropdown list labelled "Left face" / "Right face" / etc.
+6. Confirm the highlighted-cell text is no longer doubled up / unreadable.

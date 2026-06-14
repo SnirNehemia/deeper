@@ -191,6 +191,19 @@ func level_of(pos: Vector2i) -> int:
 ## at least one occupied cell (the slot must touch the existing hull), within
 ## the bounds guard (SubGrid.MAX_CELLS) once added, and on a level below the
 ## conning tower's (the tower's row never gets neighbors offered for sale).
+## Cells permanently excluded from the buyable-slot economy: a placed gun's
+## firing-face cell (validate() rule 5 — must stay clear, see
+## `buyable_slot_positions()`). Surfaced separately so the Assembly view can
+## mark these cells as "reserved" instead of leaving them blank and
+## unexplained.
+func reserved_cells() -> Array:
+	var reserved: Array = []
+	for p in placements:
+		var def := ModuleCatalog.by_id(p.module_id)
+		if def != null and def.has_firing_face:
+			reserved.append(p.grid_pos + SubValidator._firing_face_offset(p.mirrored))
+	return reserved
+
 func buyable_slot_positions() -> Array:
 	var occupied := occupied_cells()
 	var min_pos := Vector2i(999, 999)
@@ -199,14 +212,7 @@ func buyable_slot_positions() -> Array:
 		min_pos = Vector2i(min(min_pos.x, cell.x), min(min_pos.y, cell.y))
 		max_pos = Vector2i(max(max_pos.x, cell.x), max(max_pos.y, cell.y))
 
-	# A placed gun's firing-face cell must stay clear (validate() rule 5) — no
-	# slot/room can ever go there, so don't offer it as a buyable position.
-	var reserved: Array = []
-	for p in placements:
-		var def := ModuleCatalog.by_id(p.module_id)
-		if def != null and def.has_firing_face:
-			reserved.append(p.grid_pos + SubValidator._firing_face_offset(p.mirrored))
-
+	var reserved := reserved_cells()
 	var candidates: Array = []
 	for cell in occupied:
 		for n in neighbors(cell):
