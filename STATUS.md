@@ -4,8 +4,11 @@ _Read this at session start. Last updated: 2026-06-16 (M4-9a: the floodlight
 pod can be bought into inventory and attached/detached at the data layer.
 M4-9b: a dedicated Floodlight Room hosts the pod. M4-9c: the Assembly tab is
 now menu-driven — interact on an owned cell opens a dropdown of available
-actions, including attaching/detaching pods via face-selection. Next:
-Checkpoint 2 — Snir plays the dock economy end to end.)_
+actions, including attaching/detaching pods via face-selection. M4-10: a
+placed Turret Room now has its own working gun station (seat + torpedo tube
+on its firing-face wall), and the Shop tab shows each room's one-line
+description. Next: Checkpoint 2 — Snir plays the dock economy end to end,
+including the new Turret Room.)_
 
 ## Where we are
 **Milestone 3 is closed (Modules A-E).** Milestone 4 ("The Dry Dock & The
@@ -476,6 +479,32 @@ floodlight pod via face-selection). 26/26 suites green.
 **Commit:** `M4-9b/9c: dedicated Floodlight Room + Assembly menu-driven
 interactions (incl. pod attach/detach)`.
 
+### Milestone 4 — Module 10: the Turret Room gets a working gun (DONE, 2026-06-16)
+The first hand-built purchasable room with a real mechanic
+(`ROOM_SYSTEM.md` §6 "Base gun room") — the reference implementation the
+add-room skill will be validated against.
+- A placed `turret_room` (already purchasable, `has_firing_face`, 4 sc) now
+  generates its own `TurretStation`: a gunner seat in the room's middle
+  section and a torpedo tube on whichever wall is its firing face (mirrored
+  rooms fire toward the stern, unmirrored toward the bow — same convention
+  `SubValidator` already uses to require that wall be exterior). This is
+  additive: the Minnow+'s original bow gun (the M2 "room" module) keeps
+  working exactly as before, so a sub can have multiple guns.
+- `ModuleDef` gained a `description` field (a short player-facing blurb);
+  `ModuleCatalog`'s Turret Room entry now reads "Operate a torpedo gun firing
+  toward open water," and the dry dock's Shop tab prints each room's
+  description under its name/cost (in place of the old "In inventory" line,
+  which moved to the right side of the row).
+- Test: `test_turret.gd` gained `_test_placed_turret_room()` — places a
+  Turret Room on the bow-mounted hull edge, confirms the layout validates,
+  confirms the sub now has two gun stations, and confirms the new one's seat
+  is in the placed room and its tube sits outside the room on the firing-face
+  wall, aimed at the bow. (Verified standalone — `test_turret.tscn` itself has
+  a pre-existing issue, unrelated to this change, where its `_ready()` never
+  reaches completion under `--quit`; see "Known issues.")
+- **Commit:** `M4-10: placed Turret Rooms get a working gun station + Shop
+  descriptions`.
+
 ### M4 module order (corrected per `ROOM_SYSTEM.md` reconciliation, 2026-06-12)
 `MILESTONE_4_v2.md`'s eleven modules are still the backbone, but three things
 from `ROOM_SYSTEM.md` change the order and add a module. This list is the
@@ -776,6 +805,14 @@ beat. All placeholder art.
   In practice territories keep them in open water; revisit if it reads badly.
 - Dead-crew countdown label is parented to the (invisible) crew, so it rides
   the sub at the spot of death until respawn.
+- `test_turret.tscn`'s `_ready()` never prints PASS/FAIL under `--quit` —
+  pre-existing (confirmed via `git stash`, not caused by M4-10), likely
+  because its long `await get_tree().physics_frame` loops (90-120 frames)
+  don't resume before `--quit` tears the tree down. The M4-10 placed-Turret-
+  Room check (`_test_placed_turret_room`) was rewritten to be synchronous
+  (Sub builds its stations in `_ready()`, no frame waits needed) and verified
+  standalone; it's still appended in this file for documentation but won't
+  run in the standard suite until the broader hang is fixed.
 
 ## Open feel questions for the playtest (→ PLAYTEST_LOG.md + GameFeel)
 Is rising water scary or annoying? Is 3s repair too long under pressure? Do
@@ -783,15 +820,16 @@ torpedoes feel chunky or just sluggish? Is the fish fight fun or a chore? Plus
 all M1 questions (crew weight, sub heft, camera framing).
 
 ## Suggested next step — ⛳ Checkpoint 2
-M4-9 (pods plumbing — economy, the Floodlight Room, and the Assembly menu UI
-for attaching/detaching pods) is done. Next: **⛳ Checkpoint 2** — Snir plays
-the dock end to end: buy a slot, buy a room, place it, rearrange, pick it back
-up, buy/attach/detach a floodlight pod. After that: **M4-10** (first hand-built
-purchasable room with a real mechanic). Minor open items: **M4-5 polish**
+M4-9 (pods plumbing) and M4-10 (the Turret Room's working gun station +
+Shop descriptions) are done. Next: **⛳ Checkpoint 2** — Snir plays the dock
+end to end: buy a slot, buy a Turret Room, place it on a hull edge, rearrange,
+pick it back up, buy/attach/detach a floodlight pod, then sit in the new
+Turret Room's seat and fire its gun. Minor open items: **M4-5 polish**
 (breach surfaces → exterior faces only; an asymmetric-layout
 water-conservation test); the floodlight pod's actual visual (a "bump" on the
 hull) and its aim-seat station are still separate follow-ups; M4-8b parked
-ideas (walkable empty slots; Turret Room station + gun).
+ideas (walkable empty slots); the Shop-tab inventory sidebar and per-room
+icon/kind tags (deferred from M4-10, see DECISIONS.md).
 
 ## Verify by playing — M4-8b (slot levels/pricing, tower spawn, Assembly nav)
 Launch: `"D:\Godot_v4.4.1-stable_win64.exe\Godot_v4.4.1-stable_win64.exe" --path .`

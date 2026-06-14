@@ -43,11 +43,12 @@ func _draw() -> void:
 	for ladder in sub.geometry.ladders:
 		_draw_ladder(ladder.x, ladder.top_y, ladder.bottom_y)
 
-	# Consoles at the seats.
+	# Consoles at the seats — the helm, plus one per turret station (the
+	# legacy bow gun and any placed Turret Rooms, M4-10).
 	_draw_console(sub.helm_seat_local())
-	_draw_console(sub.turret_seat_local())
 
 	for t in turrets:
+		_draw_console(t.position)
 		_draw_turret(t)
 	_draw_claw_console(sub)
 	_draw_storage_pen(sub)

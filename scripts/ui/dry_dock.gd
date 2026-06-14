@@ -630,8 +630,11 @@ class _View extends Control:
 				HORIZONTAL_ALIGNMENT_LEFT, -1, 26, name_col)
 			f.draw_string(get_canvas_item(), Vector2(560, y + 22), DryDock._cost_string(cost),
 				HORIZONTAL_ALIGNMENT_LEFT, -1, 24, name_col)
+			if def.description != "":
+				f.draw_string(get_canvas_item(), Vector2(80, y + 50), def.description,
+					HORIZONTAL_ALIGNMENT_LEFT, -1, 17, Color(1, 1, 1, 0.55))
 			if owned > 0:
-				f.draw_string(get_canvas_item(), Vector2(80, y + 50), "In inventory: %d" % owned,
+				f.draw_string(get_canvas_item(), Vector2(560, y + 50), "In inventory: %d" % owned,
 					HORIZONTAL_ALIGNMENT_LEFT, -1, 17, Color(1, 1, 1, 0.55))
 			y += 86.0
 

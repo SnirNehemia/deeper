@@ -469,6 +469,12 @@ Snir's 7-part request, scoped via AskUserQuestion:
   - The Turret Room's own station and a working gun (this is M4-10's "first
     hand-built purchasable room with a real mechanic" by design).
 
+- **M4-10 scope** (2026-06-16): implemented the Turret Room's gun station
+  (the "real mechanic" part of M4-10) plus a one-line `ModuleDef.description`
+  shown in the Shop tab. Deferred to later: per-room `icon`/`kind` tags and a
+  dedicated Shop-tab inventory sidebar — the description line covers the
+  immediate "what does this room do" need without a new UI widget.
+
 ## Parked
 - **What station/ability lives in the conning tower?** It's a fixed, always-
   present single cell at the top of the sub (core, like the helm) — Snir is

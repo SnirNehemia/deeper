@@ -15,6 +15,7 @@ func _ready() -> void:
 	_hub = get_node("/root/InputHub")
 	await _test_seat_and_aim()
 	await _test_fire_and_despawn()
+	await _test_placed_turret_room()
 
 	if _failures == 0:
 		print("TURRET TESTS PASSED")
@@ -177,3 +178,35 @@ func _test_fire_and_despawn() -> void:
 	sub.queue_free()
 	wall.queue_free()
 	await _frames(2)
+
+func _test_placed_turret_room() -> void:
+	print("[placed Turret Room (M4-10)]")
+	var layout := SubLayout.starting_layout()
+	# Bow-mounted, unmirrored: its firing face (4, 0) is exterior.
+	layout.placements.append(SubLayout.Placement.new("turret_room", Vector2i(3, 0), false))
+	_check(SubValidator.validate(layout)["ok"], "the layout with a placed turret room is valid")
+
+	var sub := Sub.new()
+	sub.layout = layout
+	add_child(sub)
+
+	var turrets: Array[TurretStation] = []
+	for child in sub.get_children():
+		if child is TurretStation:
+			turrets.append(child)
+	_check(turrets.size() == 2, "the sub now has two turret stations (legacy bow gun + Turret Room)")
+
+	var room := sub._room_by_id("turret_room")
+	_check(room != null, "the layout's turret room is in the generated geometry")
+	if room != null:
+		var placed: TurretStation = null
+		for t in turrets:
+			if t.room_index == room.water_index:
+				placed = t
+		_check(placed != null, "one turret station seats in the placed turret room")
+		if placed != null:
+			_check(placed.facing > 0.0, "an unmirrored turret room fires toward the bow (+x)")
+			_check(placed.tube_local.x > room.rect.position.x + room.rect.size.x,
+				"its tube sits outside the room's footprint, on the firing-face wall")
+
+	sub.queue_free()

@@ -12,6 +12,11 @@ extends Resource
 ## Player-facing name shown in the dock shop and assembly screen.
 @export var display_name: String = ""
 
+## A one-line player-facing blurb shown in the Shop tab (M4-10,
+## ROOM_SYSTEM.md §6 "worked examples" — e.g. the turret room's "operate the
+## base weapon"). Empty for rooms with nothing special to call out.
+@export var description: String = ""
+
 ## Size in grid cells (width, height). All current rooms are a single
 ## uniform cell (1x1, ROOM_SYSTEM.md §1-2); pods don't use this (they clip to
 ## a face, no cell of their own). Larger (multi-cell) rooms are reserved for

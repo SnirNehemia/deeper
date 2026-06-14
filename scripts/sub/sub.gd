@@ -105,6 +105,12 @@ var _respawn_local: Vector2 = Vector2.ZERO
 ## Crew start-of-run seats in the conning tower, one per potential player
 ## (up to 4). Empty if there's no tower (shouldn't happen in a valid layout).
 var _tower_seats: Array[Vector2] = []
+## One entry per placed `turret_room` (M4-10, ROOM_SYSTEM.md §6 "Base gun
+## room"): {"room": SubGeometry.Room, "seat": Vector2, "tube": Vector2,
+## "facing": float}. Built in _compute_anchors, consumed by
+## _build_turret_room. Distinct from the legacy bow-gun anchors above (the
+## starting "room" module), which stay as the Minnow+'s built-in weapon.
+var _turret_rooms: Array = []
 
 func _ready() -> void:
 	collision_layer = Layers.SUB_HULL
@@ -268,6 +274,25 @@ func _compute_anchors() -> void:
 		]
 	elif helm != null:
 		_respawn_local = _helm_seat
+
+	# Placed turret rooms (M4-10): gunner seat in s3, tube on the firing-face
+	# wall (mirrored picks which side it points to — validate() rule 5 already
+	# guarantees that side is exterior).
+	_turret_rooms = []
+	for room in geometry.rooms:
+		if room.module_id != "turret_room":
+			continue
+		var floor_y := room.rect.position.y + room.rect.size.y
+		var seat := Vector2(_section_x(room, 3), floor_y - crew_half)
+		var tube: Vector2
+		var facing: float
+		if room.mirrored:
+			tube = Vector2(room.rect.position.x - 36.0, room.rect.get_center().y)
+			facing = -1.0
+		else:
+			tube = Vector2(room.rect.position.x + room.rect.size.x + 36.0, room.rect.get_center().y)
+			facing = 1.0
+		_turret_rooms.append({"room": room, "seat": seat, "tube": tube, "facing": facing})
 
 func helm_seat_local() -> Vector2:
 	return _helm_seat
@@ -636,6 +661,8 @@ func _build_stations() -> void:
 		_build_helm()
 	if _room_by_id("room") != null:
 		_build_turret()
+	for tr in _turret_rooms:
+		_build_turret_room(tr)
 	if _room_by_id("claw_room") != null:
 		_build_claw()
 
@@ -653,6 +680,18 @@ func _build_turret() -> void:
 	turret.position = _turret_seat
 	turret.tube_local = _turret_tube
 	turret.facing = 1.0
+	add_child(turret)
+	_visual.turrets.append(turret)
+
+## A placed Turret Room's gunner station (M4-10) — same TurretStation as the
+## legacy bow gun, seated/aimed from this room's own anchors.
+func _build_turret_room(tr: Dictionary) -> void:
+	var turret := TurretStation.new()
+	turret.sub = self
+	turret.room_index = tr["room"].water_index
+	turret.position = tr["seat"]
+	turret.tube_local = tr["tube"]
+	turret.facing = tr["facing"]
 	add_child(turret)
 	_visual.turrets.append(turret)
 

@@ -37,10 +37,14 @@ static func _room(id: String, display_name: String, footprint: Vector2i,
 	def.is_core = is_core
 	return def
 
+## The Base Gun Room (M4-10, ROOM_SYSTEM.md §6 "Base gun room") — the first
+## hand-built purchasable room with a real mechanic: a torpedo gun on its
+## firing-face wall, with its own gunner seat (Sub._build_turret_room).
 static func _turret_room() -> ModuleDef:
 	var def := ModuleDef.new()
 	def.id = "turret_room"
 	def.display_name = "Turret Room"
+	def.description = "Operate a torpedo gun firing toward open water."
 	def.footprint = Vector2i(1, 1)
 	def.has_firing_face = true
 	def.cost = {"sc": 4}  # base gun room (ROOM_SYSTEM.md §6)
