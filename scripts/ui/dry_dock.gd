@@ -508,7 +508,8 @@ class _View extends Control:
 				if ids.size() > 1:
 					label += "  (%d/%d, Use to change)" % [dock._place_picker_index + 1, ids.size()]
 				if def != null and def.has_firing_face:
-					label += "  (mirrored)" if dock._place_mirrored else "  (M to mirror)"
+					label += "  (firing stern-ward, M to flip to bow)" if dock._place_mirrored \
+						else "  (firing bow-ward, M to flip to stern)"
 				f.draw_string(get_canvas_item(), r.position + Vector2(6, 22), label,
 					HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 8, 13, Color.WHITE)
 			elif action.has("return_room") and selected:
