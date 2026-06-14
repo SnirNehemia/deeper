@@ -386,6 +386,18 @@ Follow-up from playtesting Module 8b (2026-06-15):
 - **Commit:** `Assembly: marker can pass over inert cells (e.g. the tower);
   helm is relocatable but required before leaving the dock`.
 
+### Milestone 4 — Module 8d: pick which inventory room to place (DONE)
+Follow-up (2026-06-15): when a slot's "Place: ..." ghost has more than one
+eligible inventory room (e.g. both the Turret Room and the relocated helm
+fit the same empty slot), **Q/E cycle which one is shown** — the ghost label
+gains a "(1/2, Q/E to change)" hint — and Enter/M (mirror) act on whichever
+is currently picked. With only one eligible room the ghost behaves exactly
+as before (no picker shown). The picker resets to the first option whenever
+the cursor moves or the assembly list rebuilds.
+Test: `test_dock_shop_ui` covers cycling forward with E and back with Q.
+26/26 suites green. **Commit:** `Assembly: Q/E picks which inventory room to
+place when a slot offers several`.
+
 ### M4 module order (corrected per `ROOM_SYSTEM.md` reconciliation, 2026-06-12)
 `MILESTONE_4_v2.md`'s eleven modules are still the backbone, but three things
 from `ROOM_SYSTEM.md` change the order and add a module. This list is the
