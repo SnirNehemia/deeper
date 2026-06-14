@@ -1,9 +1,9 @@
 # STATUS — DEEPER
 
-_Read this at session start. Last updated: 2026-06-13 (M4-8: the dock-shop
-**Assembly tab** is wired up — hull blueprint, buy slots, and place
-inventory rooms into owned slots (with mirrored wall-side toggle). Next is
-M4-9 (pods) → Checkpoint 2.)_
+_Read this at session start. Last updated: 2026-06-14 (M4-8b: slot levels +
+pricing rework, crew spawn in the conning tower, and an Assembly-tab 2D
+arrow-key cursor with return-room-to-inventory. Next is M4-9 (pods) →
+Checkpoint 2.)_
 
 ## Where we are
 **Milestone 3 is closed (Modules A-E).** Milestone 4 ("The Dry Dock & The
@@ -308,6 +308,59 @@ generated tower spot.
 - **Commit:** `M4-8 step 2` (place inventory rooms into owned slots, mirrored
   toggle) — step 1 (hull blueprint + slot-buying ghost cells) was a prior
   commit this session.
+
+### Milestone 4 — Module 8b: slot levels/pricing, tower spawn, Assembly 2D nav (DONE)
+Three small steps from a single Snir request (2026-06-14), done sequentially:
+
+- **Slot levels + pricing rework** (`SubLayout.level_of`, `GameFeel.dock.slot_price`):
+  the conning tower's grid row is now **level 0** and can never have a slot —
+  it stays the tower's row alone, forever. The row directly beneath it is
+  level 1, the next level 2, etc. `buyable_slot_positions()` now excludes
+  level <= 0. Slot price is now `slot_base_price + slots_owned * 1 + (level-1) * 2`
+  — i.e. a level-1 slot costs `2 + slots_owned`, each level below that adds
+  +2 scrap, and **every slot you've bought (any level) adds +1 scrap to the
+  next slot's price**, on top of its level surcharge.
+- **Firing-face edge rule** (`SubValidator` rule 8, part of the original
+  request's #7): a room with a firing face (the Turret Room) must now sit at
+  the far left or right edge of its level (the leftmost or rightmost occupied
+  cell in its row) — placing it mid-row is refused with a violation message,
+  same as a blocked firing face.
+- **Crew start in the conning tower** (`Sub.tower_seat_local`, `world.gd`):
+  both players now spawn standing in the conning tower (sections 2 and 4 of
+  its floor) instead of the engine/middle rooms. `tower_seat_local(index)` has
+  seats reserved for up to 4 players (sections 2, 4, 1, 5 — section 3 stays
+  clear for the ladder).
+- **Assembly tab: 2D arrow-key cursor + return-to-inventory**
+  (`scripts/ui/dry_dock.gd`): replaced the old flat W/S entry list with a
+  grid cursor (`_assembly_cursor`) over a cell->action map
+  (`_assembly_actions`). Arrow keys (or WASD) move the cursor in the expected
+  2D directions, but **only onto a cell that has an action** — buy a slot,
+  place an inventory room into an owned empty slot, or pick a placed room
+  back up into inventory. **M** toggles mirrored placement for firing-face
+  rooms (previously A/D, now freed up for movement). Enter performs whichever
+  action is valid at the cursor. New `SaveData.return_room_to_inventory(pos)`
+  is the backend for the pick-up action.
+- Test: `test_slots` gained `_test_levels` (level_of for the tower row, above
+  it, and the rows beneath; every buyable position is level >= 1) and a
+  rewritten price-escalation test covering both the owned-slots and level
+  axes independently. `test_shop` gained `_test_return_room_to_inventory` and
+  `_test_return_room_refused_for_core`. `test_dock_shop_ui`'s Assembly flow
+  was rewritten for the cursor/action-map API (mirror is now `KEY_M`, slot
+  selection/placement/return are all driven via `_assembly_cursor`). 26/26
+  suites green.
+- **Deferred (per Snir's call, 2026-06-14):** the rest of the original
+  request's #6 (empty slots should be walkable rooms the crew can enter) and
+  #7 (the Turret Room needs its own station + a working gun) stay parked for
+  **M4-9/M4-10** as already planned — #6 needs `SubGeometry` to generate a
+  real room-shell for a slot (not just hull + floor), and #7's
+  station/gun is exactly M4-10's "first hand-built purchasable room with a
+  real mechanic." The edge-placement *rule* for the turret (above) is done
+  now; its station and gun are not.
+- **Commits:** `Slot levels: tower's row is level 0 and never buyable, price
+  scales with level + slots owned; firing-face rooms must sit at a level's
+  edge`; `Spawn both players in the conning tower (tower_seat_local), not the
+  engine/middle rooms`; `Assembly 2D nav rework: arrow-key cursor over
+  buy/place/return actions`.
 
 ### M4 module order (corrected per `ROOM_SYSTEM.md` reconciliation, 2026-06-12)
 `MILESTONE_4_v2.md`'s eleven modules are still the backbone, but three things
@@ -615,40 +668,42 @@ torpedoes feel chunky or just sluggish? Is the fish fight fun or a chore? Plus
 all M1 questions (crew weight, sub heft, camera framing).
 
 ## Suggested next step — M4-9: pods plumbing
-M4-7c (Shop tab) and M4-8 (Assembly tab: hull blueprint, slot-buying ghost
-cells, placing inventory rooms with the mirrored toggle) are both done — see
-Module 7c and Module 8 above. Next: **M4-9** (pods plumbing — exterior pods
-that clip to a hull face, e.g. the floodlight pod), then **⛳ Checkpoint 2**
-(Snir plays: buy a slot, buy a room, place it, rearrange). Minor open item:
+M4-7c (Shop tab), M4-8 (Assembly tab), and M4-8b (slot levels/pricing, tower
+spawn, Assembly 2D nav + return-to-inventory) are all done — see Module 8 and
+8b above. Next: **M4-9** (pods plumbing — exterior pods that clip to a hull
+face, e.g. the floodlight pod), then **⛳ Checkpoint 2** (Snir plays: buy a
+slot, buy a room, place it, rearrange, pick it back up). Minor open items:
 **M4-5 polish** (breach surfaces → exterior faces only; an asymmetric-layout
-water-conservation test).
+water-conservation test); **M4-9/M4-10** also carry the parked ideas from
+M4-8b (walkable empty slots; Turret Room station + gun).
 
-## Verify by playing — M4-8 (the dock Shop + Assembly tabs)
+## Verify by playing — M4-8b (slot levels/pricing, tower spawn, Assembly nav)
 Launch: `"D:\Godot_v4.4.1-stable_win64.exe\Godot_v4.4.1-stable_win64.exe" --path .`
 
-1. Drive the sub back to the **dock** and press **Tab** to open the dry dock
-   (pauses the run). You land on the Upgrades list, with a wallet line at top
-   showing **Scrap / Small carcass / Medium carcass / Large carcass**.
-2. Press **Tab** — this switches to the **Shop** tab. You should see the
-   **Turret Room** listed with its price (4 scrap).
-3. With enough scrap, select the Turret Room and press **Enter** — a "bought
-   into inventory!" message appears, "In inventory: 1" shows under it, and the
-   wallet's scrap drops by 4.
-4. Press **Tab** again — this switches to the new **Assembly** tab. You should
-   see a top-down diagram of the sub's current rooms (labeled boxes), plus
-   faint "ghost" cells around the hull showing scrap prices for buildable
-   slots.
-5. With enough scrap, select a ghost cell and press **Enter** — it becomes an
-   "empty slot" (outlined box) and the scrap drops by that slot's price.
-6. W/S past the empty slot — you should find a "Place: Turret Room" option
-   highlighted on that slot. Press **Enter** to place it. If it's refused
-   (firing face would point into the hull), press **A** or **D** to toggle
-   "(mirrored)" and press **Enter** again — it should now succeed, and "In
-   inventory" for the Turret Room should drop to 0.
-7. Press **Esc** to close the dock (unpauses) — **the hull should visibly grow**
-   with the new room where that slot was.
-8. Try buying something you can't afford anywhere — you get a red "not enough"
-   message and nothing changes.
+1. **Both crew now start standing in the conning tower** (the top room),
+   side by side, instead of in the rooms below.
+2. Drive to the **dock** and press **Tab** to open the dry dock, then **Tab**
+   again twice to reach the **Assembly** tab (hull diagram with ghost cells).
+3. **Arrow keys** move a highlighted marker around the hull — it will only
+   land on cells that do something: a ghost "buy slot" cell, an empty slot
+   you can place a room into, or a placed room you can pick back up. It
+   cannot wander onto blank background or off the edge of the buildable area.
+4. Notice the **prices on the ghost cells directly under the tower's row are
+   gone** — slots can no longer be bought there, only on rows below. Prices on
+   lower rows should be **higher than before** and increase further down.
+5. Buy a slot (**Enter** on a ghost cell) — the price you paid should match
+   what's shown, and the *next* slot's price (on any row) should be 1 scrap
+   higher than before.
+6. If you have a Turret Room in inventory, move the marker onto the new empty
+   slot — you'll see "Place: Turret Room". **M** toggles "(mirrored)" if shown.
+   Press **Enter** to place it. If the level has more than one empty cell, try
+   placing it in the middle — it should be **refused** ("must sit at the far
+   left or right edge of its level") even if its firing face would otherwise
+   be clear.
+7. Move the marker onto a **placed room** (not the helm/tower) and press
+   **Enter** — it should pop back into inventory, and that cell becomes an
+   empty slot again (marker still highlights it, now offering "Place:" again).
+8. Press **Esc** to close the dock — the hull updates to match.
 
 ### Watch out for (traps that already bit this milestone)
 - **`class_name` cache:** after adding a new `class_name` script, run

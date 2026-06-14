@@ -439,6 +439,36 @@
      for the add-room skill (`ROOM_SYSTEM.md` §6, `SKILL_STUB_add_room.md`).
      Low payoff today since only the Turret Room is purchasable.
 
+## 2026-06-14 — Slot levels, pricing, edge rule, Assembly nav (settled)
+Snir's 7-part request, scoped via AskUserQuestion:
+- **Levels**: the conning tower's grid row is level 0 and stays the tower's
+  row alone forever — slots can never be bought there or above. The row
+  directly beneath the tower is level 1, the next level 2, etc.
+  (`SubLayout.level_of`).
+- **Pricing**: `slot_price(level, slots_owned) = 2 + slots_owned + 2*(level-1)`
+  — i.e. base 2 scrap for a level-1 slot, +2 scrap per level below that, and
+  **every slot already owned (any level) adds +1 scrap to all future slot
+  prices**. Slots and rooms remain on separate price tracks (per the earlier
+  M4-2 decision).
+- **Crew spawn**: both players now start in the conning tower
+  (`Sub.tower_seat_local`), seats reserved for up to 4 (sections 2,4,1,5 —
+  section 3 stays clear for the ladder). Only p1/p2 are wired; p3/p4 seats
+  exist but nothing spawns there yet (no 3rd/4th crew in the game).
+- **Firing-face edge rule** (`SubValidator` rule 8): a room with a firing
+  face must sit at the far left or right edge of its level's occupied cells —
+  mid-row placement is refused even if the firing-face cell itself is clear.
+- **Assembly nav rework**: arrow-key 2D cursor (`_assembly_cursor`) over a
+  cell->action map (`_assembly_actions`); only cells with an action (buy
+  slot / place room / return room) are reachable. `M` is now the mirror key
+  (freed `A`/`D` for movement). New `SaveData.return_room_to_inventory`.
+- **Deferred to M4-9/M4-10** (Snir's call, "edge-rule now, rest stays
+  M4-9/M4-10"):
+  - Empty slots becoming walkable rooms the crew can enter (needs
+    `SubGeometry` to generate a real room-shell, not just hull+floor, for a
+    slot cell).
+  - The Turret Room's own station and a working gun (this is M4-10's "first
+    hand-built purchasable room with a real mechanic" by design).
+
 ## Parked
 - **What station/ability lives in the conning tower?** It's a fixed, always-
   present single cell at the top of the sub (core, like the helm) — Snir is
