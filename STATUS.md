@@ -1,10 +1,11 @@
 # STATUS — DEEPER
 
-_Read this at session start. Last updated: 2026-06-15 (M4-8e: Assembly keys
-remapped to the interact/use convention, and slot prices no longer drift when
-rooms are placed/returned. M4-9a: the floodlight pod can now be bought into
-inventory and attached/detached from an exterior hull face at the data layer.
-Next: M4-9b — the Assembly-tab UI for attaching pods → Checkpoint 2.)_
+_Read this at session start. Last updated: 2026-06-16 (M4-9a: the floodlight
+pod can be bought into inventory and attached/detached at the data layer.
+M4-9b: a dedicated Floodlight Room hosts the pod. M4-9c: the Assembly tab is
+now menu-driven — interact on an owned cell opens a dropdown of available
+actions, including attaching/detaching pods via face-selection. Next:
+Checkpoint 2 — Snir plays the dock economy end to end.)_
 
 ## Where we are
 **Milestone 3 is closed (Modules A-E).** Milestone 4 ("The Dry Dock & The
@@ -445,6 +446,36 @@ confirms the floodlight pod appears in the Shop list. 26/26 suites green.
 **Commit:** `M4-9a: floodlight pod purchase + attach/detach economy (Shop +
 SaveData)`.
 
+### Milestone 4 — Module 9b/9c: dedicated Floodlight Room + Assembly menu rework (DONE)
+Two pieces, both 2026-06-16:
+- **M4-9b — the Floodlight Room.** A new purchasable room (`floodlight_room`,
+  6 sc) is the dedicated host for the floodlight pod
+  (`ModuleDef.can_host_pod`); `SubValidator` and `SaveData.place_pod` now both
+  require the pod's host cell to be a `can_host_pod` room (not just any
+  occupied cell — e.g. not the helm).
+- **M4-9c — the Assembly tab is now menu-driven**, replacing the old
+  "Enter places/returns the cursor's single highlighted thing" model (which
+  had no room for pod actions). Per Snir's spec: pressing **interact** on a
+  buyable ghost cell still buys it instantly; pressing **interact** on any
+  *owned* cell (empty slot or placed room) now opens a **dropdown menu** of
+  everything you can do there:
+  - empty slot → "Place: <room>" for each relocatable inventory room.
+  - placed room → "Return <room> to inventory", plus — if it's a
+    Floodlight Room — "Attach pod: <pod>" for each inventory pod and
+    "Detach <pod> (<face> face)" for each pod already on it.
+  **Use** (P1=Q, P2=Enter, or arrows) cycles the highlighted menu item; **M**
+  toggles mirroring for a highlighted "Place: <turret-like room>" item;
+  **interact** confirms it; **Esc** closes the menu without acting.
+  Confirming "Attach pod" drops into a **face-selection** sub-mode — **Use**/
+  arrows cycle through the cell's *exterior* faces only ("outer edges of the
+  sub"), **interact** attaches the pod to the highlighted face, **Esc** cancels
+  back to the menu.
+Tests: `test_dock_shop_ui` rewritten for the menu model (open menu → cycle to
+an item → confirm, for placing/returning a room and for attaching/detaching a
+floodlight pod via face-selection). 26/26 suites green.
+**Commit:** `M4-9b/9c: dedicated Floodlight Room + Assembly menu-driven
+interactions (incl. pod attach/detach)`.
+
 ### M4 module order (corrected per `ROOM_SYSTEM.md` reconciliation, 2026-06-12)
 `MILESTONE_4_v2.md`'s eleven modules are still the backbone, but three things
 from `ROOM_SYSTEM.md` change the order and add a module. This list is the
@@ -478,9 +509,10 @@ current source of truth for M4 sequencing — supersedes the v2 numbering below:
    folded in the M4-7c follow-up request:** buyable slot positions show as
    faint "+price" ghost cells on a diagram of the current hull (not a text
    list) — see `DECISIONS.md` (2026-06-13, M4-7c follow-up).
-9. **M4-9** ⬅ **NEXT** — pods plumbing.
-   - **⛳ CHECKPOINT 2** — Snir plays: buy a slot, buy a room, place it,
-     rearrange.
+9. **M4-9** ✅ done — pods plumbing (9a economy, 9b Floodlight Room, 9c
+   Assembly menu UI incl. pod attach/detach).
+   - **⛳ CHECKPOINT 2** ⬅ **NEXT** — Snir plays: buy a slot, buy a room, place
+     it, rearrange, buy/attach/detach a floodlight pod.
 10. **M4-10** — first hand-built purchasable room with a real mechanic (a
     weapon room, per `ROOM_SYSTEM.md` §6) — the reference implementation for
     the add-room skill. **Also adds the `ModuleDef` fields for the M4-7c
@@ -750,15 +782,16 @@ Is rising water scary or annoying? Is 3s repair too long under pressure? Do
 torpedoes feel chunky or just sluggish? Is the fish fight fun or a chore? Plus
 all M1 questions (crew weight, sub heft, camera framing).
 
-## Suggested next step — M4-9: pods plumbing
-M4-7c (Shop tab), M4-8 (Assembly tab), and M4-8b (slot levels/pricing, tower
-spawn, Assembly 2D nav + return-to-inventory) are all done — see Module 8 and
-8b above. Next: **M4-9** (pods plumbing — exterior pods that clip to a hull
-face, e.g. the floodlight pod), then **⛳ Checkpoint 2** (Snir plays: buy a
-slot, buy a room, place it, rearrange, pick it back up). Minor open items:
-**M4-5 polish** (breach surfaces → exterior faces only; an asymmetric-layout
-water-conservation test); **M4-9/M4-10** also carry the parked ideas from
-M4-8b (walkable empty slots; Turret Room station + gun).
+## Suggested next step — ⛳ Checkpoint 2
+M4-9 (pods plumbing — economy, the Floodlight Room, and the Assembly menu UI
+for attaching/detaching pods) is done. Next: **⛳ Checkpoint 2** — Snir plays
+the dock end to end: buy a slot, buy a room, place it, rearrange, pick it back
+up, buy/attach/detach a floodlight pod. After that: **M4-10** (first hand-built
+purchasable room with a real mechanic). Minor open items: **M4-5 polish**
+(breach surfaces → exterior faces only; an asymmetric-layout
+water-conservation test); the floodlight pod's actual visual (a "bump" on the
+hull) and its aim-seat station are still separate follow-ups; M4-8b parked
+ideas (walkable empty slots; Turret Room station + gun).
 
 ## Verify by playing — M4-8b (slot levels/pricing, tower spawn, Assembly nav)
 Launch: `"D:\Godot_v4.4.1-stable_win64.exe\Godot_v4.4.1-stable_win64.exe" --path .`

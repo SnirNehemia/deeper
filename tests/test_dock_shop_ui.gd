@@ -95,17 +95,25 @@ func _ready() -> void:
 	var found_place := false
 	for pos in dock._assembly_actions:
 		var action: Dictionary = dock._assembly_actions[pos]
-		if action.has("place_room"):
-			place_pos = pos
-			place_id = action["place_room"][0]
-			found_place = true
+		for item in action.get("menu", []):
+			if item["type"] == "place_room":
+				place_pos = pos
+				place_id = item["id"]
+				found_place = true
+				break
+		if found_place:
 			break
 	_check(found_place, "Assembly offers placing the inventory room into a slot")
 
 	if found_place:
 		dock._assembly_cursor = place_pos
 		var inv_before := int(SaveData.layout.inventory.get(place_id, 0))
-		dock._assembly_key(KEY_E)
+		dock._assembly_key(KEY_E)  # open the cell's menu
+		_check(dock._menu_open, "interact on an owned slot opens its menu")
+		var menu: Array = dock._assembly_actions[place_pos]["menu"]
+		while not (menu[dock._menu_index]["type"] == "place_room" and menu[dock._menu_index]["id"] == place_id):
+			dock._assembly_key(KEY_Q)
+		dock._assembly_key(KEY_E)  # confirm placement
 		var placed := false
 		for p in SaveData.layout.placements:
 			if p.module_id == place_id and p.grid_pos == place_pos:
@@ -118,6 +126,9 @@ func _ready() -> void:
 		else:
 			# Placement was refused (e.g. firing face blocked) — try mirroring.
 			dock._assembly_cursor = place_pos
+			dock._assembly_key(KEY_E)  # reopen the menu
+			while not (menu[dock._menu_index]["type"] == "place_room" and menu[dock._menu_index]["id"] == place_id):
+				dock._assembly_key(KEY_Q)
 			dock._assembly_key(KEY_M)
 			dock._assembly_key(KEY_E)
 			for p in SaveData.layout.placements:
@@ -125,13 +136,21 @@ func _ready() -> void:
 					placed = true
 			_check(placed, "placing the room (mirrored if needed) succeeds")
 
-		# The placed room is now an owned-cell with a "return_room" action —
-		# interact there picks it back up into inventory (2026-06-14 nav rework).
+		# The placed room is now an owned-cell whose menu offers "return_room" —
+		# interact opens the menu, then confirming picks it back up into
+		# inventory (2026-06-16 menu rework).
 		if placed:
+			dock._rebuild_assembly_entries()
 			dock._assembly_cursor = place_pos
-			_check(dock._assembly_actions.get(place_pos, {}).has("return_room"),
-				"Assembly offers returning the placed room to inventory")
-			dock._assembly_key(KEY_E)
+			var has_return := false
+			for item in dock._assembly_actions.get(place_pos, {}).get("menu", []):
+				if item["type"] == "return_room":
+					has_return = true
+			_check(has_return, "Assembly offers returning the placed room to inventory")
+			dock._assembly_key(KEY_E)  # open the menu
+			while dock._assembly_actions[place_pos]["menu"][dock._menu_index]["type"] != "return_room":
+				dock._assembly_key(KEY_Q)
+			dock._assembly_key(KEY_E)  # confirm return
 			_check(int(SaveData.layout.inventory.get(place_id, 0)) == inv_before,
 				"returning the room to inventory restores it")
 			_check(place_pos in SaveData.layout.slots,
@@ -143,37 +162,88 @@ func _ready() -> void:
 	dock._rebuild_assembly_entries()
 	var helm_pos := Vector2i(2, 0)
 	dock._assembly_cursor = helm_pos
-	_check(dock._assembly_actions.get(helm_pos, {}).has("return_room"),
-		"Assembly offers returning the helm to inventory")
-	dock._assembly_key(KEY_E)
+	var helm_has_return := false
+	for item in dock._assembly_actions.get(helm_pos, {}).get("menu", []):
+		if item["type"] == "return_room":
+			helm_has_return = true
+	_check(helm_has_return, "Assembly offers returning the helm to inventory")
+	dock._assembly_key(KEY_E)  # open the menu
+	while dock._assembly_actions[helm_pos]["menu"][dock._menu_index]["type"] != "return_room":
+		dock._assembly_key(KEY_Q)
+	dock._assembly_key(KEY_E)  # confirm return
 	_check(SaveData.layout.inventory.get("helm", 0) == 1, "the helm is now in inventory")
 	dock._assembly_key(KEY_ESCAPE)
 	_check(get_tree().paused, "the dock refuses to close without the helm placed")
 	_check(dock._note != "", "a note explains why the dock won't close")
 
-	# If this slot offers more than one inventory room (it should, by now —
-	# turret_room and the helm), the "use" key (P1=Q, P2=Enter) cycles which
-	# one interact/M will use (2026-06-15 inventory picker).
-	var helm_action: Dictionary = dock._assembly_actions.get(helm_pos, {})
-	var helm_ids: Array = helm_action.get("place_room", [])
-	_check(helm_ids.size() > 1, "this slot offers more than one room to place")
-	if helm_ids.size() > 1:
-		var start_id := dock._place_room_choice(helm_action)
-		dock._assembly_key(KEY_ENTER)
-		var next_id := dock._place_room_choice(dock._assembly_actions.get(helm_pos, {}))
-		_check(next_id != start_id, "the use key cycles to a different inventory room")
+	# This slot now offers more than one inventory room to place (turret_room
+	# and the helm); the "use" key (P1=Q, P2=Enter) cycles which menu item is
+	# highlighted (2026-06-16 menu rework).
+	dock._assembly_cursor = helm_pos
+	var place_count := 0
+	for item in dock._assembly_actions.get(helm_pos, {}).get("menu", []):
+		if item["type"] == "place_room":
+			place_count += 1
+	_check(place_count > 1, "this slot offers more than one room to place")
+	if place_count > 1:
+		dock._assembly_key(KEY_E)  # open the menu
+		var start_index := dock._menu_index
 		dock._assembly_key(KEY_Q)
-		_check(dock._place_room_choice(dock._assembly_actions.get(helm_pos, {})) == start_id,
-			"the use key cycles back to the original choice (2 options)")
+		_check(dock._menu_index != start_index, "the use key cycles to a different menu item")
+		dock._assembly_key(KEY_ESCAPE)  # close without acting
 
 	# Place the helm back — now closing is allowed again. (Other rooms may
 	# also be in inventory by now, so go straight to SaveData rather than
-	# relying on the UI's first-in-inventory pick for this slot.)
-	_check(dock._assembly_actions.get(helm_pos, {}).has("place_room"),
-		"Assembly offers placing a room back into the helm's old slot")
+	# relying on the UI's menu order for this slot.)
 	_check(SaveData.place_room("helm", helm_pos, false), "the helm can be placed back")
 	_check(SaveData.layout.inventory.get("helm", 0) == 0, "the helm is placed back")
 	dock._rebuild_assembly_entries()
+
+	# M4-9c: the Floodlight Room's cell menu offers attaching/detaching its pod
+	# via face-selection ("only on outer edges of the sub").
+	SaveData.banked_scrap = 1000
+	var fl_pos: Vector2i = SaveData.layout.buyable_slot_positions()[0]
+	_check(SaveData.buy_slot(fl_pos), "buy a slot for the Floodlight Room")
+	_check(SaveData.buy_room("floodlight_room"), "buy a Floodlight Room into inventory")
+	_check(SaveData.place_room("floodlight_room", fl_pos, false), "place the Floodlight Room")
+	_check(SaveData.buy_pod("floodlight_pod"), "buy a Floodlight Pod into inventory")
+	dock._rebuild_assembly_entries()
+
+	dock._assembly_cursor = fl_pos
+	var has_place_pod := false
+	for item in dock._assembly_actions.get(fl_pos, {}).get("menu", []):
+		if item["type"] == "place_pod":
+			has_place_pod = true
+	_check(has_place_pod, "the Floodlight Room's menu offers attaching the pod")
+
+	dock._assembly_key(KEY_E)  # open the menu
+	_check(dock._menu_open, "interact opens the Floodlight Room's menu")
+	while dock._assembly_actions[fl_pos]["menu"][dock._menu_index]["type"] != "place_pod":
+		dock._assembly_key(KEY_Q)
+	dock._assembly_key(KEY_E)  # confirm "place pod" -> enters face-selection
+	_check(dock._face_select, "confirming 'place pod' enters face-selection")
+	_check(not dock._faces.is_empty(), "at least one exterior face is offered")
+	dock._assembly_key(KEY_E)  # confirm the highlighted face
+	_check(not dock._face_select, "confirming a face exits face-selection")
+	_check(SaveData.layout.pods.size() == 1, "the pod is now attached to the hull")
+	_check(SaveData.layout.inventory.get("floodlight_pod", 0) == 0,
+		"the pod is no longer in inventory")
+
+	# The cell's menu now offers detaching the pod.
+	dock._rebuild_assembly_entries()
+	dock._assembly_cursor = fl_pos
+	var has_return_pod := false
+	for item in dock._assembly_actions.get(fl_pos, {}).get("menu", []):
+		if item["type"] == "return_pod":
+			has_return_pod = true
+	_check(has_return_pod, "the Floodlight Room's menu now offers detaching the pod")
+	dock._assembly_key(KEY_E)  # open the menu
+	while dock._assembly_actions[fl_pos]["menu"][dock._menu_index]["type"] != "return_pod":
+		dock._assembly_key(KEY_Q)
+	dock._assembly_key(KEY_E)  # confirm detach
+	_check(SaveData.layout.pods.is_empty(), "the pod is detached from the hull")
+	_check(SaveData.layout.inventory.get("floodlight_pod", 0) == 1,
+		"the detached pod is back in inventory")
 
 	# Tab returns to the Upgrades list.
 	dock._assembly_key(KEY_TAB)

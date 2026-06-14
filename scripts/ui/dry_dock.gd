@@ -29,19 +29,28 @@ var _changed: bool = false
 var _note: String = ""
 var _entries: Array = []
 var _shop_entries: Array = []
-## Cell -> available action(s) in Assembly (2026-06-14 nav rework). Each
-## value is a Dictionary with any of: "buy_slot" (bool), "place_room"
-## (Array[String] of inventory ids), "return_room" (String module id).
+## Cell -> available action in Assembly (2026-06-16 menu rework). Each value
+## is a Dictionary with either "buy_slot" (bool) or "menu" (Array of
+## Dictionaries, each {"type": ..., "id": ..., possibly "face": ...} —
+## "place_room"/"return_room"/"place_pod"/"return_pod").
 var _assembly_actions: Dictionary = {}
 ## Every cell the Assembly cursor can stand on — a superset of
 ## `_assembly_actions.keys()` (2026-06-15): includes inert cells like the
 ## tower so the marker can pass over/rest on them, even though Enter there
 ## does nothing.
 var _assembly_cells: Dictionary = {}
-## When a slot's "place_room" action offers more than one inventory room, the
-## "use" key (P1=Q, P2=Enter) cycles through them and this is the index of the
-## one the interact key will place (2026-06-15 inventory picker).
-var _place_picker_index: int = 0
+## True while a cell's action menu is open (2026-06-16). "use" cycles
+## `_menu_index`, "interact" confirms the highlighted item, Esc closes it.
+var _menu_open: bool = false
+## The highlighted item in the open menu — `_assembly_actions[_assembly_cursor]["menu"][_menu_index]`.
+var _menu_index: int = 0
+## True while picking which exterior face a pod attaches to (entered from a
+## "place_pod" menu item). "use"/arrows cycle `_face_index` over `_faces`.
+var _face_select: bool = false
+var _face_index: int = 0
+var _faces: Array = []
+## The inventory pod id mid-attachment during face selection.
+var _pending_pod_id: String = ""
 var _view: _View
 
 func _ready() -> void:
@@ -115,6 +124,12 @@ func _shop_key(code: int) -> void:
 			_close()
 
 func _assembly_key(code: int) -> void:
+	if _face_select:
+		_face_select_key(code)
+		return
+	if _menu_open:
+		_menu_key(code)
+		return
 	match code:
 		KEY_UP, KEY_W:
 			_move_assembly_cursor(Vector2i(0, -1))
@@ -124,17 +139,7 @@ func _assembly_key(code: int) -> void:
 			_move_assembly_cursor(Vector2i(-1, 0))
 		KEY_RIGHT, KEY_D:
 			_move_assembly_cursor(Vector2i(1, 0))
-		KEY_M:
-			var action: Dictionary = _assembly_actions.get(_assembly_cursor, {})
-			if action.has("place_room"):
-				var id: String = _place_room_choice(action)
-				var def := ModuleCatalog.by_id(id)
-				if def != null and def.has_firing_face:
-					_place_mirrored = not _place_mirrored
-		# "use" (P1=Q, P2=Enter): cycle which inventory room would be placed.
-		KEY_Q, KEY_ENTER:
-			_cycle_place_choice(1)
-		# "interact" (P1=E, P2=Right-Shift): place/take the room at the cursor.
+		# "interact" (P1=E, P2=Right-Shift): buy a slot or open the cell's menu.
 		# KP_Enter and Space are kept as convenience aliases.
 		KEY_E, KEY_SHIFT, KEY_KP_ENTER, KEY_SPACE:
 			_try_assembly_action()
@@ -142,6 +147,48 @@ func _assembly_key(code: int) -> void:
 			_mode = Mode.LIST
 		KEY_ESCAPE:
 			_close()
+
+## While a cell's action menu is open: "use" (P1=Q, P2=Enter, or arrows) cycles
+## the highlighted item, M toggles mirroring for a highlighted "place_room"
+## item with a firing face, "interact" confirms the highlighted item, and Esc
+## closes the menu without acting.
+func _menu_key(code: int) -> void:
+	var action: Dictionary = _assembly_actions.get(_assembly_cursor, {})
+	var menu: Array = action.get("menu", [])
+	if menu.is_empty():
+		_close_menu()
+		return
+	match code:
+		KEY_Q, KEY_ENTER, KEY_UP, KEY_W, KEY_DOWN, KEY_S:
+			_menu_index = wrapi(_menu_index + 1, 0, menu.size())
+			_place_mirrored = false
+		KEY_M:
+			var item: Dictionary = menu[_menu_index]
+			if item["type"] == "place_room":
+				var def := ModuleCatalog.by_id(item["id"])
+				if def != null and def.has_firing_face:
+					_place_mirrored = not _place_mirrored
+		KEY_E, KEY_SHIFT, KEY_KP_ENTER, KEY_SPACE:
+			_confirm_menu_item(menu[_menu_index])
+		KEY_ESCAPE:
+			_close_menu()
+
+## While picking a pod's exterior face: "use"/arrows cycle through `_faces`,
+## "interact" attaches the pod to the highlighted face, Esc cancels back to
+## the cell's menu (which stays open).
+func _face_select_key(code: int) -> void:
+	match code:
+		KEY_Q, KEY_ENTER, KEY_UP, KEY_W, KEY_RIGHT, KEY_D:
+			_face_index = wrapi(_face_index + 1, 0, _faces.size())
+		KEY_DOWN, KEY_S, KEY_LEFT, KEY_A:
+			_face_index = wrapi(_face_index - 1, 0, _faces.size())
+		KEY_E, KEY_SHIFT, KEY_KP_ENTER, KEY_SPACE:
+			_confirm_face_select()
+		KEY_ESCAPE:
+			_face_select = false
+			_faces = []
+			_face_index = 0
+			_pending_pod_id = ""
 
 ## Moves the Assembly cursor one cell in `dir`, but only onto a cell that's
 ## part of the hull/buyable area (`_assembly_cells`) — the marker can reach
@@ -152,37 +199,103 @@ func _move_assembly_cursor(dir: Vector2i) -> void:
 	var candidate := _assembly_cursor + dir
 	if _assembly_cells.has(candidate):
 		_assembly_cursor = candidate
-		_place_mirrored = false
-		_place_picker_index = 0
+		_close_menu()
 
-## Cycles which inventory room the interact key/M will use for the cursor's
-## "place_room" slot (2026-06-15 picker) — the "use" key (P1=Q, P2=Enter)
-## steps through `action["place_room"]`. No-op if the cursor isn't on a
-## place_room cell or it only offers one room.
-func _cycle_place_choice(dir: int) -> void:
-	var action: Dictionary = _assembly_actions.get(_assembly_cursor, {})
-	var ids: Array = action.get("place_room", [])
-	if ids.size() <= 1:
-		return
-	_place_picker_index = wrapi(_place_picker_index + dir, 0, ids.size())
-	_place_mirrored = false
-
-## The inventory room id Enter would place at `action`'s cell right now —
-## `action["place_room"][_place_picker_index]`, clamped in case the inventory
-## shrank since the index was last picked.
-func _place_room_choice(action: Dictionary) -> String:
-	var ids: Array = action.get("place_room", [])
-	var idx := clampi(_place_picker_index, 0, ids.size() - 1)
-	return ids[idx]
-
+## "interact" outside any open menu: buys a slot instantly, or opens the
+## cursor's action menu if it has one (2026-06-16 menu rework).
 func _try_assembly_action() -> void:
 	var action: Dictionary = _assembly_actions.get(_assembly_cursor, {})
 	if action.has("buy_slot"):
 		_try_buy_slot(_assembly_cursor)
-	elif action.has("place_room"):
-		_try_place_room(_assembly_cursor, _place_room_choice(action), _place_mirrored)
-	elif action.has("return_room"):
-		_try_return_room(_assembly_cursor)
+	elif action.has("menu") and not action["menu"].is_empty():
+		_menu_open = true
+		_menu_index = 0
+
+## Runs the highlighted menu item: place/return a room closes the menu
+## immediately, return a pod closes the menu immediately, and place a pod
+## drops into face-selection (the menu stays open underneath until a face is
+## confirmed or cancelled).
+func _confirm_menu_item(item: Dictionary) -> void:
+	match item["type"]:
+		"place_room":
+			_try_place_room(_assembly_cursor, item["id"], _place_mirrored)
+			_close_menu()
+		"return_room":
+			_try_return_room(_assembly_cursor)
+			_close_menu()
+		"return_pod":
+			_try_return_pod(_assembly_cursor, item["face"])
+			_close_menu()
+		"place_pod":
+			_enter_face_select(item["id"])
+
+## Drops into face-selection for attaching `pod_id` to the cursor's cell —
+## only the cell's exterior faces are offered ("only on outer edges of the
+## sub"). If none are free, stays in the menu with a note.
+func _enter_face_select(pod_id: String) -> void:
+	var faces := _exterior_faces(_assembly_cursor)
+	if faces.is_empty():
+		_note = "No exterior face is free for the pod."
+		return
+	_faces = faces
+	_face_index = 0
+	_pending_pod_id = pod_id
+	_face_select = true
+
+func _confirm_face_select() -> void:
+	var face: String = _faces[_face_index]
+	_try_place_pod(_assembly_cursor, _pending_pod_id, face)
+	_face_select = false
+	_close_menu()
+
+## Closes any open menu/face-select and resets their transient state
+## (2026-06-16). Called on cursor move, after rebuilding the assembly entries,
+## and after confirming an action.
+func _close_menu() -> void:
+	_menu_open = false
+	_menu_index = 0
+	_place_mirrored = false
+	_face_select = false
+	_faces = []
+	_face_index = 0
+	_pending_pod_id = ""
+
+## The cell's faces ("top"/"bottom"/"left"/"right") that aren't occupied by
+## another room — the candidates for attaching a pod (2026-06-16).
+func _exterior_faces(cell: Vector2i) -> Array:
+	var occupied := SaveData.layout.occupied_cells()
+	var occ_set: Dictionary = {}
+	for c in occupied:
+		occ_set[c] = true
+	var offsets := {
+		"top": Vector2i(0, -1), "bottom": Vector2i(0, 1),
+		"left": Vector2i(-1, 0), "right": Vector2i(1, 0),
+	}
+	var faces: Array = []
+	for face in offsets:
+		if not occ_set.has(cell + offsets[face]):
+			faces.append(face)
+	return faces
+
+## A human-readable label for a menu item, for the dropdown drawn in
+## `_View._draw_assembly` (2026-06-16).
+func _menu_item_label(item: Dictionary) -> String:
+	var def := ModuleCatalog.by_id(item["id"])
+	var name: String = def.display_name if def != null else item["id"]
+	match item["type"]:
+		"place_room":
+			var label := "Place: %s" % name
+			if def != null and def.has_firing_face:
+				label += "  (firing stern-ward, M to flip to bow)" if _place_mirrored \
+					else "  (firing bow-ward, M to flip to stern)"
+			return label
+		"return_room":
+			return "Return %s to inventory" % name
+		"place_pod":
+			return "Attach pod: %s" % name
+		"return_pod":
+			return "Detach %s (%s face)" % [name, item["face"]]
+	return ""
 
 func _placement_key(code: int) -> void:
 	match code:
@@ -238,21 +351,13 @@ func _rebuild_assembly_entries() -> void:
 	for pos in SaveData.layout.buyable_slot_positions():
 		_assembly_actions[pos] = {"buy_slot": true}
 	for slot in SaveData.layout.slots:
-		var ids: Array[String] = []
-		for id in SaveData.layout.inventory:
-			if int(SaveData.layout.inventory[id]) <= 0:
-				continue
-			var def := ModuleCatalog.by_id(id)
-			if not SaveData._is_relocatable(def):
-				continue
-			ids.append(id)
-		if not ids.is_empty():
-			_assembly_actions[slot] = {"place_room": ids}
+		var menu := _build_cell_menu(slot)
+		if not menu.is_empty():
+			_assembly_actions[slot] = {"menu": menu}
 	for p in SaveData.layout.placements:
-		var def := ModuleCatalog.by_id(p.module_id)
-		if not SaveData._is_relocatable(def):
-			continue
-		_assembly_actions[p.grid_pos] = {"return_room": p.module_id}
+		var menu := _build_cell_menu(p.grid_pos)
+		if not menu.is_empty():
+			_assembly_actions[p.grid_pos] = {"menu": menu}
 
 	# Every cell the marker can stand on: the whole hull (placed rooms + owned
 	# slots) plus the buyable ghost cells — including inert cells (the tower)
@@ -268,8 +373,49 @@ func _rebuild_assembly_entries() -> void:
 			_assembly_cursor = Vector2i.ZERO
 		else:
 			_assembly_cursor = _assembly_cells.keys()[0]
-	_place_mirrored = false
-	_place_picker_index = 0
+	_close_menu()
+
+## The dropdown menu for interacting with an owned cell (2026-06-16 menu
+## rework): an empty slot offers placing each relocatable inventory room; a
+## placed room offers returning itself to inventory, plus — if it
+## `can_host_pod` — attaching each inventory pod and detaching any pod already
+## on it. Empty means the cell has nothing to do (buy_slot ghosts and inert
+## cells like the tower aren't routed through here).
+func _build_cell_menu(cell: Vector2i) -> Array:
+	var menu: Array = []
+	if cell in SaveData.layout.slots:
+		for id in SaveData.layout.inventory:
+			if int(SaveData.layout.inventory[id]) <= 0:
+				continue
+			var def := ModuleCatalog.by_id(id)
+			if not SaveData._is_relocatable(def):
+				continue
+			menu.append({"type": "place_room", "id": id})
+		return menu
+
+	var placed_def: ModuleDef = null
+	var placed_id := ""
+	for p in SaveData.layout.placements:
+		if p.grid_pos == cell:
+			placed_def = ModuleCatalog.by_id(p.module_id)
+			placed_id = p.module_id
+			break
+	if placed_def == null:
+		return menu
+	if SaveData._is_relocatable(placed_def):
+		menu.append({"type": "return_room", "id": placed_id})
+	if placed_def.can_host_pod:
+		for id in SaveData.layout.inventory:
+			if int(SaveData.layout.inventory[id]) <= 0:
+				continue
+			var pdef := ModuleCatalog.by_id(id)
+			if pdef == null or not pdef.is_pod:
+				continue
+			menu.append({"type": "place_pod", "id": id})
+		for pod in SaveData.layout.pods:
+			if pod.host_cell == cell:
+				menu.append({"type": "return_pod", "id": pod.pod_id, "face": pod.face})
+	return menu
 
 func _try_buy_room(def: ModuleDef) -> void:
 	var cost := def.cost_bundle()
@@ -329,6 +475,38 @@ func _try_return_room(pos: Vector2i) -> void:
 		_rebuild_assembly_entries()
 	else:
 		_note = "That room can't be moved."
+
+## Attaches inventory pod `id` to `pos`'s `face` (2026-06-16, the menu's
+## "place_pod" -> face-select flow). No-op (with a note) if SaveData refuses
+## (face not exterior, room can't host it, etc).
+func _try_place_pod(pos: Vector2i, id: String, face: String) -> void:
+	var violations := SaveData.place_pod_violations(id, pos, face)
+	if not violations.is_empty():
+		_note = violations[0]
+		return
+	if SaveData.place_pod(id, pos, face):
+		_changed = true
+		var def := ModuleCatalog.by_id(id)
+		_note = "%s attached!" % (def.display_name if def != null else id)
+		_rebuild_shop_entries()
+		_rebuild_assembly_entries()
+
+## Detaches the pod on `pos`'s `face` back to inventory (2026-06-16, the
+## menu's "return_pod" item). No-op (with a note) if there's no pod there.
+func _try_return_pod(pos: Vector2i, face: String) -> void:
+	var pod_id := ""
+	for pod in SaveData.layout.pods:
+		if pod.host_cell == pos and pod.face == face:
+			pod_id = pod.pod_id
+			break
+	if SaveData.return_pod_to_inventory(pos, face):
+		_changed = true
+		var def := ModuleCatalog.by_id(pod_id)
+		_note = "%s returned to inventory." % (def.display_name if def != null else "Pod")
+		_rebuild_shop_entries()
+		_rebuild_assembly_entries()
+	else:
+		_note = "That pod can't be moved."
 
 static func _cost_string(cost: Dictionary) -> String:
 	var parts: Array[String] = []
@@ -393,7 +571,12 @@ class _View extends Control:
 			DryDock.Mode.SHOP:
 				hint = "W/S select   Enter buy   Tab: assembly   Esc leave"
 			DryDock.Mode.ASSEMBLY:
-				hint = "Arrows move   Interact buy/place/return   Use pick room   M mirror   Tab: upgrades   Esc leave"
+				if dock._face_select:
+					hint = "Use/Arrows pick face   Interact attach   Esc cancel"
+				elif dock._menu_open:
+					hint = "Use cycle option   Interact confirm   M mirror (turret)   Esc cancel"
+				else:
+					hint = "Arrows move   Interact buy slot / open menu   Tab: upgrades   Esc leave"
 			_:
 				hint = "A/D pick the end   Enter confirm   Esc back"
 		f.draw_string(get_canvas_item(), Vector2(80, size.y - 60), hint,
@@ -513,27 +696,29 @@ class _View extends Control:
 				var price_col := Color.WHITE if afford else Color(1, 0.6, 0.4)
 				f.draw_string(get_canvas_item(), r.position + Vector2(6, 22), "%d sc" % price,
 					HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 8, 18, price_col)
-			elif action.has("place_room") and selected:
-				var ids: Array = action["place_room"]
-				var id: String = dock._place_room_choice(action)
-				var def := ModuleCatalog.by_id(id)
-				var ghost_col := Color("6ad0a0")
-				draw_rect(r, Color(ghost_col.r, ghost_col.g, ghost_col.b, 0.30))
-				draw_rect(r, ghost_col, false, 3.0)
-				var label := "Place: %s" % (def.display_name if def != null else id)
-				if ids.size() > 1:
-					label += "  (%d/%d, Use to change)" % [dock._place_picker_index + 1, ids.size()]
-				if def != null and def.has_firing_face:
-					label += "  (firing stern-ward, M to flip to bow)" if dock._place_mirrored \
-						else "  (firing bow-ward, M to flip to stern)"
-				f.draw_string(get_canvas_item(), r.position + Vector2(6, 22), label,
-					HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 8, 13, Color.WHITE)
-			elif action.has("return_room") and selected:
-				var ghost_col := Color("e08060")
-				draw_rect(r, Color(ghost_col.r, ghost_col.g, ghost_col.b, 0.30))
-				draw_rect(r, ghost_col, false, 3.0)
-				f.draw_string(get_canvas_item(), r.position + Vector2(6, 22), "Enter: to inventory",
-					HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 8, 13, Color.WHITE)
+			elif action.has("menu"):
+				var menu: Array = action["menu"]
+				if selected and dock._face_select:
+					var ghost_col := Color("6ad0ff")
+					draw_rect(r, Color(ghost_col.r, ghost_col.g, ghost_col.b, 0.30))
+					draw_rect(r, ghost_col, false, 3.0)
+					var face_label := "Face: %s (%d/%d)  Interact attach, Esc cancel" % [
+						str(dock._faces[dock._face_index]), dock._face_index + 1, dock._faces.size()]
+					f.draw_string(get_canvas_item(), r.position + Vector2(6, 22), face_label,
+						HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 8, 12, Color.WHITE)
+				elif selected and dock._menu_open:
+					var ghost_col := Color("6ad0a0")
+					draw_rect(r, Color(ghost_col.r, ghost_col.g, ghost_col.b, 0.30))
+					draw_rect(r, ghost_col, false, 3.0)
+					var item: Dictionary = menu[dock._menu_index]
+					var label := "%s  (%d/%d, Use to cycle)" % [
+						dock._menu_item_label(item), dock._menu_index + 1, menu.size()]
+					f.draw_string(get_canvas_item(), r.position + Vector2(6, 22), label,
+						HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 8, 12, Color.WHITE)
+				elif selected:
+					draw_rect(r, Color("e0c060"), false, 3.0)
+					f.draw_string(get_canvas_item(), r.position + Vector2(6, 22), "Interact: open menu",
+						HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 8, 12, Color(1, 1, 1, 0.8))
 			elif selected:
 				draw_rect(r, Color(1, 1, 1, 0.2), false, 3.0)
 
