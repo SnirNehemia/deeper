@@ -2,7 +2,9 @@
 
 _Read this at session start. Last updated: 2026-06-15 (M4-8e: Assembly keys
 remapped to the interact/use convention, and slot prices no longer drift when
-rooms are placed/returned. Next is M4-9 (pods) → Checkpoint 2.)_
+rooms are placed/returned. M4-9a: the floodlight pod can now be bought into
+inventory and attached/detached from an exterior hull face at the data layer.
+Next: M4-9b — the Assembly-tab UI for attaching pods → Checkpoint 2.)_
 
 ## Where we are
 **Milestone 3 is closed (Modules A-E).** Milestone 4 ("The Dry Dock & The
@@ -423,6 +425,25 @@ use = Q/Enter for the picker); `test_shop` adds
 `_test_slot_price_stable_across_place_and_return`. 26/26 suites green.
 **Commit:** `Dry dock: remap Assembly to interact/use keys, fix slot price
 drift on place/return`.
+
+### Milestone 4 — Module 9a: floodlight pod purchase economy (DONE)
+First slice of pods (2026-06-15, MODULAR_SUB_IMPLEMENTATION.md §6/§8): the
+**floodlight pod** can now be bought into inventory from the Shop tab (same
+"In inventory: N" listing as rooms, its own multi-resource cost), and
+attached to / detached from an exterior face of an occupied hull cell via new
+`SaveData.place_pod` / `place_pod_violations` / `return_pod_to_inventory`,
+mirroring the room place/return economy but keyed by `(host_cell, face)`
+instead of a grid position. `SubValidator` already enforced the pod-face
+rules (exterior face only, one pod per face) — this just wires the economy up
+to them. **Not yet in the Assembly tab** — there's no in-game way to pick a
+face and attach a pod yet; that's M4-9b next, plus the pod's actual visual
+(a "bump" on the hull) and its aim-seat station, which are separate
+follow-ups.
+Tests: `test_shop` adds buy/place/return-pod cases (happy path, refused on a
+non-exterior face, refused without inventory/scrap); `test_dock_shop_ui`
+confirms the floodlight pod appears in the Shop list. 26/26 suites green.
+**Commit:** `M4-9a: floodlight pod purchase + attach/detach economy (Shop +
+SaveData)`.
 
 ### M4 module order (corrected per `ROOM_SYSTEM.md` reconciliation, 2026-06-12)
 `MILESTONE_4_v2.md`'s eleven modules are still the backbone, but three things
