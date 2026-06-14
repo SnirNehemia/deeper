@@ -1,9 +1,9 @@
 # STATUS — DEEPER
 
-_Read this at session start. Last updated: 2026-06-14 (M4-8b: slot levels +
-pricing rework, crew spawn in the conning tower, and an Assembly-tab 2D
-arrow-key cursor with return-room-to-inventory. Next is M4-9 (pods) →
-Checkpoint 2.)_
+_Read this at session start. Last updated: 2026-06-15 (M4-8c: the Assembly
+marker can reach every cell including the tower, and the helm can now be
+picked up/relocated like any other room — but the dock won't close without
+it placed. Next is M4-9 (pods) → Checkpoint 2.)_
 
 ## Where we are
 **Milestone 3 is closed (Modules A-E).** Milestone 4 ("The Dry Dock & The
@@ -361,6 +361,30 @@ Three small steps from a single Snir request (2026-06-14), done sequentially:
   edge`; `Spawn both players in the conning tower (tower_seat_local), not the
   engine/middle rooms`; `Assembly 2D nav rework: arrow-key cursor over
   buy/place/return actions`.
+
+### Milestone 4 — Module 8c: marker reaches inert cells; relocatable helm (DONE)
+Follow-up from playtesting Module 8b (2026-06-15):
+
+- **The Assembly marker can now reach every cell**, not just ones with an
+  action — including the conning tower, which previously blocked the cursor
+  from passing through it and made some slots unreachable. Pressing Enter on
+  an inert cell (the tower) simply does nothing.
+- **The helm can be picked up and placed like any other room** — pick it up
+  with Enter (it returns to inventory, its cell becomes an empty slot), then
+  place it into any owned empty slot the same way a Turret Room would be.
+  `SubValidator` no longer requires the helm to be placed (only the tower is
+  truly fixed/never-in-inventory); a duplicate helm placement is still
+  invalid.
+- **The dry dock refuses to close while the helm is in inventory** — Tab and
+  Esc from any tab show "The sub needs its helm placed before you can leave
+  the dock." and stay open until it's placed somewhere again.
+- Test: `test_validate` updated (missing-helm mid-edit now validates;
+  duplicate-helm and tower-in-inventory are invalid). `test_shop` gained
+  return/place-back coverage for the helm and a refusal test for the tower.
+  `test_dock_shop_ui` covers the tower pass-through and the close-refusal/
+  placed-back round trip. 26/26 suites green.
+- **Commit:** `Assembly: marker can pass over inert cells (e.g. the tower);
+  helm is relocatable but required before leaving the dock`.
 
 ### M4 module order (corrected per `ROOM_SYSTEM.md` reconciliation, 2026-06-12)
 `MILESTONE_4_v2.md`'s eleven modules are still the backbone, but three things
