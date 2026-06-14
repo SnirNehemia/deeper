@@ -160,7 +160,7 @@ func _ready() -> void:
 	# dock refuses to close while it's sitting in inventory.
 	dock._mode = DryDock.Mode.ASSEMBLY
 	dock._rebuild_assembly_entries()
-	var helm_pos := Vector2i(2, 0)
+	var helm_pos := Vector2i(1, 0)
 	dock._assembly_cursor = helm_pos
 	var helm_has_return := false
 	for item in dock._assembly_actions.get(helm_pos, {}).get("menu", []):

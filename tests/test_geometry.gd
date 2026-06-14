@@ -43,12 +43,12 @@ func _room_at(geo: SubGeometry, cell: Vector2i) -> SubGeometry.Room:
 func _test_room_count_and_indices() -> void:
 	print("[rooms]")
 	var geo := SubGeometry.build(SubLayout.starting_layout())
-	_check(geo.rooms.size() == 6, "the Minnow+ compiles to 6 rooms")
-	# Water indices are the placement order, 0..5, unique.
+	_check(geo.rooms.size() == 7, "the Minnow+ compiles to 7 rooms")
+	# Water indices are the placement order, 0..6, unique.
 	var seen: Dictionary = {}
 	for room in geo.rooms:
 		seen[room.water_index] = true
-	_check(seen.size() == 6, "every room has a distinct water index")
+	_check(seen.size() == 7, "every room has a distinct water index")
 	_check(geo.index_at(Vector2i(2, 0)) == _room_at(geo, Vector2i(2, 0)).water_index,
 		"index_at agrees with the room's water index")
 	_check(geo.index_at(Vector2i(9, 9)) == -1, "an empty cell has no room index")
@@ -77,9 +77,9 @@ func _test_cell_size() -> void:
 func _test_doors_match_horizontal_adjacency() -> void:
 	print("[doors]")
 	var geo := SubGeometry.build(SubLayout.starting_layout())
-	# Horizontal neighbours: engine(0,0)-room(1,0), room(1,0)-helm(2,0),
-	# storage(0,1)-claw(1,1) = 3 doorways.
-	_check(geo.doors.size() == 3, "three doorways (the horizontally adjacent room pairs)")
+	# Horizontal neighbours: engine(0,0)-helm(1,0), helm(1,0)-turret_room(2,0),
+	# bullet_room(0,1)-claw_room(1,1), claw_room(1,1)-storage(2,1) = 4 doorways.
+	_check(geo.doors.size() == 4, "four doorways (the horizontally adjacent room pairs)")
 	# A door sits on the shared wall between its two cells.
 	var found := false
 	for door in geo.doors:
@@ -87,21 +87,21 @@ func _test_doors_match_horizontal_adjacency() -> void:
 			found = true
 			var left := _room_at(geo, Vector2i(0, 0))
 			_check(is_equal_approx(door.wall_x, left.rect.position.x + left.rect.size.x),
-				"the engine-room doorway is on their shared wall")
-	_check(found, "there is an engine<->room doorway")
+				"the engine-helm doorway is on their shared wall")
+	_check(found, "there is an engine<->helm doorway")
 
 func _test_ladders_match_vertical_adjacency() -> void:
 	print("[ladders]")
 	var geo := SubGeometry.build(SubLayout.starting_layout())
-	# Vertical neighbours: tower(1,-1)-room(1,0), room(1,0)-claw(1,1),
-	# engine(0,0)-storage(0,1) = 3 ladders.
-	_check(geo.ladders.size() == 3, "three ladders (the vertically stacked room pairs)")
+	# Vertical neighbours: tower(1,-1)-helm(1,0), helm(1,0)-claw_room(1,1),
+	# engine(0,0)-bullet_room(0,1), turret_room(2,0)-storage(2,1) = 4 ladders.
+	_check(geo.ladders.size() == 4, "four ladders (the vertically stacked room pairs)")
 	var pairs: Array = []
 	for ladder in geo.ladders:
 		pairs.append([ladder.upper_cell, ladder.lower_cell])
-	_check([Vector2i(1, -1), Vector2i(1, 0)] in pairs, "tower<->room ladder exists")
-	_check([Vector2i(1, 0), Vector2i(1, 1)] in pairs, "room<->claw ladder exists")
-	_check([Vector2i(0, 0), Vector2i(0, 1)] in pairs, "engine<->storage ladder exists")
+	_check([Vector2i(1, -1), Vector2i(1, 0)] in pairs, "tower<->helm ladder exists")
+	_check([Vector2i(1, 0), Vector2i(1, 1)] in pairs, "helm<->claw ladder exists")
+	_check([Vector2i(0, 0), Vector2i(0, 1)] in pairs, "engine<->bullet_room ladder exists")
 
 func _test_ladder_parity_sides() -> void:
 	print("[ladder parity]")
@@ -144,7 +144,7 @@ func _test_slots_are_not_rooms_but_count_for_centering() -> void:
 			bought = c
 	layout.slots.append(bought)
 	var geo := SubGeometry.build(layout)
-	_check(geo.rooms.size() == 6, "a bought-but-empty slot is not a generated room")
+	_check(geo.rooms.size() == 7, "a bought-but-empty slot is not a generated room")
 	# The slot widened/shifted the bounding box, so the box now spans the slot.
 	_check(geo.grid_max.x >= bought.x and geo.grid_min.x <= bought.x,
 		"the slot is inside the geometry's bounding box (counts as hull)")
@@ -153,7 +153,7 @@ func _test_connections_topology() -> void:
 	print("[connections]")
 	var geo := SubGeometry.build(SubLayout.starting_layout())
 	var conns := geo.connections()
-	_check(conns.size() == 6, "six water connections (3 doors + 3 ladders)")
+	_check(conns.size() == 8, "eight water connections (4 doors + 4 ladders)")
 	var doors := 0
 	var ladders := 0
 	for c in conns:
@@ -161,4 +161,4 @@ func _test_connections_topology() -> void:
 			doors += 1
 		elif c["kind"] == "ladder":
 			ladders += 1
-	_check(doors == 3 and ladders == 3, "connections split 3 doors / 3 ladders")
+	_check(doors == 4 and ladders == 4, "connections split 4 doors / 4 ladders")

@@ -41,8 +41,8 @@ func _test_grid_constants() -> void:
 
 func _test_catalog() -> void:
 	print("[module catalog]")
-	var ids := ["helm", "tower", "room", "engine", "claw_room", "storage",
-		"turret_room", "floodlight_pod"]
+	var ids := ["helm", "tower", "engine", "claw_room", "storage",
+		"turret_room", "bullet_room", "floodlight_pod"]
 	for id in ids:
 		var def := ModuleCatalog.by_id(id)
 		_check(def != null, "catalog has a '%s' module" % id)
@@ -70,13 +70,14 @@ func _test_footprints() -> void:
 func _test_starting_layout() -> void:
 	print("[starting layout]")
 	var layout := SubLayout.starting_layout()
-	_check(layout.placements.size() == 6,
-		"the Minnow+ has 6 placed modules (helm, tower, room, engine, claw room, storage)")
+	_check(layout.placements.size() == 7,
+		"the Minnow+ has 7 placed modules (engine, helm, turret room, tower, "
+		+ "bullet room, claw room, storage)")
 
 	var ids: Array = []
 	for p in layout.placements:
 		ids.append(p.module_id)
-	for id in ["helm", "tower", "room", "engine", "claw_room", "storage"]:
+	for id in ["helm", "tower", "turret_room", "engine", "claw_room", "storage", "bullet_room"]:
 		_check(id in ids, "the starting layout includes a '%s'" % id)
 
 	# Every placed module's id resolves in the catalog.
@@ -84,17 +85,17 @@ func _test_starting_layout() -> void:
 		_check(ModuleCatalog.by_id(p.module_id) != null,
 			"placement '%s' resolves in the catalog" % p.module_id)
 
-	# Tower sits directly above the room it's connected to (room at (2,0),
-	# tower at (2,-1)) per §2.1.
+	# Tower sits directly above the helm (helm at (1,0), tower at (1,-1))
+	# per §2.1.
 	var tower_pos := Vector2i.ZERO
-	var room_pos := Vector2i.ZERO
+	var helm_pos := Vector2i.ZERO
 	for p in layout.placements:
 		if p.module_id == "tower":
 			tower_pos = p.grid_pos
-		elif p.module_id == "room":
-			room_pos = p.grid_pos
-	_check(tower_pos == room_pos + Vector2i(0, -1),
-		"the tower sits directly above the middle room")
+		elif p.module_id == "helm":
+			helm_pos = p.grid_pos
+	_check(tower_pos == helm_pos + Vector2i(0, -1),
+		"the tower sits directly above the helm")
 
 	_check(layout.pods.is_empty(), "the starting layout has no pods")
 	_check(layout.inventory.is_empty(), "the starting layout has an empty inventory")

@@ -106,7 +106,7 @@ func _test_auto_drain() -> void:
 
 	# A breached room does NOT drain (others do). Flood every room evenly so
 	# equalization is neutral and only the drain/leak difference shows.
-	sub.water_levels = [0.5, 0.5, 0.5, 0.5, 0.0, 0.0]
+	sub.water_levels = [0.5, 0.5, 0.5, 0.5, 0.0, 0.0, 0.0]
 	sub.spawn_breach(1, GameFeel.water.leak_rate_min)
 	await _frames(60)
 	_check(sub.water_levels[1] > sub.water_levels[0] + 0.02,

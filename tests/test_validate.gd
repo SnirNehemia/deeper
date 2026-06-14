@@ -54,15 +54,16 @@ func _test_starting_layout_with_slots_is_valid() -> void:
 func _test_missing_helm_or_tower() -> void:
 	print("[missing helm/tower]")
 	var layout := SubLayout.starting_layout()
-	# Drop the helm placement entirely — a normal mid-edit state since
-	# 2026-06-15 (the helm can be picked up like any other room); the layout
-	# still validates as long as nothing else is broken.
+	# Drop the helm placement entirely. Since the tower now sits directly above
+	# the helm (2026-06-16 layout), removing the helm also removes the
+	# tower's support — this is correctly invalid (rule 3), unlike the old
+	# layout where the tower sat elsewhere.
 	for i in range(layout.placements.size()):
 		if layout.placements[i].module_id == "helm":
 			layout.placements.remove_at(i)
 			break
 	var result := SubValidator.validate(layout)
-	_check(result["ok"], "a layout missing the helm (mid-relocation) still validates")
+	_check(not result["ok"], "removing the helm from beneath the tower invalidates the layout")
 
 	var duped_helm := SubLayout.starting_layout()
 	duped_helm.placements.append(SubLayout.Placement.new("helm", Vector2i(5, 0)))
@@ -81,7 +82,7 @@ func _test_missing_helm_or_tower() -> void:
 func _test_overlapping_placements() -> void:
 	print("[overlapping placements]")
 	var layout := SubLayout.starting_layout()
-	# Stack another room directly on top of the existing "room" cell (1, 0).
+	# Stack another room directly on top of the existing helm cell (1, 0).
 	layout.placements.append(SubLayout.Placement.new("storage", Vector2i(1, 0)))
 	var result := SubValidator.validate(layout)
 	_check(not result["ok"], "two rooms sharing a cell is invalid")
@@ -89,7 +90,7 @@ func _test_overlapping_placements() -> void:
 func _test_slot_overlapping_placement() -> void:
 	print("[slot overlapping a placement]")
 	var layout := SubLayout.starting_layout()
-	# (1, 0) is the existing "room" cell — buying it as a slot is illegal.
+	# (1, 0) is the existing helm cell — buying it as a slot is illegal.
 	layout.slots.append(Vector2i(1, 0))
 	var result := SubValidator.validate(layout)
 	_check(not result["ok"], "a slot overlapping an existing room is invalid")
@@ -114,32 +115,30 @@ func _test_disconnected_room() -> void:
 
 func _test_turret_firing_face_blocked_vs_clear() -> void:
 	print("[turret firing face]")
+	# The starting layout's bow gun is itself a placed Turret Room at (2, 0),
+	# unmirrored, with its firing face at (3, 0) clear/exterior.
 	var clear_layout := SubLayout.starting_layout()
-	# Add a turret room on the bow end (helm is the rightmost cell at x=2,
-	# y=0); place the turret at (3, 0) so its unmirrored firing face (+x,
-	# i.e. (4, 0)) is exterior.
-	clear_layout.placements.append(SubLayout.Placement.new("turret_room", Vector2i(3, 0)))
 	var clear_result := SubValidator.validate(clear_layout)
-	_check(clear_result["ok"], "a turret room with a clear firing face is valid")
+	_check(clear_result["ok"], "the starting layout's turret room (clear firing face) is valid")
 
 	var blocked_layout := SubLayout.starting_layout()
-	blocked_layout.placements.append(SubLayout.Placement.new("turret_room", Vector2i(3, 0)))
-	# Brick in the firing face at (4, 0).
-	blocked_layout.placements.append(SubLayout.Placement.new("storage", Vector2i(4, 0)))
+	# Brick in the turret room's firing face at (3, 0).
+	blocked_layout.placements.append(SubLayout.Placement.new("storage", Vector2i(3, 0)))
 	var blocked_result := SubValidator.validate(blocked_layout)
 	_check(not blocked_result["ok"], "a turret room with its firing face bricked in is invalid")
 
 func _test_pod_faces() -> void:
 	print("[pod faces]")
 	var layout := SubLayout.starting_layout()
-	# A Floodlight Room at (3, 0) — its top face (3, -1) is empty/exterior, and
-	# (unlike the helm) it's built to host a pod.
-	layout.placements.append(SubLayout.Placement.new("floodlight_room", Vector2i(3, 0)))
-	layout.pods.append(SubLayout.PodPlacement.new("floodlight_pod", Vector2i(3, 0), "top"))
+	# A Floodlight Room at (-1, 0) — its top face (-1, -1) is empty/exterior,
+	# adjacent to the stern (engine at (0,0)), and (unlike the helm) it's
+	# built to host a pod.
+	layout.placements.append(SubLayout.Placement.new("floodlight_room", Vector2i(-1, 0)))
+	layout.pods.append(SubLayout.PodPlacement.new("floodlight_pod", Vector2i(-1, 0), "top"))
 	var result := SubValidator.validate(layout)
 	_check(result["ok"], "a pod on an exterior face of a room built to host it is valid")
 
-	# The same face, but on the helm — which can't host a pod.
+	# The same face, but on the turret room — which can't host a pod.
 	var wrong_host := SubLayout.starting_layout()
 	wrong_host.pods.append(SubLayout.PodPlacement.new("floodlight_pod", Vector2i(2, 0), "top"))
 	var wrong_host_result := SubValidator.validate(wrong_host)
@@ -151,17 +150,18 @@ func _test_pod_faces() -> void:
 	var bad_host_result := SubValidator.validate(bad_host)
 	_check(not bad_host_result["ok"], "a pod attached to an empty cell is invalid")
 
-	# Pod on a face that is not exterior (the "room" cell sits to the right
+	# Pod on a face that is not exterior (the helm cell sits to the right
 	# of "engine" at (0,0), so engine's right face (1,0) is occupied).
 	var bad_face := SubLayout.starting_layout()
 	bad_face.pods.append(SubLayout.PodPlacement.new("floodlight_pod", Vector2i(0, 0), "right"))
 	var bad_face_result := SubValidator.validate(bad_face)
 	_check(not bad_face_result["ok"], "a pod on a non-exterior face is invalid")
 
-	# Two pods on the same cell/face.
+	# Two pods on the same cell/face (the same Floodlight Room as above).
 	var dupes := SubLayout.starting_layout()
-	dupes.pods.append(SubLayout.PodPlacement.new("floodlight_pod", Vector2i(2, 0), "top"))
-	dupes.pods.append(SubLayout.PodPlacement.new("floodlight_pod", Vector2i(2, 0), "top"))
+	dupes.placements.append(SubLayout.Placement.new("floodlight_room", Vector2i(-1, 0)))
+	dupes.pods.append(SubLayout.PodPlacement.new("floodlight_pod", Vector2i(-1, 0), "top"))
+	dupes.pods.append(SubLayout.PodPlacement.new("floodlight_pod", Vector2i(-1, 0), "top"))
 	var dupes_result := SubValidator.validate(dupes)
 	_check(not dupes_result["ok"], "two pods on the same face is invalid")
 
@@ -171,10 +171,10 @@ func _test_bounds_guard() -> void:
 	# Add rooms far enough away to bust MAX_CELLS (8x5), but each adjacent to
 	# the previous so connectivity holds — only the bounds rule should fire.
 	layout.placements.append(SubLayout.Placement.new("storage", Vector2i(3, 0)))
-	layout.placements.append(SubLayout.Placement.new("room", Vector2i(4, 0)))
+	layout.placements.append(SubLayout.Placement.new("claw_room", Vector2i(4, 0)))
 	layout.placements.append(SubLayout.Placement.new("engine", Vector2i(5, 0)))
 	layout.placements.append(SubLayout.Placement.new("storage", Vector2i(6, 0)))
-	layout.placements.append(SubLayout.Placement.new("room", Vector2i(7, 0)))
+	layout.placements.append(SubLayout.Placement.new("claw_room", Vector2i(7, 0)))
 	layout.placements.append(SubLayout.Placement.new("engine", Vector2i(8, 0)))
 	var result := SubValidator.validate(layout)
 	_check(not result["ok"], "a layout wider than MAX_CELLS is invalid")

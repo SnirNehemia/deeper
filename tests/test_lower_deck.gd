@@ -18,8 +18,8 @@ func _ready() -> void:
 	GameFeel.water.drain_rate = 0.0
 	await _test_room_geometry()
 	await _test_door_step_connectivity()
-	await _test_ladder_climb(Vector2i(1, 0), "claw")     # middle -> claw room
-	await _test_ladder_climb(Vector2i(0, 0), "storage")  # engine -> storage room
+	await _test_ladder_climb(Vector2i(1, 0), "claw")     # helm -> claw room
+	await _test_ladder_climb(Vector2i(0, 0), "bullet")   # engine -> bullet room
 
 	if _failures == 0:
 		print("LOWER DECK TESTS PASSED")
@@ -60,33 +60,34 @@ func _test_room_geometry() -> void:
 	print("[lower deck geometry]")
 	var sub := _new_sub()
 
-	_check(sub.active_room_count() == 6, "water model has 6 rooms")
+	_check(sub.active_room_count() == 7, "water model has 7 rooms")
 
-	# New placement-order indices: engine 0, middle 1, helm 2, tower 3,
-	# storage 4, claw 5 (claw/storage swapped vs the old hand-built order).
+	# Placement-order indices: engine 0, helm 1, turret_room 2, tower 3,
+	# bullet_room 4, claw_room 5, storage 6.
 	var claw := sub.room_rect(5)
-	var storage := sub.room_rect(4)
-	var middle := sub.room_rect(1)
+	var bullet := sub.room_rect(4)
+	var storage := sub.room_rect(6)
+	var helm := sub.room_rect(1)
 	var engine := sub.room_rect(0)
 
-	_check(claw.position.y >= middle.position.y + middle.size.y,
-		"claw room sits below the middle room")
-	_check(absf(claw.position.x - middle.position.x) < 1.0
-			and absf(claw.size.x - middle.size.x) < 1.0,
-		"claw room is directly under the middle room (same x-span)")
+	_check(claw.position.y >= helm.position.y + helm.size.y,
+		"claw room sits below the helm")
+	_check(absf(claw.position.x - helm.position.x) < 1.0
+			and absf(claw.size.x - helm.size.x) < 1.0,
+		"claw room is directly under the helm (same x-span)")
 
-	_check(storage.position.y >= engine.position.y + engine.size.y,
-		"storage room sits below the engine room")
-	_check(absf(storage.position.x - engine.position.x) < 1.0
-			and absf(storage.size.x - engine.size.x) < 1.0,
-		"storage room is directly under the engine room (same x-span)")
+	_check(bullet.position.y >= engine.position.y + engine.size.y,
+		"bullet room sits below the engine room")
+	_check(absf(bullet.position.x - engine.position.x) < 1.0
+			and absf(bullet.size.x - engine.size.x) < 1.0,
+		"bullet room is directly under the engine room (same x-span)")
 
 	_check(is_equal_approx(claw.size.y, Sub.CELL_H)
-			and is_equal_approx(storage.size.y, Sub.CELL_H),
+			and is_equal_approx(bullet.size.y, Sub.CELL_H),
 		"lower deck rooms are the uniform 3 m cell height (settled M4 delta)")
 
 	# Claw and storage share an edge (the doorway between them).
-	_check(is_equal_approx(claw.position.x, storage.position.x + storage.size.x),
+	_check(is_equal_approx(storage.position.x, claw.position.x + claw.size.x),
 		"claw room and storage room share a wall (the doorway)")
 
 	sub.queue_free()
@@ -99,12 +100,12 @@ func _test_door_step_connectivity() -> void:
 	# spill into the claw room next door.
 	# Lower deck is now the uniform 3 m height, so its doors use the same sill
 	# as the main deck. Flood the claw room (index 5); it spills through the
-	# claw<->storage doorway into the storage room (index 4).
+	# claw<->storage doorway into the storage room (index 6).
 	var sill: float = GameFeel.water.door_sill_m / GameFeel.water.room_height_m
-	sub.water_levels = [0.0, 0.0, 0.0, 0.0, 0.0, sill + 0.3]
+	sub.water_levels = [0.0, 0.0, 0.0, 0.0, 0.0, sill + 0.3, 0.0]
 
 	await _frames(120)
-	_check(sub.water_levels[4] > 0.01,
+	_check(sub.water_levels[6] > 0.01,
 		"water above the door sill spills from the claw room into the storage room")
 
 	sub.queue_free()

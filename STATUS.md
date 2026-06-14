@@ -1,17 +1,16 @@
 # STATUS — DEEPER
 
-_Read this at session start. Last updated: 2026-06-16 (M4-9a: the floodlight
-pod can be bought into inventory and attached/detached at the data layer.
-M4-9b: a dedicated Floodlight Room hosts the pod. M4-9c: the Assembly tab is
-now menu-driven — interact on an owned cell opens a dropdown of available
-actions, including attaching/detaching pods via face-selection. M4-10: a
-placed Turret Room now has its own working gun station (seat + torpedo tube
-on its firing-face wall), and the Shop tab shows each room's one-line
-description. M4-11: the `add-deeper-room` skill is written (per-room upgrade
-trees flagged as a follow-up, not yet built). M4-12: a second hand-built
-purchasable room, the Bullet Room — fast, low-damage bullets on its
-firing-face wall, built via the new skill. Next: Checkpoint 2 — Snir plays
-the dock economy end to end, including the new Turret Room and Bullet Room.)_
+_Read this at session start. Last updated: 2026-06-16 (M4-13: the starting sub
+("the Minnow+2") is rebuilt with the placed Turret Room as its bow gun and a
+placed Bullet Room as its stern gun — the old placeholder "room" module type
+is gone entirely. Engine/helm/turret_room on the main row, tower over the
+helm, bullet_room/claw_room/storage on the lower deck. `buyable_slot_positions()`
+now permanently excludes a placed gun's firing-face cell, and validator rules
+5/8 (gun firing-face clear / at-row-edge) only consider actual placed rooms,
+not empty bought slots. Next: Checkpoint 2 — Snir plays the dock economy end
+to end with the new starting layout, then items 2-5 from Snir's latest brief
+(drop the dry-dock Upgrades tab, an inventory list in Shop/Assembly, the
+Assembly dropdown menu, and the Floodlight Room bundled with its pod).)_
 
 ## Where we are
 **Milestone 3 is closed (Modules A-E).** Milestone 4 ("The Dry Dock & The
@@ -540,6 +539,52 @@ the skill against a second, slightly different gun room.
 - **Commit:** `M4-12: Bullet Room — second hand-built gun room via the
   add-deeper-room skill`.
 
+### Milestone 4 — Module 13: the starting sub rebuilt around its placed guns (DONE, 2026-06-16)
+Snir's feedback after Checkpoint 1: the starting sub still had a leftover
+placeholder "Room" module (a relic of the M3 hand-built gun room) sitting in
+the middle of the main row, doing nothing. Reworked the starting layout (now
+informally "the Minnow+2") so both the bow and stern guns are real, placed
+gun rooms from the room economy, and the placeholder type is gone for good.
+
+- **New starting layout** (`SubLayout.starting_layout()`, 7 placements):
+  - Main row (y=0, stern→bow): `engine` (0,0), `helm` (1,0), `turret_room`
+    (2,0) unmirrored — the bow gun, firing face at (3,0).
+  - `tower` (1,-1), directly above the helm.
+  - Lower deck (y=1): `bullet_room` (0,1) mirrored — the stern gun, firing
+    face at (-1,1) — `claw_room` (1,1), `storage` (2,1).
+  - This is a genuine layout change: the tower is now load-bearing on the
+    helm specifically, so picking up the helm (mid-relocation) now correctly
+    invalidates the layout (rule 3, tower unsupported) — `test_validate.gd`'s
+    `_test_missing_helm_or_tower` was updated to expect this.
+- `ModuleCatalog`: the old placeholder `"room"` entry is deleted from
+  `all()`. `Sub` no longer has a `_build_turret()` / legacy `_turret_seat`
+  / `_turret_tube` path for it — `turret_seat_local()`/`turret_tube_local()`
+  now just read the Minnow+'s placed Turret Room (`_turret_rooms[0]`).
+- **Validator/economy fix** (a real edge case this layout exposes): a placed
+  gun's firing-face cell must *never* be offered as a buyable slot position —
+  `SubLayout.buyable_slot_positions()` now excludes each placed
+  `has_firing_face` room's firing-face cell permanently. Relatedly,
+  `SubValidator` rules 5 (firing face clear) and 8 (firing-face room at row
+  edge) now check only actual placed rooms (`cell_owners`), not empty bought
+  slots — an empty slot sitting near a gun's firing arc doesn't block it;
+  placing a real room there is what would, and that's validated at placement
+  time.
+- Updated for the new layout/room-count (7, not 6): `test_layout.gd`,
+  `test_geometry.gd` (4 doors + 4 ladders, not 3+3), `test_lower_deck.gd`,
+  `test_save_layout.gd`, `test_shop.gd`, `test_slots.gd`, `test_turret.gd`
+  (`_test_placed_turret_room`/`_test_placed_bullet_room` now place a *second*
+  gun room to test against, since the starting layout has its own), and
+  `test_dock_shop_ui.gd` (helm is now at (1,0), not (2,0)).
+- Fixed a latent bug surfaced by the room-count change: `water_levels` arrays
+  in `test_drowning.gd`, `test_water.gd`, `test_implosion.gd`, `test_repair.gd`
+  were hardcoded to 6 elements; now 7, matching `Sub._active_rooms`.
+- **All 26 headless suites still green** (the pre-existing `--quit` hang on
+  physics-frame-heavy suites — `test_turret`, `test_lower_deck`,
+  `test_drowning`, `test_implosion`, `test_repair` — predates this change and
+  is unrelated; each was verified standalone).
+- **Commit:** `M4-13: rebuild the starting sub around its placed guns, retire
+  the placeholder Room module`.
+
 ### M4 module order (corrected per `ROOM_SYSTEM.md` reconciliation, 2026-06-12)
 `MILESTONE_4_v2.md`'s eleven modules are still the backbone, but three things
 from `ROOM_SYSTEM.md` change the order and add a module. This list is the
@@ -1012,3 +1057,19 @@ solo? Are pickup/deposit ranges and cage 2 / storage 8 right?
 (M2 / M3 A+B verify steps — crash/repair/drown/implode/fish fight/lower
 deck/ladders/banking/victory beat — still apply; see git history. The dry-dock
 "Tab at the dock" upgrade flow also still works but is now M4 content.)
+
+## Verify by playing — Module 13 (rebuilt starting sub, "the Minnow+2")
+1. Launch: `"GODOT_PATH" --path .`
+2. **Layout check:** the sub's main deck (left to right) is now Engine,
+   Helm, and the Turret Room (the bow gun) — no more plain unused "Room" in
+   the middle. The conning tower sits directly above the Helm.
+3. **Lower deck** (left to right): the Bullet Room (stern gun, fires toward
+   the back/left), the Claw Room, and Storage.
+4. **Bow gun:** climb into the Turret Room (rightmost, main deck) and confirm
+   the torpedo turret still works exactly as before (aim with W/S, fire with
+   the use key).
+5. **Stern gun:** climb into the Bullet Room (leftmost, lower deck) — it
+   should have its own gun seat firing fast bullets toward the stern (left).
+6. **Dry dock sanity:** at the dock, open the Shop/Assembly tabs as before —
+   buying slots/rooms and placing/returning them should behave the same as
+   before this change.

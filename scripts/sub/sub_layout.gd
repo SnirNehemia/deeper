@@ -122,22 +122,25 @@ static func placement_cells(p: Placement) -> Array:
 
 ## "The Minnow+" (MODULAR_SUB_IMPLEMENTATION.md §2.1, resized to the uniform
 ## 1x1 cell per ROOM_SYSTEM.md §1): the M3 sub re-expressed on the grid. Helm
-## at the bow (right) end of the main row, tower above the middle room, claw
-## room below the middle, storage below the engine — same adjacencies as
-## before, each room now a single (3.75m x 3m) cell.
+## at the bow (right) end of the main row, tower above the helm, the Bullet
+## Room mounted stern-mounted/mirrored on the lower deck, claw and storage
+## filling out the rest — each room a single (3.75m x 3m) cell (2026-06-16
+## "Room" rework: the old placeholder "room" module is gone, replaced by the
+## hand-built Turret Room as the Minnow+'s bow gun).
 ##
-##          [Tower 1x1]            y = -1
-## [Engine 1x1][Room 1x1][Helm 1x1]  y =  0   (bow -> right)
-## [Storage 1x1][Claw 1x1]           y = +1
+##              [Tower 1x1]                    y = -1
+## [Engine 1x1][Helm 1x1][Turret Room 1x1]      y =  0   (stern -> bow)
+## [Bullet Room 1x1][Claw 1x1][Storage 1x1]     y = +1
 static func starting_layout() -> SubLayout:
 	var layout := SubLayout.new()
 	layout.placements = [
 		Placement.new("engine", Vector2i(0, 0)),
-		Placement.new("room", Vector2i(1, 0)),
-		Placement.new("helm", Vector2i(2, 0)),
+		Placement.new("helm", Vector2i(1, 0)),
+		Placement.new("turret_room", Vector2i(2, 0)),
 		Placement.new("tower", Vector2i(1, -1)),
-		Placement.new("storage", Vector2i(0, 1)),
+		Placement.new("bullet_room", Vector2i(0, 1), true),
 		Placement.new("claw_room", Vector2i(1, 1)),
+		Placement.new("storage", Vector2i(2, 1)),
 	]
 	return layout
 
@@ -196,10 +199,18 @@ func buyable_slot_positions() -> Array:
 		min_pos = Vector2i(min(min_pos.x, cell.x), min(min_pos.y, cell.y))
 		max_pos = Vector2i(max(max_pos.x, cell.x), max(max_pos.y, cell.y))
 
+	# A placed gun's firing-face cell must stay clear (validate() rule 5) — no
+	# slot/room can ever go there, so don't offer it as a buyable position.
+	var reserved: Array = []
+	for p in placements:
+		var def := ModuleCatalog.by_id(p.module_id)
+		if def != null and def.has_firing_face:
+			reserved.append(p.grid_pos + SubValidator._firing_face_offset(p.mirrored))
+
 	var candidates: Array = []
 	for cell in occupied:
 		for n in neighbors(cell):
-			if n in occupied or n in candidates:
+			if n in occupied or n in candidates or n in reserved:
 				continue
 			if level_of(n) < 1:
 				continue

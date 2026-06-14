@@ -42,7 +42,7 @@ func _test_implosion_reset() -> void:
 	# Drive away from the dock and breach everything: drag the sub under.
 	sub.global_position += Vector2(40.0 * 48.0, 30.0 * 48.0)
 	sub.spawn_breach(0, GameFeel.water.leak_rate_max)
-	sub.water_levels = [0.9, 0.9, 0.9, 0.0, 0.9, 0.9]  # just over the 70% total threshold
+	sub.water_levels = [0.9, 0.9, 0.9, 0.0, 0.9, 0.9, 0.9]  # just over the 70% total threshold
 	var pre_reset_x := sub.global_position.x
 
 	await _frames(5)
@@ -68,7 +68,7 @@ func _test_implosion_reset() -> void:
 	_check(p1.air_seconds >= GameFeel.water.air_time - 0.1, "crew air is full again")
 
 	# The run can implode again on a later flood (guard flag re-arms).
-	sub.water_levels = [0.9, 0.9, 0.9, 0.0, 0.9, 0.9]
+	sub.water_levels = [0.9, 0.9, 0.9, 0.0, 0.9, 0.9, 0.9]
 	await _frames(5)
 	_check(world._resetting, "a second flood can implode the sub again")
 	await _frames(200)

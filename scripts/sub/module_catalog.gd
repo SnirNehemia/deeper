@@ -12,7 +12,6 @@ static func all() -> Array[ModuleDef]:
 	return [
 		_room("helm", "Helm", Vector2i(1, 1), 0, true),
 		_room("tower", "Conning Tower", Vector2i(1, 1), 0, true),
-		_room("room", "Room", Vector2i(1, 1), 0, false),
 		_room("engine", "Engine Room", Vector2i(1, 1), 0, false),
 		_room("claw_room", "Claw Room", Vector2i(1, 1), 0, false),
 		_room("storage", "Storage Room", Vector2i(1, 1), 0, false),

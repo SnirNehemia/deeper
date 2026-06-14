@@ -494,6 +494,26 @@ Snir's 7-part request, scoped via AskUserQuestion:
   scoping decision, no per-room upgrade tree was added (moot here — §6 doesn't
   specify one for this room either).
 
+## Settled (2026-06-16, round 4 — starting layout rework)
+- **The starting sub's placeholder "Room" module is retired.** Both gun
+  positions (bow and stern) are now real, placed gun rooms from the room
+  economy: a placed Turret Room (bow) and a placed Bullet Room (stern). The
+  starting layout is informally "the Minnow+2": Engine/Helm/Turret Room on the
+  main row (tower over the helm), Bullet Room/Claw Room/Storage below.
+- **The tower's support is now specifically the helm's cell** (tower sits
+  directly above it). Consequence: picking the helm up for relocation now
+  makes the layout invalid until it's placed somewhere with something under
+  the tower again — `SubValidator`'s "missing helm = still valid mid-edit"
+  carve-out from 2026-06-15 no longer applies when the helm is directly under
+  the tower (which it now always is in the starting layout).
+- **A placed gun's firing-face cell is permanently un-buyable as a slot** —
+  `SubLayout.buyable_slot_positions()` excludes it outright, rather than
+  relying on validation to refuse a slot purchase there.
+- Item 5 (Floodlight Room bundled with its pod, placeable on any exterior
+  face incl. top/bottom) and item 4 (the Assembly dropdown for placing/
+  removing/upgrading rooms and choosing a gun room's firing side) are
+  accepted asks, not yet built — see STATUS.md "Next."
+
 ## Parked
 - **What station/ability lives in the conning tower?** It's a fixed, always-
   present single cell at the top of the sub (core, like the helm) — Snir is

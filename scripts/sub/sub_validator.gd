@@ -117,24 +117,28 @@ static func validate(layout: SubLayout) -> Dictionary:
 
 	# Rule 5: clear special faces — a turret room's firing face must be an
 	# exterior face (not adjacent to another room) — a gun can never be
-	# bricked in.
+	# bricked in. Checked against placed rooms only (`cell_owners`, not
+	# `occupied`): an empty bought slot doesn't block a gun — placing an
+	# actual room into it is what would, and that placement is validated in
+	# its own right at that time.
 	for p in layout.placements:
 		var def := ModuleCatalog.by_id(p.module_id)
 		if def != null and def.has_firing_face:
 			var firing_cell := p.grid_pos + _firing_face_offset(p.mirrored)
-			if firing_cell in occupied:
+			if cell_owners.has(firing_cell):
 				violations.append("The %s's gun is blocked by another room." % p.module_id)
 
 	# Rule 8: firing-face rooms sit at the far edge of their level — a
 	# turret's gun faces open water, so the room itself must be the
-	# leftmost or rightmost occupied cell in its grid row (2026-06-14).
+	# leftmost or rightmost placed cell in its grid row (2026-06-14). Like
+	# rule 5, this only considers placed rooms, not empty bought slots.
 	for p in layout.placements:
 		var fdef := ModuleCatalog.by_id(p.module_id)
 		if fdef == null or not fdef.has_firing_face:
 			continue
 		var row_min_x := p.grid_pos.x
 		var row_max_x := p.grid_pos.x
-		for cell in occupied:
+		for cell in cell_owners:
 			if cell.y == p.grid_pos.y:
 				row_min_x = min(row_min_x, cell.x)
 				row_max_x = max(row_max_x, cell.x)

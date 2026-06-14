@@ -48,7 +48,7 @@ func _test_drown_and_respawn() -> void:
 	# Flood only the engine room: the victim drowns there, but the helm room
 	# (the respawn point) stays dry long enough to verify full-air respawn —
 	# water creeps toward it only slowly over two door sills.
-	sub.water_levels = [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+	sub.water_levels = [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 
 	var victim := Crew.new()
 	victim.player_index = 0
@@ -88,7 +88,7 @@ func _test_air_refill() -> void:
 
 	var sub := Sub.new()
 	add_child(sub)
-	sub.water_levels = [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+	sub.water_levels = [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 
 	var crew := Crew.new()
 	crew.player_index = 0
@@ -100,7 +100,7 @@ func _test_air_refill() -> void:
 	_check(drained < 9.0, "air drained while submerged")
 
 	# Drain the room instantly: the crew surfaces and refills fast.
-	sub.water_levels = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+	sub.water_levels = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 	await _seconds(2.5)  # refill takes ~2s for the full bar
 	_check(crew.air_seconds >= GameFeel.water.air_time - 0.1,
 		"air refills quickly once surfaced")

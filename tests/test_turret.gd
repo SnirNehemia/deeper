@@ -73,7 +73,7 @@ func _test_seat_and_aim() -> void:
 
 	var turret := _find_turret(sub)
 	_check(turret != null, "sub built a turret station")
-	_check(turret.room_index == 1, "gunner seat is in the middle flex room")
+	_check(turret.room_index == 2, "gunner seat is in the placed Turret Room (the bow gun)")
 
 	# Sit down (E) — same enter/exit flow as the helm.
 	_press(KEY_E)
@@ -183,9 +183,11 @@ func _test_fire_and_despawn() -> void:
 func _test_placed_turret_room() -> void:
 	print("[placed Turret Room (M4-10)]")
 	var layout := SubLayout.starting_layout()
-	# Bow-mounted, unmirrored: its firing face (4, 0) is exterior.
-	layout.placements.append(SubLayout.Placement.new("turret_room", Vector2i(3, 0), false))
-	_check(SubValidator.validate(layout)["ok"], "the layout with a placed turret room is valid")
+	# Stern-mounted, mirrored: its firing face (-2, 0) is exterior, and (-1, 0)
+	# is the new leftmost cell on its row (the starting bow gun already
+	# occupies the row's rightmost cell, (2, 0)).
+	layout.placements.append(SubLayout.Placement.new("turret_room", Vector2i(-1, 0), true))
+	_check(SubValidator.validate(layout)["ok"], "the layout with a second placed turret room is valid")
 
 	var sub := Sub.new()
 	sub.layout = layout
@@ -195,10 +197,12 @@ func _test_placed_turret_room() -> void:
 	for child in sub.get_children():
 		if child is TurretStation:
 			turrets.append(child)
-	_check(turrets.size() == 2, "the sub now has two turret stations (legacy bow gun + Turret Room)")
+	_check(turrets.size() == 3,
+		"the sub now has three turret stations (bow gun + Bullet Room + the new Turret Room)")
 
-	var room := sub._room_by_id("turret_room")
-	_check(room != null, "the layout's turret room is in the generated geometry")
+	var room_index := sub.geometry.index_at(Vector2i(-1, 0))
+	var room: SubGeometry.Room = sub.geometry.rooms[room_index] if room_index >= 0 else null
+	_check(room != null, "the newly placed turret room is in the generated geometry")
 	if room != null:
 		var placed: TurretStation = null
 		for t in turrets:
@@ -206,8 +210,8 @@ func _test_placed_turret_room() -> void:
 				placed = t
 		_check(placed != null, "one turret station seats in the placed turret room")
 		if placed != null:
-			_check(placed.facing > 0.0, "an unmirrored turret room fires toward the bow (+x)")
-			_check(placed.tube_local.x > room.rect.position.x + room.rect.size.x,
+			_check(placed.facing < 0.0, "a mirrored turret room fires toward the stern (-x)")
+			_check(placed.tube_local.x < room.rect.position.x,
 				"its tube sits outside the room's footprint, on the firing-face wall")
 
 	sub.queue_free()
@@ -215,10 +219,11 @@ func _test_placed_turret_room() -> void:
 func _test_placed_bullet_room() -> void:
 	print("[placed Bullet Room (M4-12)]")
 	var layout := SubLayout.starting_layout()
-	# Stern-mounted, mirrored: its firing face (-2, 0) is exterior, and (-1, 0)
-	# is the new leftmost cell on its row (validate() rule 8).
-	layout.placements.append(SubLayout.Placement.new("bullet_room", Vector2i(-1, 0), true))
-	_check(SubValidator.validate(layout)["ok"], "the layout with a placed bullet room is valid")
+	# Bow-mounted on the lower deck, unmirrored: its firing face (4, 1) is
+	# exterior, and (3, 1) is the new rightmost cell on its row (the starting
+	# Bullet Room already occupies the row's leftmost cell, (0, 1)).
+	layout.placements.append(SubLayout.Placement.new("bullet_room", Vector2i(3, 1), false))
+	_check(SubValidator.validate(layout)["ok"], "the layout with a second placed bullet room is valid")
 
 	var sub := Sub.new()
 	sub.layout = layout
@@ -228,10 +233,12 @@ func _test_placed_bullet_room() -> void:
 	for child in sub.get_children():
 		if child is TurretStation:
 			turrets.append(child)
-	_check(turrets.size() == 2, "the sub now has two turret stations (legacy bow gun + Bullet Room)")
+	_check(turrets.size() == 3,
+		"the sub now has three turret stations (bow gun + starting Bullet Room + the new Bullet Room)")
 
-	var room := sub._room_by_id("bullet_room")
-	_check(room != null, "the layout's bullet room is in the generated geometry")
+	var room_index := sub.geometry.index_at(Vector2i(3, 1))
+	var room: SubGeometry.Room = sub.geometry.rooms[room_index] if room_index >= 0 else null
+	_check(room != null, "the newly placed bullet room is in the generated geometry")
 	if room != null:
 		var placed: TurretStation = null
 		for t in turrets:
@@ -240,8 +247,8 @@ func _test_placed_bullet_room() -> void:
 		_check(placed != null, "one turret station seats in the placed bullet room")
 		if placed != null:
 			_check(placed.use_bullet, "the Bullet Room's station fires bullets")
-			_check(placed.facing < 0.0, "a mirrored bullet room fires toward the stern (-x)")
-			_check(placed.tube_local.x < room.rect.position.x,
+			_check(placed.facing > 0.0, "an unmirrored bullet room fires toward the bow (+x)")
+			_check(placed.tube_local.x > room.rect.position.x + room.rect.size.x,
 				"its tube sits outside the room's footprint, on the firing-face wall")
 			_check(absf(placed.fire_cooldown - GameFeel.bullet.fire_cooldown) < 0.001,
 				"its fire rate matches the Bullet Room's feel")

@@ -94,8 +94,6 @@ const _IMPACT_COOLDOWN_TIME := 0.6
 
 # Cached seat/anchor positions (sub-local), computed from the geometry at build.
 var _helm_seat: Vector2 = Vector2.ZERO
-var _turret_seat: Vector2 = Vector2.ZERO
-var _turret_tube: Vector2 = Vector2.ZERO
 var _claw_seat: Vector2 = Vector2.ZERO
 var _claw_anchor: Vector2 = Vector2.ZERO
 var _claw_drop_floor_y: float = 0.0
@@ -108,8 +106,9 @@ var _tower_seats: Array[Vector2] = []
 ## One entry per placed `turret_room` (M4-10, ROOM_SYSTEM.md §6 "Base gun
 ## room"): {"room": SubGeometry.Room, "seat": Vector2, "tube": Vector2,
 ## "facing": float}. Built in _compute_anchors, consumed by
-## _build_turret_room. Distinct from the legacy bow-gun anchors above (the
-## starting "room" module), which stay as the Minnow+'s built-in weapon.
+## _build_turret_room. The starting layout's bow gun is itself a placed
+## turret_room (2026-06-16 "Room" rework), so this is the sub's only gun list
+## of this shape.
 var _turret_rooms: Array = []
 
 ## Same shape as `_turret_rooms`, for placed `bullet_room`s (M4-12,
@@ -233,16 +232,6 @@ func _compute_anchors() -> void:
 	if helm != null:
 		var floor_y := helm.rect.position.y + helm.rect.size.y
 		_helm_seat = Vector2(_section_x(helm, 3), floor_y - crew_half)
-		# Bow torpedo tube: just off the helm room's outer (bow) wall, mid-height.
-		# (The base M2 gun; the proper wall-mounted gun room arrives at M4-9.)
-		_turret_tube = Vector2(helm.rect.position.x + helm.rect.size.x + 36.0,
-			helm.rect.get_center().y)
-
-	# Base gun room (the middle "room"): gunner station in s3.
-	var middle := _room_by_id("room")
-	if middle != null:
-		_turret_seat = Vector2(_section_x(middle, 3),
-			middle.rect.position.y + middle.rect.size.y - crew_half)
 
 	# Claw room: station in s3, claw base at b3 (bottom of s3), dropping hatch
 	# at s2 (ROOM_SYSTEM.md §6).
@@ -310,10 +299,16 @@ func _gun_room_anchors(module_id: String, crew_half: float) -> Array:
 
 func helm_seat_local() -> Vector2:
 	return _helm_seat
+## The bow gun's gunner seat (the starting layout's placed Turret Room, the
+## sub's first/only `_turret_rooms` entry in the Minnow+).
 func turret_seat_local() -> Vector2:
-	return _turret_seat
+	if _turret_rooms.is_empty():
+		return Vector2.ZERO
+	return _turret_rooms[0]["seat"]
 func turret_tube_local() -> Vector2:
-	return _turret_tube
+	if _turret_rooms.is_empty():
+		return Vector2.ZERO
+	return _turret_rooms[0]["tube"]
 func claw_seat_local() -> Vector2:
 	return _claw_seat
 func claw_anchor_local() -> Vector2:
@@ -673,8 +668,6 @@ func _add_box(center: Vector2, size: Vector2, layer: int) -> void:
 func _build_stations() -> void:
 	if _room_by_id("helm") != null:
 		_build_helm()
-	if _room_by_id("room") != null:
-		_build_turret()
 	for tr in _turret_rooms:
 		_build_turret_room(tr)
 	for br in _bullet_rooms:
@@ -689,18 +682,8 @@ func _build_helm() -> void:
 	helm.position = _helm_seat
 	add_child(helm)
 
-func _build_turret() -> void:
-	var turret := TurretStation.new()
-	turret.sub = self
-	turret.room_index = _room_by_id("room").water_index
-	turret.position = _turret_seat
-	turret.tube_local = _turret_tube
-	turret.facing = 1.0
-	add_child(turret)
-	_visual.turrets.append(turret)
-
-## A placed Turret Room's gunner station (M4-10) — same TurretStation as the
-## legacy bow gun, seated/aimed from this room's own anchors.
+## A placed Turret Room's gunner station (M4-10) — the Minnow+'s bow gun is
+## itself a placed Turret Room, seated/aimed from this room's own anchors.
 func _build_turret_room(tr: Dictionary) -> void:
 	var turret := TurretStation.new()
 	turret.sub = self
