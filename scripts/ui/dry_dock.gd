@@ -104,7 +104,11 @@ func _shop_key(code: int) -> void:
 				_shop_index = wrapi(_shop_index + 1, 0, _shop_entries.size())
 		KEY_ENTER, KEY_KP_ENTER, KEY_SPACE:
 			if not _shop_entries.is_empty():
-				_try_buy_room(_shop_entries[_shop_index]["def"])
+				var entry: Dictionary = _shop_entries[_shop_index]
+				if entry["type"] == "pod":
+					_try_buy_pod(entry["def"])
+				else:
+					_try_buy_room(entry["def"])
 		KEY_TAB:
 			_mode = Mode.ASSEMBLY
 		KEY_ESCAPE:
@@ -216,6 +220,8 @@ func _rebuild_shop_entries() -> void:
 	_shop_entries = []
 	for def in ModuleCatalog.purchasable_rooms():
 		_shop_entries.append({"type": "room", "def": def})
+	for def in ModuleCatalog.purchasable_pods():
+		_shop_entries.append({"type": "pod", "def": def})
 	if _shop_entries.is_empty():
 		_shop_index = 0
 	else:
@@ -271,6 +277,16 @@ func _try_buy_room(def: ModuleDef) -> void:
 		_note = "Not enough resources (need %s)." % _cost_string(cost)
 		return
 	if SaveData.buy_room(def.id):
+		_changed = true
+		_note = "%s bought into inventory!" % def.display_name
+		_rebuild_shop_entries()
+
+func _try_buy_pod(def: ModuleDef) -> void:
+	var cost := def.cost_bundle()
+	if not SaveData.can_afford_cost(cost):
+		_note = "Not enough resources (need %s)." % _cost_string(cost)
+		return
+	if SaveData.buy_pod(def.id):
 		_changed = true
 		_note = "%s bought into inventory!" % def.display_name
 		_rebuild_shop_entries()

@@ -24,11 +24,18 @@ func _ready() -> void:
 	_check(dock._mode == DryDock.Mode.SHOP, "Tab from the Upgrades list opens the Shop")
 	_check(not dock._shop_entries.is_empty(), "the shop lists at least one entry")
 
-	# The first entry should be the purchasable room (turret_room).
+	# The first entry should be the purchasable room (turret_room); pods (e.g.
+	# the floodlight pod, M4-9) are listed too, further down.
 	dock._shop_index = 0
 	var room_entry: Dictionary = dock._shop_entries[0]
 	_check(room_entry["type"] == "room", "the first shop entry is a purchasable room")
 	var def: ModuleDef = room_entry["def"]
+
+	var found_pod := false
+	for entry in dock._shop_entries:
+		if entry["type"] == "pod":
+			found_pod = true
+	_check(found_pod, "the shop also lists at least one purchasable pod")
 
 	# Buying with too little money is refused.
 	SaveData.banked_scrap = 0

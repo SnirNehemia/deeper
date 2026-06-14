@@ -63,3 +63,13 @@ static func purchasable_rooms() -> Array:
 		if not def.is_core and not def.is_pod and not def.cost_bundle().is_empty():
 			rooms.append(def)
 	return rooms
+
+## The pod modules a player can buy into inventory at the dock right now
+## (M4-9: exterior pods, e.g. the floodlight pod) — pods with a non-empty
+## price. Returns ModuleDefs.
+static func purchasable_pods() -> Array:
+	var pods: Array = []
+	for def in all():
+		if def.is_pod and not def.cost_bundle().is_empty():
+			pods.append(def)
+	return pods

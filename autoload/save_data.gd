@@ -232,6 +232,70 @@ func return_room_to_inventory(pos: Vector2i) -> bool:
 		return true
 	return false
 
+## Buy a pod module into inventory (M4-9 — the exterior-pod analogue of
+## `buy_room`). Fails (false) for a non-pod id or an unaffordable cost. On
+## success: spend the bundle, add one to inventory, persist.
+func buy_pod(id: String) -> bool:
+	var def := ModuleCatalog.by_id(id)
+	if def == null or not def.is_pod:
+		return false
+	var cost := def.cost_bundle()
+	if cost.is_empty() or not can_afford_cost(cost):
+		return false
+	for code in cost:
+		_add_resource(code, -int(cost[code]))
+	layout.inventory[id] = int(layout.inventory.get(id, 0)) + 1
+	save_data()
+	return true
+
+## Attach an inventory pod to an exterior face of an occupied cell (M4-9, the
+## second half of the pod economy — a bought pod from `buy_pod` lands here).
+## Fails (false), with no state change, if `id` isn't a pod in inventory, or
+## attaching it at `host_cell`/`face` would make the layout fail
+## `SubValidator.validate` (not exterior, already has a pod, etc). On success:
+## add the pod placement, take one off inventory, persist.
+func place_pod(id: String, host_cell: Vector2i, face: String) -> bool:
+	return _place_pod_candidate(id, host_cell, face)["violations"].is_empty() \
+		and _commit_place_pod(id, host_cell, face)
+
+## The validation violations that attaching `id` at `host_cell`/`face` would
+## cause, without committing anything — empty means the placement is legal.
+func place_pod_violations(id: String, host_cell: Vector2i, face: String) -> Array:
+	return _place_pod_candidate(id, host_cell, face)["violations"]
+
+func _place_pod_candidate(id: String, host_cell: Vector2i, face: String) -> Dictionary:
+	if int(layout.inventory.get(id, 0)) <= 0:
+		return {"violations": ["The %s isn't in inventory." % id]}
+	var def := ModuleCatalog.by_id(id)
+	if def == null or not def.is_pod:
+		return {"violations": ["The %s can't be attached as a pod." % id]}
+	var candidate := SubLayout.from_dict(layout.to_dict())
+	candidate.pods.append(SubLayout.PodPlacement.new(id, host_cell, face))
+	return SubValidator.validate(candidate)
+
+func _commit_place_pod(id: String, host_cell: Vector2i, face: String) -> bool:
+	layout.pods.append(SubLayout.PodPlacement.new(id, host_cell, face))
+	layout.inventory[id] = int(layout.inventory.get(id, 0)) - 1
+	if layout.inventory[id] <= 0:
+		layout.inventory.erase(id)
+	save_data()
+	return true
+
+## Detach the pod at `host_cell`/`face` and return it to inventory (the
+## reverse of `place_pod`). Fails (false), with no state change, if there's no
+## pod there. On success: drop the pod placement, add one to inventory,
+## persist.
+func return_pod_to_inventory(host_cell: Vector2i, face: String) -> bool:
+	for i in layout.pods.size():
+		var pod: SubLayout.PodPlacement = layout.pods[i]
+		if pod.host_cell != host_cell or pod.face != face:
+			continue
+		layout.pods.remove_at(i)
+		layout.inventory[pod.pod_id] = int(layout.inventory.get(pod.pod_id, 0)) + 1
+		save_data()
+		return true
+	return false
+
 ## Wipe the in-memory and on-disk save (used by tests).
 func reset_for_test() -> void:
 	banked_scrap = 0
