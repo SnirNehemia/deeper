@@ -17,6 +17,7 @@ static func all() -> Array[ModuleDef]:
 		_room("claw_room", "Claw Room", Vector2i(1, 1), 0, false),
 		_room("storage", "Storage Room", Vector2i(1, 1), 0, false),
 		_turret_room(),
+		_bullet_room(),
 		_floodlight_room(),
 		_floodlight_pod(),
 	]
@@ -48,6 +49,21 @@ static func _turret_room() -> ModuleDef:
 	def.footprint = Vector2i(1, 1)
 	def.has_firing_face = true
 	def.cost = {"sc": 4}  # base gun room (ROOM_SYSTEM.md §6)
+	return def
+
+## The Bullet Room (M4-12, ROOM_SYSTEM.md §6 "Bullet weapon room") — the
+## second hand-built room, built via the add-deeper-room skill: a fast,
+## low-damage gun on its firing-face wall, with its own gunner seat
+## (Sub._build_bullet_room). Reuses TurretStation (seat/aim/cone) with
+## Bullet projectiles instead of Torpedo.
+static func _bullet_room() -> ModuleDef:
+	var def := ModuleDef.new()
+	def.id = "bullet_room"
+	def.display_name = "Bullet Room"
+	def.description = "Fires fast bullets at a high rate."
+	def.footprint = Vector2i(1, 1)
+	def.has_firing_face = true
+	def.cost = {"s_ca": 6}  # bullet weapon room (ROOM_SYSTEM.md §6)
 	return def
 
 ## A room built to host the floodlight pod (M4-9) — the pod attaches to one of

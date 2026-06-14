@@ -483,6 +483,16 @@ Snir's 7-part request, scoped via AskUserQuestion:
   Boost / Repair Training). The next room built via this skill should skip
   its upgrade tree and note it, rather than a bespoke upgrade menu. Building
   the generic upgrade-tree system is a separate future module.
+- **M4-12 scope** (2026-06-16): the Bullet Room (`ROOM_SYSTEM.md` §6 "Bullet
+  weapon room") is the second room built via the `add-deeper-room` skill —
+  chosen over the floodlight pod (already done in M4-9) as the closer relative
+  to M4-10's Turret Room, to validate the skill on a near-identical-but-tuned
+  gun room. `TurretStation` was generalized (`fire_cooldown`,
+  `projectile_speed`, `use_bullet`) and `Torpedo` gained configurable
+  `lifetime`/`radius` so the new `Bullet` projectile (`extends Torpedo`) reuses
+  flight/hit/despawn/fish-kill logic with its own feel and look. Per the M4-11
+  scoping decision, no per-room upgrade tree was added (moot here — §6 doesn't
+  specify one for this room either).
 
 ## Parked
 - **What station/ability lives in the conning tower?** It's a fixed, always-

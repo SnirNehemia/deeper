@@ -155,6 +155,17 @@ class TurretFeel:
 
 var turret: TurretFeel = TurretFeel.new()
 
+## Bullet Room feel (M4-12, ROOM_SYSTEM.md §6 "Bullet weapon room" — speed
+## 6 m/s, damage 1 hp, rate 3/s). Fast and frequent vs. the base turret's slow,
+## weighty torpedoes — same seat/aim/cone via TurretStation, different
+## projectile (Bullet).
+class BulletFeel:
+	var bullet_speed: float = 6.0    ## m/s
+	var fire_cooldown: float = 1.0 / 3.0  ## s between shots (rate 3/s)
+	var bullet_lifetime: float = 4.0  ## s before an unspent shot fizzles out
+
+var bullet: BulletFeel = BulletFeel.new()
+
 ## Territorial fish feel (Milestone 2). Small fauna: avoidable by careful
 ## piloting — they only chase inside their territory and always swim home.
 class FishFeel:

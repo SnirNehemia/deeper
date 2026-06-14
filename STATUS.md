@@ -8,8 +8,10 @@ actions, including attaching/detaching pods via face-selection. M4-10: a
 placed Turret Room now has its own working gun station (seat + torpedo tube
 on its firing-face wall), and the Shop tab shows each room's one-line
 description. M4-11: the `add-deeper-room` skill is written (per-room upgrade
-trees flagged as a follow-up, not yet built). Next: Checkpoint 2 — Snir plays
-the dock economy end to end, including the new Turret Room.)_
+trees flagged as a follow-up, not yet built). M4-12: a second hand-built
+purchasable room, the Bullet Room — fast, low-damage bullets on its
+firing-face wall, built via the new skill. Next: Checkpoint 2 — Snir plays
+the dock economy end to end, including the new Turret Room and Bullet Room.)_
 
 ## Where we are
 **Milestone 3 is closed (Modules A-E).** Milestone 4 ("The Dry Dock & The
@@ -506,6 +508,38 @@ add-room skill will be validated against.
 - **Commit:** `M4-10: placed Turret Rooms get a working gun station + Shop
   descriptions`.
 
+### Milestone 4 — Module 12: the Bullet Room (DONE, 2026-06-16)
+The second hand-built purchasable room (`ROOM_SYSTEM.md` §6 "Bullet weapon
+room"), built using the `add-deeper-room` skill written in M4-11 — validates
+the skill against a second, slightly different gun room.
+- A placed `bullet_room` (purchasable, `has_firing_face`, 6 s_ca — small-craft
+  scrap) generates its own `TurretStation`, same seat/aim/cone mechanic as the
+  Turret Room, but firing fast `Bullet` projectiles at a high rate instead of
+  torpedoes (6 m/s, 1/3 s cooldown ≈ 3 shots/s).
+- `TurretStation` gained `fire_cooldown`, `projectile_speed`, and `use_bullet`
+  fields (defaulting to the original torpedo-turret's values, so the legacy
+  bow gun and Turret Room are unchanged); `_fire()` spawns a `Bullet` instead
+  of a `Torpedo` when `use_bullet` is set.
+- New `Bullet` class (`scripts/weapons/bullet.gd`) extends `Torpedo` — same
+  flight/hit/despawn/fish-kill behavior, just smaller (3px radius vs 8px),
+  faster, and shorter-lived (4s lifetime), with its own streak-shaped look.
+  `Torpedo` gained configurable `lifetime`/`radius` fields to support this.
+- New `GameFeel.bullet` (`BulletFeel`): `bullet_speed` (6 m/s), `fire_cooldown`
+  (1/3 s), `bullet_lifetime` (4s) — central tuning, per `CLAUDE.md`.
+- `Sub`'s placed-gun-room anchor computation (previously inline for the Turret
+  Room) was generalized into a shared `_gun_room_anchors(module_id, crew_half)`
+  helper, reused by both `_turret_rooms` and the new `_bullet_rooms`.
+- Test: `test_turret.gd` gained `_test_placed_bullet_room()` — places a Bullet
+  Room stern-mounted/mirrored, confirms the layout validates, confirms the sub
+  now has two gun stations, and confirms the new one is `use_bullet=true`,
+  fires toward the stern, has its tube on the firing-face wall, and matches
+  `GameFeel.bullet`'s fire rate/speed. (Verified standalone, same as M4-10 —
+  `test_turret.tscn` itself has the pre-existing `--quit` hang noted below.)
+- **No per-room upgrade tree** (per the M4-11 scoping decision — moot here
+  anyway, as ROOM_SYSTEM.md §6 doesn't specify one for the Bullet Room).
+- **Commit:** `M4-12: Bullet Room — second hand-built gun room via the
+  add-deeper-room skill`.
+
 ### M4 module order (corrected per `ROOM_SYSTEM.md` reconciliation, 2026-06-12)
 `MILESTONE_4_v2.md`'s eleven modules are still the backbone, but three things
 from `ROOM_SYSTEM.md` change the order and add a module. This list is the
@@ -554,8 +588,8 @@ current source of truth for M4 sequencing — supersedes the v2 numbering below:
     not built — no generic upgrade-tree mechanism exists in code yet, so the
     skill explicitly tells the next room to skip its upgrade tree and note it
     rather than inventing a one-off menu.
-12. **M4-12** — second content room, built using the skill (e.g. the
-    floodlight pod or another `ROOM_SYSTEM.md` §6 room).
+12. **M4-12** ✅ done — second content room, the Bullet Room, built using the
+    `add-deeper-room` skill (`ROOM_SYSTEM.md` §6 "Bullet weapon room").
 13. **M4-13** — close-out: full suite, STATUS/DECISIONS updates, push.
 
 ### Milestone 3 — Module E: wrecks + salvage placement + fish guards (closes M3)
@@ -824,16 +858,21 @@ torpedoes feel chunky or just sluggish? Is the fish fight fun or a chore? Plus
 all M1 questions (crew weight, sub heft, camera framing).
 
 ## Suggested next step — ⛳ Checkpoint 2
-M4-9 (pods plumbing) and M4-10 (the Turret Room's working gun station +
-Shop descriptions) are done. Next: **⛳ Checkpoint 2** — Snir plays the dock
-end to end: buy a slot, buy a Turret Room, place it on a hull edge, rearrange,
-pick it back up, buy/attach/detach a floodlight pod, then sit in the new
-Turret Room's seat and fire its gun. Minor open items: **M4-5 polish**
-(breach surfaces → exterior faces only; an asymmetric-layout
-water-conservation test); the floodlight pod's actual visual (a "bump" on the
-hull) and its aim-seat station are still separate follow-ups; M4-8b parked
-ideas (walkable empty slots); the Shop-tab inventory sidebar and per-room
-icon/kind tags (deferred from M4-10, see DECISIONS.md).
+M4-9 (pods plumbing), M4-10 (the Turret Room's working gun station + Shop
+descriptions), M4-11 (the `add-deeper-room` skill), and M4-12 (the Bullet
+Room, the skill's first real use) are done. Next: **⛳ Checkpoint 2** — Snir
+plays the dock end to end: buy a slot, buy a Turret Room and a Bullet Room,
+place them on hull edges, rearrange, pick them back up, buy/attach/detach a
+floodlight pod, then sit in the Turret Room's seat and fire its torpedo gun,
+and sit in the Bullet Room's seat and fire its fast bullets. After the
+checkpoint, **M4-13** (close-out: full suite, STATUS/DECISIONS, push) wraps
+up Milestone 4. Minor open items: **M4-5 polish** (breach surfaces → exterior
+faces only; an asymmetric-layout water-conservation test); the floodlight
+pod's actual visual (a "bump" on the hull) and its aim-seat station are still
+separate follow-ups; M4-8b parked ideas (walkable empty slots); the Shop-tab
+inventory sidebar and per-room icon/kind tags (deferred from M4-10, see
+DECISIONS.md); per-room upgrade trees (deferred from M4-11, see
+DECISIONS.md).
 
 ## Verify by playing — M4-8b (slot levels/pricing, tower spawn, Assembly nav)
 Launch: `"D:\Godot_v4.4.1-stable_win64.exe\Godot_v4.4.1-stable_win64.exe" --path .`

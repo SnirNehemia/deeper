@@ -11,6 +11,12 @@ extends Area2D
 ## Flight velocity in px/s, set by the turret at launch.
 var velocity: Vector2 = Vector2.ZERO
 
+## Seconds before an unspent shot fizzles out. Overridden by Bullet (M4-12).
+var lifetime: float = GameFeel.turret.torpedo_lifetime
+
+## Collision circle radius, px. Overridden by Bullet (M4-12) for a smaller hitbox.
+var radius: float = 8.0
+
 var _life: float = 0.0
 
 func _ready() -> void:
@@ -20,7 +26,7 @@ func _ready() -> void:
 	monitorable = true
 	var shape := CollisionShape2D.new()
 	var circle := CircleShape2D.new()
-	circle.radius = 8.0
+	circle.radius = radius
 	shape.shape = circle
 	add_child(shape)
 	body_entered.connect(_on_body_entered)
@@ -29,7 +35,7 @@ func _ready() -> void:
 func _physics_process(delta: float) -> void:
 	position += velocity * delta
 	_life += delta
-	if _life > GameFeel.turret.torpedo_lifetime:
+	if _life > lifetime:
 		queue_free()
 	queue_redraw()
 

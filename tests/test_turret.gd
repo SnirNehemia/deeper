@@ -16,6 +16,7 @@ func _ready() -> void:
 	await _test_seat_and_aim()
 	await _test_fire_and_despawn()
 	await _test_placed_turret_room()
+	await _test_placed_bullet_room()
 
 	if _failures == 0:
 		print("TURRET TESTS PASSED")
@@ -208,5 +209,43 @@ func _test_placed_turret_room() -> void:
 			_check(placed.facing > 0.0, "an unmirrored turret room fires toward the bow (+x)")
 			_check(placed.tube_local.x > room.rect.position.x + room.rect.size.x,
 				"its tube sits outside the room's footprint, on the firing-face wall")
+
+	sub.queue_free()
+
+func _test_placed_bullet_room() -> void:
+	print("[placed Bullet Room (M4-12)]")
+	var layout := SubLayout.starting_layout()
+	# Stern-mounted, mirrored: its firing face (-2, 0) is exterior, and (-1, 0)
+	# is the new leftmost cell on its row (validate() rule 8).
+	layout.placements.append(SubLayout.Placement.new("bullet_room", Vector2i(-1, 0), true))
+	_check(SubValidator.validate(layout)["ok"], "the layout with a placed bullet room is valid")
+
+	var sub := Sub.new()
+	sub.layout = layout
+	add_child(sub)
+
+	var turrets: Array[TurretStation] = []
+	for child in sub.get_children():
+		if child is TurretStation:
+			turrets.append(child)
+	_check(turrets.size() == 2, "the sub now has two turret stations (legacy bow gun + Bullet Room)")
+
+	var room := sub._room_by_id("bullet_room")
+	_check(room != null, "the layout's bullet room is in the generated geometry")
+	if room != null:
+		var placed: TurretStation = null
+		for t in turrets:
+			if t.room_index == room.water_index:
+				placed = t
+		_check(placed != null, "one turret station seats in the placed bullet room")
+		if placed != null:
+			_check(placed.use_bullet, "the Bullet Room's station fires bullets")
+			_check(placed.facing < 0.0, "a mirrored bullet room fires toward the stern (-x)")
+			_check(placed.tube_local.x < room.rect.position.x,
+				"its tube sits outside the room's footprint, on the firing-face wall")
+			_check(absf(placed.fire_cooldown - GameFeel.bullet.fire_cooldown) < 0.001,
+				"its fire rate matches the Bullet Room's feel")
+			_check(absf(placed.projectile_speed - GameFeel.bullet.bullet_speed) < 0.001,
+				"its projectile speed matches the Bullet Room's feel")
 
 	sub.queue_free()

@@ -112,6 +112,11 @@ var _tower_seats: Array[Vector2] = []
 ## starting "room" module), which stay as the Minnow+'s built-in weapon.
 var _turret_rooms: Array = []
 
+## Same shape as `_turret_rooms`, for placed `bullet_room`s (M4-12,
+## ROOM_SYSTEM.md §6 "Bullet weapon room") — computed by the same
+## `_gun_room_anchors` helper, consumed by `_build_bullet_room`.
+var _bullet_rooms: Array = []
+
 func _ready() -> void:
 	collision_layer = Layers.SUB_HULL
 	collision_mask = Layers.TERRAIN
@@ -275,12 +280,20 @@ func _compute_anchors() -> void:
 	elif helm != null:
 		_respawn_local = _helm_seat
 
-	# Placed turret rooms (M4-10): gunner seat in s3, tube on the firing-face
-	# wall (mirrored picks which side it points to — validate() rule 5 already
-	# guarantees that side is exterior).
-	_turret_rooms = []
+	# Placed gun rooms (turret_room M4-10, bullet_room M4-12): gunner seat in
+	# s3, tube on the firing-face wall (mirrored picks which side it points
+	# to — validate() rule 5 already guarantees that side is exterior).
+	_turret_rooms = _gun_room_anchors("turret_room", crew_half)
+	_bullet_rooms = _gun_room_anchors("bullet_room", crew_half)
+
+## One {"room", "seat", "tube", "facing"} entry per placed room of `module_id`
+## with a firing-face gun: gunner seat in s3, tube just outside the firing-face
+## wall (mirrored -> stern/-x, unmirrored -> bow/+x), same convention as
+## SubValidator._firing_face_offset.
+func _gun_room_anchors(module_id: String, crew_half: float) -> Array:
+	var anchors: Array = []
 	for room in geometry.rooms:
-		if room.module_id != "turret_room":
+		if room.module_id != module_id:
 			continue
 		var floor_y := room.rect.position.y + room.rect.size.y
 		var seat := Vector2(_section_x(room, 3), floor_y - crew_half)
@@ -292,7 +305,8 @@ func _compute_anchors() -> void:
 		else:
 			tube = Vector2(room.rect.position.x + room.rect.size.x + 36.0, room.rect.get_center().y)
 			facing = 1.0
-		_turret_rooms.append({"room": room, "seat": seat, "tube": tube, "facing": facing})
+		anchors.append({"room": room, "seat": seat, "tube": tube, "facing": facing})
+	return anchors
 
 func helm_seat_local() -> Vector2:
 	return _helm_seat
@@ -663,6 +677,8 @@ func _build_stations() -> void:
 		_build_turret()
 	for tr in _turret_rooms:
 		_build_turret_room(tr)
+	for br in _bullet_rooms:
+		_build_bullet_room(br)
 	if _room_by_id("claw_room") != null:
 		_build_claw()
 
@@ -692,6 +708,22 @@ func _build_turret_room(tr: Dictionary) -> void:
 	turret.position = tr["seat"]
 	turret.tube_local = tr["tube"]
 	turret.facing = tr["facing"]
+	add_child(turret)
+	_visual.turrets.append(turret)
+
+## A placed Bullet Room's gunner station (M4-12, ROOM_SYSTEM.md §6 "Bullet
+## weapon room") — same TurretStation as the Turret Room, but firing fast,
+## low-damage bullets at a high rate instead of torpedoes.
+func _build_bullet_room(br: Dictionary) -> void:
+	var turret := TurretStation.new()
+	turret.sub = self
+	turret.room_index = br["room"].water_index
+	turret.position = br["seat"]
+	turret.tube_local = br["tube"]
+	turret.facing = br["facing"]
+	turret.fire_cooldown = GameFeel.bullet.fire_cooldown
+	turret.projectile_speed = GameFeel.bullet.bullet_speed
+	turret.use_bullet = true
 	add_child(turret)
 	_visual.turrets.append(turret)
 

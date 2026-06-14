@@ -7,6 +7,10 @@ extends Station
 ## it's clamped to a forward cone — so the helm must still point the sub at
 ## threats. `use` fires slow torpedoes with infinite ammo. The barrel itself is
 ## drawn by SubVisual so it tilts with the hull (playtest #6/#8).
+##
+## Also used for the Bullet Room (M4-12, ROOM_SYSTEM.md §6): same seat/aim/
+## barrel, but `use_bullet = true` and `fire_cooldown`/`projectile_speed`
+## reconfigured for fast, low-damage bullets instead of torpedoes.
 
 ## This gun's tube position (sub-local) and which way it faces: +1 = aims off
 ## the bow (right), -1 = aims off the stern (left). Always set by Sub at build
@@ -16,6 +20,15 @@ var facing: float = 1.0
 
 ## Current aim angle in radians (0 = straight along the gun's facing, + = down).
 var aim_angle: float = 0.0
+
+## Time between shots (s) and projectile speed (m/s). Default to the base
+## torpedo turret's feel; the Bullet Room (M4-12) overrides both at build time.
+var fire_cooldown: float = GameFeel.turret.fire_cooldown
+var projectile_speed: float = GameFeel.turret.torpedo_speed
+
+## True for the Bullet Room (M4-12, ROOM_SYSTEM.md §6 "Bullet weapon room"):
+## fires `Bullet` (fast, low-damage) instead of `Torpedo`.
+var use_bullet: bool = false
 
 var _cooldown: float = 0.0
 
@@ -42,13 +55,13 @@ func handle_input(input: PlayerInput) -> void:
 		_fire()
 
 func _fire() -> void:
-	_cooldown = GameFeel.turret.fire_cooldown
+	_cooldown = fire_cooldown
 	# The visible barrel tilts with the hull's cosmetic pitch, so launch the
-	# torpedo along that same tilted line (keeps shot + barrel aligned).
+	# projectile along that same tilted line (keeps shot + barrel aligned).
 	var dir := barrel_dir().rotated(sub.pitch)
-	var torpedo := Torpedo.new()
-	torpedo.velocity = dir * GameFeel.turret.torpedo_speed * GameFeel.PIXELS_PER_METER
+	var projectile: Torpedo = Bullet.new() if use_bullet else Torpedo.new()
+	projectile.velocity = dir * projectile_speed * GameFeel.PIXELS_PER_METER
 	# Launch into the world (not the sub) so it flies free of the hull.
 	var world := sub.get_parent()
-	world.add_child(torpedo)
-	torpedo.global_position = sub.to_global(tube_local.rotated(sub.pitch)) + dir * 30.0
+	world.add_child(projectile)
+	projectile.global_position = sub.to_global(tube_local.rotated(sub.pitch)) + dir * 30.0
