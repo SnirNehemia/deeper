@@ -110,14 +110,17 @@ func buy_slot(pos: Vector2i) -> bool:
 		return false
 	banked_scrap -= cost
 	layout.slots.append(pos)
+	layout.total_slots_bought += 1
 	save_data()
 	return true
 
 ## The scrap price of a slot at `pos`, given its level (rows below the
-## conning tower) and how many slots are already owned (2026-06-14 levels
-## rework, ROOM_SYSTEM.md §4.1).
+## conning tower) and how many slots have ever been bought (2026-06-14 levels
+## rework, ROOM_SYSTEM.md §4.1). Uses the cumulative purchase count, not
+## `layout.slots.size()`, so the price doesn't fluctuate as rooms are placed
+## into or returned from owned slots (2026-06-15 fix).
 func next_slot_price(pos: Vector2i) -> int:
-	return GameFeel.dock.slot_price(layout.level_of(pos), layout.slots.size())
+	return GameFeel.dock.slot_price(layout.level_of(pos), layout.total_slots_bought)
 
 ## Current balance of a resource code (ROOM_SYSTEM.md §4.2).
 func resource_balance(code: String) -> int:

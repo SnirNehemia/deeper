@@ -38,9 +38,9 @@ var _assembly_actions: Dictionary = {}
 ## tower so the marker can pass over/rest on them, even though Enter there
 ## does nothing.
 var _assembly_cells: Dictionary = {}
-## When a slot's "place_room" action offers more than one inventory room,
-## Q/E cycle through them and this is the index of the one Enter will place
-## (2026-06-15 inventory picker).
+## When a slot's "place_room" action offers more than one inventory room, the
+## "use" key (P1=Q, P2=Enter) cycles through them and this is the index of the
+## one the interact key will place (2026-06-15 inventory picker).
 var _place_picker_index: int = 0
 var _view: _View
 
@@ -127,11 +127,12 @@ func _assembly_key(code: int) -> void:
 				var def := ModuleCatalog.by_id(id)
 				if def != null and def.has_firing_face:
 					_place_mirrored = not _place_mirrored
-		KEY_Q:
-			_cycle_place_choice(-1)
-		KEY_E:
+		# "use" (P1=Q, P2=Enter): cycle which inventory room would be placed.
+		KEY_Q, KEY_ENTER:
 			_cycle_place_choice(1)
-		KEY_ENTER, KEY_KP_ENTER, KEY_SPACE:
+		# "interact" (P1=E, P2=Right-Shift): place/take the room at the cursor.
+		# KP_Enter and Space are kept as convenience aliases.
+		KEY_E, KEY_SHIFT, KEY_KP_ENTER, KEY_SPACE:
 			_try_assembly_action()
 		KEY_TAB:
 			_mode = Mode.LIST
@@ -150,9 +151,10 @@ func _move_assembly_cursor(dir: Vector2i) -> void:
 		_place_mirrored = false
 		_place_picker_index = 0
 
-## Cycles which inventory room Enter/M will use for the cursor's "place_room"
-## slot (2026-06-15 picker) — Q/E step through `action["place_room"]`. No-op
-## if the cursor isn't on a place_room cell or it only offers one room.
+## Cycles which inventory room the interact key/M will use for the cursor's
+## "place_room" slot (2026-06-15 picker) — the "use" key (P1=Q, P2=Enter)
+## steps through `action["place_room"]`. No-op if the cursor isn't on a
+## place_room cell or it only offers one room.
 func _cycle_place_choice(dir: int) -> void:
 	var action: Dictionary = _assembly_actions.get(_assembly_cursor, {})
 	var ids: Array = action.get("place_room", [])
@@ -375,7 +377,7 @@ class _View extends Control:
 			DryDock.Mode.SHOP:
 				hint = "W/S select   Enter buy   Tab: assembly   Esc leave"
 			DryDock.Mode.ASSEMBLY:
-				hint = "Arrows move   Enter buy/place/return   Q/E pick room   M mirror   Tab: upgrades   Esc leave"
+				hint = "Arrows move   Interact buy/place/return   Use pick room   M mirror   Tab: upgrades   Esc leave"
 			_:
 				hint = "A/D pick the end   Enter confirm   Esc back"
 		f.draw_string(get_canvas_item(), Vector2(80, size.y - 60), hint,
@@ -504,7 +506,7 @@ class _View extends Control:
 				draw_rect(r, ghost_col, false, 3.0)
 				var label := "Place: %s" % (def.display_name if def != null else id)
 				if ids.size() > 1:
-					label += "  (%d/%d, Q/E to change)" % [dock._place_picker_index + 1, ids.size()]
+					label += "  (%d/%d, Use to change)" % [dock._place_picker_index + 1, ids.size()]
 				if def != null and def.has_firing_face:
 					label += "  (mirrored)" if dock._place_mirrored else "  (M to mirror)"
 				f.draw_string(get_canvas_item(), r.position + Vector2(6, 22), label,

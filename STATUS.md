@@ -1,9 +1,8 @@
 # STATUS — DEEPER
 
-_Read this at session start. Last updated: 2026-06-15 (M4-8c: the Assembly
-marker can reach every cell including the tower, and the helm can now be
-picked up/relocated like any other room — but the dock won't close without
-it placed. Next is M4-9 (pods) → Checkpoint 2.)_
+_Read this at session start. Last updated: 2026-06-15 (M4-8e: Assembly keys
+remapped to the interact/use convention, and slot prices no longer drift when
+rooms are placed/returned. Next is M4-9 (pods) → Checkpoint 2.)_
 
 ## Where we are
 **Milestone 3 is closed (Modules A-E).** Milestone 4 ("The Dry Dock & The
@@ -397,6 +396,33 @@ the cursor moves or the assembly list rebuilds.
 Test: `test_dock_shop_ui` covers cycling forward with E and back with Q.
 26/26 suites green. **Commit:** `Assembly: Q/E picks which inventory room to
 place when a slot offers several`.
+
+### Milestone 4 — Module 8e: interact/use key remap + slot price fix (DONE)
+Two follow-ups (2026-06-15):
+- **Key remap in the Assembly tab.** Every other station uses "interact" to
+  do the main action and "use" for a secondary toggle (P1: E=interact,
+  Q=use; P2: Right-Shift=interact, Enter=use). The dry dock's Assembly tab
+  now matches: **interact (E / Right-Shift, plus Space/Numpad-Enter as
+  convenience aliases) buys a slot, places a room, or returns a room to
+  inventory** — whatever the cursor's action is. **Use (Q / Enter) cycles
+  which inventory room would be placed**, when a slot offers more than one
+  (the M4-8d picker). M (mirror) is unchanged. The on-screen hint and the
+  "Place: ..." ghost label now say "Interact"/"Use" instead of naming raw
+  keys.
+- **Slot price bug fixed.** Slot prices were computed from
+  `layout.slots.size()` — the count of *currently empty* owned slots. Moving
+  a room out of a slot (into inventory) grew that count, and placing a room
+  into a slot shrank it, so the price quoted for buying a *different* slot
+  would drift up and down as the player reorganized rooms, even though
+  nothing was bought or sold. Fixed by adding a new persistent counter,
+  `SubLayout.total_slots_bought`, that only increases (in `SaveData.buy_slot`)
+  and is saved/loaded with the rest of the layout. Slot prices now key off
+  this cumulative count, so they only escalate with actual purchases.
+Tests: `test_dock_shop_ui` updated for the new key bindings (interact = E,
+use = Q/Enter for the picker); `test_shop` adds
+`_test_slot_price_stable_across_place_and_return`. 26/26 suites green.
+**Commit:** `Dry dock: remap Assembly to interact/use keys, fix slot price
+drift on place/return`.
 
 ### M4 module order (corrected per `ROOM_SYSTEM.md` reconciliation, 2026-06-12)
 `MILESTONE_4_v2.md`'s eleven modules are still the backbone, but three things

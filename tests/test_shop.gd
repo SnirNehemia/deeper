@@ -28,6 +28,7 @@ func _ready() -> void:
 	_test_return_room_refused_for_tower()
 	_test_return_helm_to_inventory()
 	_test_place_helm_back()
+	_test_slot_price_stable_across_place_and_return()
 	SaveData.reset_for_test()
 
 	if _failures == 0:
@@ -247,6 +248,29 @@ func _test_place_helm_back() -> void:
 	_check(found, "the helm is placed again")
 	_check(SaveData.layout.inventory.get("helm", 0) == 0,
 		"the helm is removed from inventory once placed")
+
+## 2026-06-15 fix: the price of the *next* slot must depend only on how many
+## slots have ever been bought, not on how many are currently sitting empty —
+## placing a room into a slot or returning one to inventory must not move the
+## price of other slots.
+func _test_slot_price_stable_across_place_and_return() -> void:
+	print("[slot price stable across place/return]")
+	SaveData.reset_for_test()
+	SaveData.banked_scrap = 1000
+	var pos := Vector2i(3, 0)
+	SaveData.buy_slot(pos)
+	SaveData.buy_room("turret_room")
+
+	var other: Vector2i = SaveData.layout.buyable_slot_positions()[0]
+	var price_before := SaveData.next_slot_price(other)
+
+	SaveData.place_room("turret_room", pos, false)
+	_check(SaveData.next_slot_price(other) == price_before,
+		"placing a room into a slot doesn't change the price of other slots")
+
+	SaveData.return_room_to_inventory(pos)
+	_check(SaveData.next_slot_price(other) == price_before,
+		"returning a room to inventory doesn't change the price of other slots")
 
 func _test_place_room_refused_without_inventory() -> void:
 	print("[no inventory]")

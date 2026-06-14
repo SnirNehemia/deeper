@@ -56,14 +56,14 @@ func _ready() -> void:
 	_check(not dock._assembly_actions.is_empty(), "Assembly lists at least one available action")
 
 	# The marker can pass over/rest on inert cells (the tower) — it just does
-	# nothing on Enter there (2026-06-15 nav widening).
+	# nothing on interact there (2026-06-15 nav widening).
 	var tower_pos := Vector2i(1, -1)
 	_check(dock._assembly_cells.has(tower_pos), "the marker can stand on the tower cell")
 	_check(not dock._assembly_actions.has(tower_pos), "the tower has no Assembly action")
 	dock._assembly_cursor = tower_pos
 	var placements_before := SaveData.layout.placements.size()
-	dock._assembly_key(KEY_ENTER)
-	_check(SaveData.layout.placements.size() == placements_before, "Enter on the tower does nothing")
+	dock._assembly_key(KEY_E)
+	_check(SaveData.layout.placements.size() == placements_before, "interact on the tower does nothing")
 
 	var slot_pos: Vector2i = Vector2i.ZERO
 	var found_slot := false
@@ -76,7 +76,7 @@ func _ready() -> void:
 
 	dock._assembly_cursor = slot_pos
 	var slots_before := SaveData.layout.slots.size()
-	dock._assembly_key(KEY_ENTER)
+	dock._assembly_key(KEY_E)
 	_check(SaveData.layout.slots.size() == slots_before + 1,
 		"buying a slot grows the layout's owned slots")
 	_check(slot_pos in SaveData.layout.slots, "the bought slot position is now owned")
@@ -98,7 +98,7 @@ func _ready() -> void:
 	if found_place:
 		dock._assembly_cursor = place_pos
 		var inv_before := int(SaveData.layout.inventory.get(place_id, 0))
-		dock._assembly_key(KEY_ENTER)
+		dock._assembly_key(KEY_E)
 		var placed := false
 		for p in SaveData.layout.placements:
 			if p.module_id == place_id and p.grid_pos == place_pos:
@@ -112,19 +112,19 @@ func _ready() -> void:
 			# Placement was refused (e.g. firing face blocked) — try mirroring.
 			dock._assembly_cursor = place_pos
 			dock._assembly_key(KEY_M)
-			dock._assembly_key(KEY_ENTER)
+			dock._assembly_key(KEY_E)
 			for p in SaveData.layout.placements:
 				if p.module_id == place_id and p.grid_pos == place_pos:
 					placed = true
 			_check(placed, "placing the room (mirrored if needed) succeeds")
 
 		# The placed room is now an owned-cell with a "return_room" action —
-		# Enter there picks it back up into inventory (2026-06-14 nav rework).
+		# interact there picks it back up into inventory (2026-06-14 nav rework).
 		if placed:
 			dock._assembly_cursor = place_pos
 			_check(dock._assembly_actions.get(place_pos, {}).has("return_room"),
 				"Assembly offers returning the placed room to inventory")
-			dock._assembly_key(KEY_ENTER)
+			dock._assembly_key(KEY_E)
 			_check(int(SaveData.layout.inventory.get(place_id, 0)) == inv_before,
 				"returning the room to inventory restores it")
 			_check(place_pos in SaveData.layout.slots,
@@ -138,26 +138,26 @@ func _ready() -> void:
 	dock._assembly_cursor = helm_pos
 	_check(dock._assembly_actions.get(helm_pos, {}).has("return_room"),
 		"Assembly offers returning the helm to inventory")
-	dock._assembly_key(KEY_ENTER)
+	dock._assembly_key(KEY_E)
 	_check(SaveData.layout.inventory.get("helm", 0) == 1, "the helm is now in inventory")
 	dock._assembly_key(KEY_ESCAPE)
 	_check(get_tree().paused, "the dock refuses to close without the helm placed")
 	_check(dock._note != "", "a note explains why the dock won't close")
 
 	# If this slot offers more than one inventory room (it should, by now —
-	# turret_room and the helm), Q/E cycles which one Enter/M will use
-	# (2026-06-15 inventory picker).
+	# turret_room and the helm), the "use" key (P1=Q, P2=Enter) cycles which
+	# one interact/M will use (2026-06-15 inventory picker).
 	var helm_action: Dictionary = dock._assembly_actions.get(helm_pos, {})
 	var helm_ids: Array = helm_action.get("place_room", [])
 	_check(helm_ids.size() > 1, "this slot offers more than one room to place")
 	if helm_ids.size() > 1:
 		var start_id := dock._place_room_choice(helm_action)
-		dock._assembly_key(KEY_E)
+		dock._assembly_key(KEY_ENTER)
 		var next_id := dock._place_room_choice(dock._assembly_actions.get(helm_pos, {}))
-		_check(next_id != start_id, "E cycles to a different inventory room")
+		_check(next_id != start_id, "the use key cycles to a different inventory room")
 		dock._assembly_key(KEY_Q)
 		_check(dock._place_room_choice(dock._assembly_actions.get(helm_pos, {})) == start_id,
-			"Q cycles back to the original choice")
+			"the use key cycles back to the original choice (2 options)")
 
 	# Place the helm back — now closing is allowed again. (Other rooms may
 	# also be in inventory by now, so go straight to SaveData rather than

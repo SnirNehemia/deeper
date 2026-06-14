@@ -174,6 +174,7 @@ static func recover(layout: SubLayout) -> SubLayout:
 
 	var recovered := SubLayout.new()
 	recovered.inventory = layout.inventory.duplicate()
+	recovered.total_slots_bought = layout.total_slots_bought
 
 	var claimed: Dictionary = {}
 	# Core placements (helm/tower) always keep their cells.

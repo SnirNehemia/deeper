@@ -72,6 +72,12 @@ var inventory: Dictionary = {}
 ## is later placed into an empty slot. Cells, not modules — no ModuleDef.
 var slots: Array[Vector2i] = []
 
+## Cumulative count of slots ever bought (2026-06-15). Unlike `slots.size()`,
+## this never shrinks when a slot becomes a placement, and never grows back
+## when a placement returns to a slot — it tracks total purchases so slot
+## prices only escalate with spending, not with current room layout.
+var total_slots_bought: int = 0
+
 func to_dict() -> Dictionary:
 	var placement_dicts: Array = []
 	for p in placements:
@@ -87,6 +93,7 @@ func to_dict() -> Dictionary:
 		"pods": pod_dicts,
 		"inventory": inventory.duplicate(),
 		"slots": slot_dicts,
+		"total_slots_bought": total_slots_bought,
 	}
 
 static func from_dict(data: Dictionary) -> SubLayout:
@@ -99,6 +106,7 @@ static func from_dict(data: Dictionary) -> SubLayout:
 		layout.inventory[id] = int(data["inventory"][id])
 	for slot in data.get("slots", []):
 		layout.slots.append(Vector2i(int(slot[0]), int(slot[1])))
+	layout.total_slots_bought = int(data.get("total_slots_bought", layout.slots.size()))
 	return layout
 
 ## All grid cells occupied by a placement, given its module's footprint.
