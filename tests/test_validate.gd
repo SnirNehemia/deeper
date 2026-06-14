@@ -54,18 +54,29 @@ func _test_starting_layout_with_slots_is_valid() -> void:
 func _test_missing_helm_or_tower() -> void:
 	print("[missing helm/tower]")
 	var layout := SubLayout.starting_layout()
-	# Drop the helm placement entirely.
+	# Drop the helm placement entirely — a normal mid-edit state since
+	# 2026-06-15 (the helm can be picked up like any other room); the layout
+	# still validates as long as nothing else is broken.
 	for i in range(layout.placements.size()):
 		if layout.placements[i].module_id == "helm":
 			layout.placements.remove_at(i)
 			break
 	var result := SubValidator.validate(layout)
-	_check(not result["ok"], "a layout missing the helm is invalid")
+	_check(result["ok"], "a layout missing the helm (mid-relocation) still validates")
+
+	var duped_helm := SubLayout.starting_layout()
+	duped_helm.placements.append(SubLayout.Placement.new("helm", Vector2i(5, 0)))
+	var result_helm := SubValidator.validate(duped_helm)
+	_check(not result_helm["ok"], "a layout with two helms is invalid")
 
 	var duped := SubLayout.starting_layout()
 	duped.placements.append(SubLayout.Placement.new("tower", Vector2i(5, 0)))
 	var result2 := SubValidator.validate(duped)
 	_check(not result2["ok"], "a layout with two towers is invalid")
+	var in_inv := SubLayout.starting_layout()
+	in_inv.inventory["tower"] = 1
+	var result3 := SubValidator.validate(in_inv)
+	_check(not result3["ok"], "the tower can never sit in inventory")
 
 func _test_overlapping_placements() -> void:
 	print("[overlapping placements]")

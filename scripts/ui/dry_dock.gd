@@ -33,6 +33,11 @@ var _shop_entries: Array = []
 ## value is a Dictionary with any of: "buy_slot" (bool), "place_room"
 ## (Array[String] of inventory ids), "return_room" (String module id).
 var _assembly_actions: Dictionary = {}
+## Every cell the Assembly cursor can stand on — a superset of
+## `_assembly_actions.keys()` (2026-06-15): includes inert cells like the
+## tower so the marker can pass over/rest on them, even though Enter there
+## does nothing.
+var _assembly_cells: Dictionary = {}
 var _view: _View
 
 func _ready() -> void:
@@ -125,13 +130,14 @@ func _assembly_key(code: int) -> void:
 		KEY_ESCAPE:
 			_close()
 
-## Moves the Assembly cursor one cell in `dir`, but only onto a cell that has
-## a valid action (buy a slot, place a room, or return one to inventory) —
-## the marker can never wander onto an inert cell or past the edge of the
-## buyable/placeable area (2026-06-14 nav rework).
+## Moves the Assembly cursor one cell in `dir`, but only onto a cell that's
+## part of the hull/buyable area (`_assembly_cells`) — the marker can reach
+## every room and slot, including inert ones like the tower, but can't wander
+## off into empty space (2026-06-14 nav rework, widened 2026-06-15 so inert
+## cells no longer block passage).
 func _move_assembly_cursor(dir: Vector2i) -> void:
 	var candidate := _assembly_cursor + dir
-	if _assembly_actions.has(candidate):
+	if _assembly_cells.has(candidate):
 		_assembly_cursor = candidate
 		_place_mirrored = false
 
@@ -202,21 +208,31 @@ func _rebuild_assembly_entries() -> void:
 			if int(SaveData.layout.inventory[id]) <= 0:
 				continue
 			var def := ModuleCatalog.by_id(id)
-			if def == null or def.is_core or def.is_pod:
+			if not SaveData._is_relocatable(def):
 				continue
 			ids.append(id)
 		if not ids.is_empty():
 			_assembly_actions[slot] = {"place_room": ids}
 	for p in SaveData.layout.placements:
 		var def := ModuleCatalog.by_id(p.module_id)
-		if def == null or def.is_core or def.is_pod:
+		if not SaveData._is_relocatable(def):
 			continue
 		_assembly_actions[p.grid_pos] = {"return_room": p.module_id}
-	if not _assembly_actions.has(_assembly_cursor):
-		if _assembly_actions.is_empty():
+
+	# Every cell the marker can stand on: the whole hull (placed rooms + owned
+	# slots) plus the buyable ghost cells — including inert cells (the tower)
+	# that have no action (2026-06-15).
+	_assembly_cells = {}
+	for cell in SaveData.layout.occupied_cells():
+		_assembly_cells[cell] = true
+	for pos in SaveData.layout.buyable_slot_positions():
+		_assembly_cells[pos] = true
+
+	if not _assembly_cells.has(_assembly_cursor):
+		if _assembly_cells.is_empty():
 			_assembly_cursor = Vector2i.ZERO
 		else:
-			_assembly_cursor = _assembly_actions.keys()[0]
+			_assembly_cursor = _assembly_cells.keys()[0]
 	_place_mirrored = false
 
 func _try_buy_room(def: ModuleDef) -> void:
@@ -274,7 +290,20 @@ static func _cost_string(cost: Dictionary) -> String:
 		parts.append("%d %s" % [int(cost[code]), code])
 	return ", ".join(parts)
 
+## True if the helm is currently placed on the hull (not sitting in
+## inventory, e.g. mid-relocation). The dry dock refuses to close otherwise
+## (2026-06-15) — the helm is the one core room a player can pick up, so this
+## is the only guard against leaving without it.
+func _has_helm_placed() -> bool:
+	for p in SaveData.layout.placements:
+		if p.module_id == "helm":
+			return true
+	return false
+
 func _close() -> void:
+	if not _has_helm_placed():
+		_note = "The sub needs its helm placed before you can leave the dock."
+		return
 	get_tree().paused = false
 	closed.emit(_changed)
 	queue_free()
@@ -457,6 +486,13 @@ class _View extends Control:
 					HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 8, 13, Color.WHITE)
 			elif selected:
 				draw_rect(r, Color(1, 1, 1, 0.2), false, 3.0)
+
+		# The cursor can also rest on inert cells with no action at all (e.g.
+		# the tower) — highlight it there too, so the marker is never
+		# invisible (2026-06-15).
+		if not dock._assembly_actions.has(dock._assembly_cursor):
+			var r := _cell_rect(dock._assembly_cursor, min_pos, origin, CELL_PX)
+			draw_rect(r, Color(1, 1, 1, 0.25), false, 3.0)
 
 	func _cell_rect(cell: Vector2i, min_pos: Vector2i, origin: Vector2, cell_px: float) -> Rect2:
 		var local := Vector2(cell - min_pos) * cell_px

@@ -35,8 +35,12 @@ static func _pod_face_offset(face: String) -> Vector2i:
 static func validate(layout: SubLayout) -> Dictionary:
 	var violations: Array[String] = []
 
-	# Rule 1: core fixed — helm and tower exist exactly once each among the
-	# placements (never in inventory, never duplicated).
+	# Rule 1: core fixed — the tower exists exactly once and is never in
+	# inventory. The helm is core too, but (2026-06-15) can be picked up and
+	# relocated like any other room — it's just never allowed to be missing
+	# when the dry dock closes (DryDock._close enforces that separately, since
+	# "in inventory between placements" is a normal mid-edit state here). A
+	# duplicate helm placement is still a violation.
 	var helm_placements: Array = []
 	var tower_placements: Array = []
 	for p in layout.placements:
@@ -44,13 +48,12 @@ static func validate(layout: SubLayout) -> Dictionary:
 			helm_placements.append(p)
 		elif p.module_id == "tower":
 			tower_placements.append(p)
-	if helm_placements.size() != 1:
-		violations.append("The sub must have exactly one helm (found %d)." % helm_placements.size())
+	if helm_placements.size() > 1:
+		violations.append("The sub can have at most one helm (found %d)." % helm_placements.size())
 	if tower_placements.size() != 1:
 		violations.append("The sub must have exactly one conning tower (found %d)." % tower_placements.size())
-	for core_id in ["helm", "tower"]:
-		if layout.inventory.get(core_id, 0) > 0:
-			violations.append("The %s can never sit in inventory — it is a fixed part of the sub." % core_id)
+	if layout.inventory.get("tower", 0) > 0:
+		violations.append("The tower can never sit in inventory — it is a fixed part of the sub.")
 
 	# Rule 4: no overlap — no two placement footprints share a cell, and no
 	# slot overlaps a placement's footprint either.

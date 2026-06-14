@@ -178,13 +178,20 @@ func place_room(id: String, pos: Vector2i, mirrored: bool = false) -> bool:
 func place_room_violations(id: String, pos: Vector2i, mirrored: bool = false) -> Array:
 	return _place_room_candidate(id, pos, mirrored)["violations"]
 
+## A module can be picked up off the hull (back to inventory) and placed back
+## into a slot like an ordinary room if it isn't the tower or a pod. The helm
+## is core but, since 2026-06-15, can be relocated — the dry dock just won't
+## let the player leave with it sitting in inventory (`DryDock._close`).
+static func _is_relocatable(def: ModuleDef) -> bool:
+	return def != null and not def.is_pod and (not def.is_core or def.id == "helm")
+
 func _place_room_candidate(id: String, pos: Vector2i, mirrored: bool) -> Dictionary:
 	if pos not in layout.slots:
 		return {"violations": ["There's no empty slot at %s." % pos]}
 	if int(layout.inventory.get(id, 0)) <= 0:
 		return {"violations": ["The %s isn't in inventory." % id]}
 	var def := ModuleCatalog.by_id(id)
-	if def == null or def.is_core or def.is_pod:
+	if not _is_relocatable(def):
 		return {"violations": ["The %s can't be placed as a room." % id]}
 	var candidate := SubLayout.from_dict(layout.to_dict())
 	candidate.slots.erase(pos)
@@ -203,16 +210,17 @@ func _commit_place_room(id: String, pos: Vector2i, mirrored: bool) -> bool:
 ## Pick a placed room back up off the hull and return it to inventory,
 ## freeing its cell back into an owned empty slot (the reverse of
 ## `place_room` — 2026-06-14 Assembly nav rework). Fails (false), with no
-## state change, if there's no placement at `pos` or it's core/pod (those
-## can never move). On success: drop the placement, add the cell to
-## `layout.slots`, add one to inventory, persist.
+## state change, if there's no placement at `pos` or it's the tower/a pod
+## (see `_is_relocatable` — the helm CAN be returned, but the dry dock won't
+## let the player leave without it placed somewhere). On success: drop the
+## placement, add the cell to `layout.slots`, add one to inventory, persist.
 func return_room_to_inventory(pos: Vector2i) -> bool:
 	for i in layout.placements.size():
 		var p: SubLayout.Placement = layout.placements[i]
 		if p.grid_pos != pos:
 			continue
 		var def := ModuleCatalog.by_id(p.module_id)
-		if def == null or def.is_core or def.is_pod:
+		if not _is_relocatable(def):
 			return false
 		layout.placements.remove_at(i)
 		layout.slots.append(pos)

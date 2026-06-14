@@ -25,7 +25,9 @@ func _ready() -> void:
 	_test_place_room_refused_without_slot()
 	_test_place_room_refused_without_inventory()
 	_test_return_room_to_inventory()
-	_test_return_room_refused_for_core()
+	_test_return_room_refused_for_tower()
+	_test_return_helm_to_inventory()
+	_test_place_helm_back()
 	SaveData.reset_for_test()
 
 	if _failures == 0:
@@ -208,12 +210,43 @@ func _test_return_room_to_inventory() -> void:
 			still_placed = true
 	_check(not still_placed, "the turret room is no longer placed")
 
-func _test_return_room_refused_for_core() -> void:
-	print("[can't return core rooms]")
+func _test_return_room_refused_for_tower() -> void:
+	print("[can't return the tower]")
+	SaveData.reset_for_test()
+	var ok := SaveData.return_room_to_inventory(Vector2i(1, -1))  # tower
+	_check(not ok, "returning the tower is refused")
+	_check(SaveData.layout.placements.size() == 6, "no placement was removed")
+
+## The helm is core but, since 2026-06-15, can be picked up and placed back
+## like any other room — the dry dock just won't let the player leave with it
+## in inventory (DryDock._close, covered by test_dock_shop_ui).
+func _test_return_helm_to_inventory() -> void:
+	print("[return the helm to inventory]")
 	SaveData.reset_for_test()
 	var ok := SaveData.return_room_to_inventory(Vector2i(2, 0))  # helm
-	_check(not ok, "returning a core room is refused")
-	_check(SaveData.layout.placements.size() == 6, "no placement was removed")
+	_check(ok, "the helm can be picked up like any other room")
+	_check(SaveData.layout.inventory.get("helm", 0) == 1, "the helm is now in inventory")
+	_check(Vector2i(2, 0) in SaveData.layout.slots,
+		"the helm's old cell becomes an owned empty slot")
+	var still_placed := false
+	for p in SaveData.layout.placements:
+		if p.module_id == "helm":
+			still_placed = true
+	_check(not still_placed, "the helm is no longer placed")
+
+func _test_place_helm_back() -> void:
+	print("[place the helm back]")
+	SaveData.reset_for_test()
+	SaveData.return_room_to_inventory(Vector2i(2, 0))
+	var ok := SaveData.place_room("helm", Vector2i(2, 0), false)
+	_check(ok, "the helm can be placed back into an owned slot")
+	var found := false
+	for p in SaveData.layout.placements:
+		if p.module_id == "helm" and p.grid_pos == Vector2i(2, 0):
+			found = true
+	_check(found, "the helm is placed again")
+	_check(SaveData.layout.inventory.get("helm", 0) == 0,
+		"the helm is removed from inventory once placed")
 
 func _test_place_room_refused_without_inventory() -> void:
 	print("[no inventory]")

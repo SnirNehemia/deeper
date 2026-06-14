@@ -55,6 +55,16 @@ func _ready() -> void:
 	_check(dock._mode == DryDock.Mode.ASSEMBLY, "Tab from the Shop opens Assembly")
 	_check(not dock._assembly_actions.is_empty(), "Assembly lists at least one available action")
 
+	# The marker can pass over/rest on inert cells (the tower) — it just does
+	# nothing on Enter there (2026-06-15 nav widening).
+	var tower_pos := Vector2i(1, -1)
+	_check(dock._assembly_cells.has(tower_pos), "the marker can stand on the tower cell")
+	_check(not dock._assembly_actions.has(tower_pos), "the tower has no Assembly action")
+	dock._assembly_cursor = tower_pos
+	var placements_before := SaveData.layout.placements.size()
+	dock._assembly_key(KEY_ENTER)
+	_check(SaveData.layout.placements.size() == placements_before, "Enter on the tower does nothing")
+
 	var slot_pos: Vector2i = Vector2i.ZERO
 	var found_slot := false
 	for pos in dock._assembly_actions:
@@ -119,6 +129,29 @@ func _ready() -> void:
 				"returning the room to inventory restores it")
 			_check(place_pos in SaveData.layout.slots,
 				"returning the room frees its cell back into an owned slot")
+
+	# The helm can be picked up like any other room (2026-06-15) — but the
+	# dock refuses to close while it's sitting in inventory.
+	dock._mode = DryDock.Mode.ASSEMBLY
+	dock._rebuild_assembly_entries()
+	var helm_pos := Vector2i(2, 0)
+	dock._assembly_cursor = helm_pos
+	_check(dock._assembly_actions.get(helm_pos, {}).has("return_room"),
+		"Assembly offers returning the helm to inventory")
+	dock._assembly_key(KEY_ENTER)
+	_check(SaveData.layout.inventory.get("helm", 0) == 1, "the helm is now in inventory")
+	dock._assembly_key(KEY_ESCAPE)
+	_check(get_tree().paused, "the dock refuses to close without the helm placed")
+	_check(dock._note != "", "a note explains why the dock won't close")
+
+	# Place the helm back — now closing is allowed again. (Other rooms may
+	# also be in inventory by now, so go straight to SaveData rather than
+	# relying on the UI's first-in-inventory pick for this slot.)
+	_check(dock._assembly_actions.get(helm_pos, {}).has("place_room"),
+		"Assembly offers placing a room back into the helm's old slot")
+	_check(SaveData.place_room("helm", helm_pos, false), "the helm can be placed back")
+	_check(SaveData.layout.inventory.get("helm", 0) == 0, "the helm is placed back")
+	dock._rebuild_assembly_entries()
 
 	# Tab returns to the Upgrades list.
 	dock._assembly_key(KEY_TAB)
