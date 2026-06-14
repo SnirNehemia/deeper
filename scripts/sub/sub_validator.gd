@@ -142,12 +142,19 @@ static func validate(layout: SubLayout) -> Dictionary:
 			violations.append("The %s must sit at the far left or right edge of its level." % p.module_id)
 
 	# Rule 6: pod faces — a pod attaches only to an exterior face of an
-	# occupied cell; one pod per face.
+	# occupied cell that's built to host pods (ModuleDef.can_host_pod, e.g. the
+	# Floodlight Room); one pod per face.
+	var host_module: Dictionary = {}
+	for p in layout.placements:
+		host_module[p.grid_pos] = p.module_id
 	var pod_faces: Dictionary = {}
 	for pod in layout.pods:
 		if pod.host_cell not in occupied:
 			violations.append("The %s pod is attached to an empty cell %s." % [pod.pod_id, pod.host_cell])
 			continue
+		var host_def := ModuleCatalog.by_id(host_module.get(pod.host_cell, ""))
+		if host_def == null or not host_def.can_host_pod:
+			violations.append("The %s pod is attached to a room that can't host it." % pod.pod_id)
 		var exterior_cell := pod.host_cell + _pod_face_offset(pod.face)
 		if exterior_cell in occupied:
 			violations.append("The %s pod's %s face is not exterior." % [pod.pod_id, pod.face])

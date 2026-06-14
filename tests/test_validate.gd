@@ -132,10 +132,18 @@ func _test_turret_firing_face_blocked_vs_clear() -> void:
 func _test_pod_faces() -> void:
 	print("[pod faces]")
 	var layout := SubLayout.starting_layout()
-	# Helm is at (2, 0); its top face (2, -1) is empty/exterior.
-	layout.pods.append(SubLayout.PodPlacement.new("floodlight_pod", Vector2i(2, 0), "top"))
+	# A Floodlight Room at (3, 0) — its top face (3, -1) is empty/exterior, and
+	# (unlike the helm) it's built to host a pod.
+	layout.placements.append(SubLayout.Placement.new("floodlight_room", Vector2i(3, 0)))
+	layout.pods.append(SubLayout.PodPlacement.new("floodlight_pod", Vector2i(3, 0), "top"))
 	var result := SubValidator.validate(layout)
-	_check(result["ok"], "a pod on an exterior face is valid")
+	_check(result["ok"], "a pod on an exterior face of a room built to host it is valid")
+
+	# The same face, but on the helm — which can't host a pod.
+	var wrong_host := SubLayout.starting_layout()
+	wrong_host.pods.append(SubLayout.PodPlacement.new("floodlight_pod", Vector2i(2, 0), "top"))
+	var wrong_host_result := SubValidator.validate(wrong_host)
+	_check(not wrong_host_result["ok"], "a pod on a room that can't host it is invalid")
 
 	# Pod attached to an empty cell entirely.
 	var bad_host := SubLayout.starting_layout()

@@ -269,6 +269,13 @@ func _place_pod_candidate(id: String, host_cell: Vector2i, face: String) -> Dict
 	var def := ModuleCatalog.by_id(id)
 	if def == null or not def.is_pod:
 		return {"violations": ["The %s can't be attached as a pod." % id]}
+	var host_def: ModuleDef = null
+	for p in layout.placements:
+		if p.grid_pos == host_cell:
+			host_def = ModuleCatalog.by_id(p.module_id)
+			break
+	if host_def == null or not host_def.can_host_pod:
+		return {"violations": ["The %s needs to be attached to a room built to host it." % id]}
 	var candidate := SubLayout.from_dict(layout.to_dict())
 	candidate.pods.append(SubLayout.PodPlacement.new(id, host_cell, face))
 	return SubValidator.validate(candidate)

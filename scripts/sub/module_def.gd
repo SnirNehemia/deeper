@@ -47,5 +47,10 @@ func cost_bundle() -> Dictionary:
 ## turret room's firing face (validate() rule 5).
 @export var has_firing_face: bool = false
 
+## True for rooms a pod can be attached to (M4-9: e.g. the Floodlight Room
+## hosts the floodlight pod on one of its exterior faces). Plain rooms can't
+## host pods — keeps pod placement scoped to the room built for it.
+@export var can_host_pod: bool = false
+
 ## Optional path to the station scene this module seats, if any.
 @export var station_scene: String = ""

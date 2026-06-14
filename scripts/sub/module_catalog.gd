@@ -17,6 +17,7 @@ static func all() -> Array[ModuleDef]:
 		_room("claw_room", "Claw Room", Vector2i(1, 1), 0, false),
 		_room("storage", "Storage Room", Vector2i(1, 1), 0, false),
 		_turret_room(),
+		_floodlight_room(),
 		_floodlight_pod(),
 	]
 
@@ -43,6 +44,19 @@ static func _turret_room() -> ModuleDef:
 	def.footprint = Vector2i(1, 1)
 	def.has_firing_face = true
 	def.cost = {"sc": 4}  # base gun room (ROOM_SYSTEM.md §6)
+	return def
+
+## A room built to host the floodlight pod (M4-9) — the pod attaches to one of
+## this room's exterior faces once both are owned. A plain room can't host a
+## pod (ModuleDef.can_host_pod), so pod placement never competes with the
+## pick-up/return action of an ordinary room.
+static func _floodlight_room() -> ModuleDef:
+	var def := ModuleDef.new()
+	def.id = "floodlight_room"
+	def.display_name = "Floodlight Room"
+	def.footprint = Vector2i(1, 1)
+	def.can_host_pod = true
+	def.cost = {"sc": 6}
 	return def
 
 static func _floodlight_pod() -> ModuleDef:
