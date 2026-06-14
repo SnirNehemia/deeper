@@ -474,6 +474,15 @@ Snir's 7-part request, scoped via AskUserQuestion:
   shown in the Shop tab. Deferred to later: per-room `icon`/`kind` tags and a
   dedicated Shop-tab inventory sidebar — the description line covers the
   immediate "what does this room do" need without a new UI widget.
+- **M4-11 scope** (2026-06-16, Snir's call): the `add-deeper-room` skill
+  (`.claude/skills/add-deeper-room/SKILL.md`) is written and covers
+  everything that exists today — catalog entry, anchors, mechanic,
+  validation, art, tests. **Per-room upgrade trees (ROOM_SYSTEM.md §5) are
+  explicitly out of scope and flagged as a follow-up**: no generic
+  upgrade-tree mechanism exists in code (only the unrelated ship-wide Engine
+  Boost / Repair Training). The next room built via this skill should skip
+  its upgrade tree and note it, rather than a bespoke upgrade menu. Building
+  the generic upgrade-tree system is a separate future module.
 
 ## Parked
 - **What station/ability lives in the conning tower?** It's a fixed, always-

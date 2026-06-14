@@ -7,8 +7,9 @@ now menu-driven — interact on an owned cell opens a dropdown of available
 actions, including attaching/detaching pods via face-selection. M4-10: a
 placed Turret Room now has its own working gun station (seat + torpedo tube
 on its firing-face wall), and the Shop tab shows each room's one-line
-description. Next: Checkpoint 2 — Snir plays the dock economy end to end,
-including the new Turret Room.)_
+description. M4-11: the `add-deeper-room` skill is written (per-room upgrade
+trees flagged as a follow-up, not yet built). Next: Checkpoint 2 — Snir plays
+the dock economy end to end, including the new Turret Room.)_
 
 ## Where we are
 **Milestone 3 is closed (Modules A-E).** Milestone 4 ("The Dry Dock & The
@@ -540,16 +541,19 @@ current source of truth for M4 sequencing — supersedes the v2 numbering below:
    list) — see `DECISIONS.md` (2026-06-13, M4-7c follow-up).
 9. **M4-9** ✅ done — pods plumbing (9a economy, 9b Floodlight Room, 9c
    Assembly menu UI incl. pod attach/detach).
-   - **⛳ CHECKPOINT 2** ⬅ **NEXT** — Snir plays: buy a slot, buy a room, place
-     it, rearrange, buy/attach/detach a floodlight pod.
-10. **M4-10** — first hand-built purchasable room with a real mechanic (a
-    weapon room, per `ROOM_SYSTEM.md` §6) — the reference implementation for
-    the add-room skill. **Also adds the `ModuleDef` fields for the M4-7c
-    follow-up request:** a short `description` and an `icon`/`kind` (weapon,
-    arm, storage, ...), plus a Shop-tab inventory sidebar — see `DECISIONS.md`
-    (2026-06-13, M4-7c follow-up).
-11. **M4-11** — build the `add-deeper-room` skill (per
-    `SKILL_STUB_add_room.md`), validated by re-deriving the M4-10 room from it.
+10. **M4-10** ✅ done — placed Turret Rooms get a working gun station +
+    `ModuleDef.description` shown in the Shop tab. `icon`/`kind` tags and a
+    Shop-tab inventory sidebar deferred (DECISIONS.md, 2026-06-16).
+    - **⛳ CHECKPOINT 2** ⬅ **NEXT** — Snir plays: buy a slot, buy a room
+      (incl. the Turret Room), place it, rearrange, fire the Turret Room's
+      gun, buy/attach/detach a floodlight pod.
+11. **M4-11** ✅ done — the `add-deeper-room` skill
+    (`.claude/skills/add-deeper-room/SKILL.md`), written against M4-10's
+    Turret Room as the reference. **Scoped down** (Snir's call, 2026-06-16):
+    per-room upgrade trees (ROOM_SYSTEM.md §5) are flagged as a follow-up,
+    not built — no generic upgrade-tree mechanism exists in code yet, so the
+    skill explicitly tells the next room to skip its upgrade tree and note it
+    rather than inventing a one-off menu.
 12. **M4-12** — second content room, built using the skill (e.g. the
     floodlight pod or another `ROOM_SYSTEM.md` §6 room).
 13. **M4-13** — close-out: full suite, STATUS/DECISIONS updates, push.
