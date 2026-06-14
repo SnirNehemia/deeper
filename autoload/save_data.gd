@@ -200,6 +200,27 @@ func _commit_place_room(id: String, pos: Vector2i, mirrored: bool) -> bool:
 	save_data()
 	return true
 
+## Pick a placed room back up off the hull and return it to inventory,
+## freeing its cell back into an owned empty slot (the reverse of
+## `place_room` — 2026-06-14 Assembly nav rework). Fails (false), with no
+## state change, if there's no placement at `pos` or it's core/pod (those
+## can never move). On success: drop the placement, add the cell to
+## `layout.slots`, add one to inventory, persist.
+func return_room_to_inventory(pos: Vector2i) -> bool:
+	for i in layout.placements.size():
+		var p: SubLayout.Placement = layout.placements[i]
+		if p.grid_pos != pos:
+			continue
+		var def := ModuleCatalog.by_id(p.module_id)
+		if def == null or def.is_core or def.is_pod:
+			return false
+		layout.placements.remove_at(i)
+		layout.slots.append(pos)
+		layout.inventory[p.module_id] = int(layout.inventory.get(p.module_id, 0)) + 1
+		save_data()
+		return true
+	return false
+
 ## Wipe the in-memory and on-disk save (used by tests).
 func reset_for_test() -> void:
 	banked_scrap = 0

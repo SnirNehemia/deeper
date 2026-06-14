@@ -53,8 +53,18 @@ func _ready() -> void:
 	# positions. Buying one grows the layout's owned slots.
 	dock._shop_key(KEY_TAB)
 	_check(dock._mode == DryDock.Mode.ASSEMBLY, "Tab from the Shop opens Assembly")
-	_check(not dock._assembly_entries.is_empty(), "Assembly lists at least one buyable slot position")
-	var slot_pos: Vector2i = dock._assembly_entries[dock._assembly_index]["pos"]
+	_check(not dock._assembly_actions.is_empty(), "Assembly lists at least one available action")
+
+	var slot_pos: Vector2i = Vector2i.ZERO
+	var found_slot := false
+	for pos in dock._assembly_actions:
+		if dock._assembly_actions[pos].has("buy_slot"):
+			slot_pos = pos
+			found_slot = true
+			break
+	_check(found_slot, "Assembly lists at least one buyable slot position")
+
+	dock._assembly_cursor = slot_pos
 	var slots_before := SaveData.layout.slots.size()
 	dock._assembly_key(KEY_ENTER)
 	_check(SaveData.layout.slots.size() == slots_before + 1,
@@ -62,19 +72,21 @@ func _ready() -> void:
 	_check(slot_pos in SaveData.layout.slots, "the bought slot position is now owned")
 
 	# The bought turret room is now in inventory and we own at least one empty
-	# slot — Assembly should also offer a "place_room" entry for it.
-	var place_index := -1
-	for i in dock._assembly_entries.size():
-		if dock._assembly_entries[i]["type"] == "place_room":
-			place_index = i
+	# slot — Assembly should also offer a "place_room" action for it.
+	var place_pos: Vector2i = Vector2i.ZERO
+	var place_id := ""
+	var found_place := false
+	for pos in dock._assembly_actions:
+		var action: Dictionary = dock._assembly_actions[pos]
+		if action.has("place_room"):
+			place_pos = pos
+			place_id = action["place_room"][0]
+			found_place = true
 			break
-	_check(place_index != -1, "Assembly offers placing the inventory room into a slot")
+	_check(found_place, "Assembly offers placing the inventory room into a slot")
 
-	if place_index != -1:
-		dock._assembly_index = place_index
-		var place_entry: Dictionary = dock._assembly_entries[place_index]
-		var place_pos: Vector2i = place_entry["pos"]
-		var place_id: String = place_entry["id"]
+	if found_place:
+		dock._assembly_cursor = place_pos
 		var inv_before := int(SaveData.layout.inventory.get(place_id, 0))
 		dock._assembly_key(KEY_ENTER)
 		var placed := false
@@ -88,12 +100,25 @@ func _ready() -> void:
 				"placing a room removes it from inventory")
 		else:
 			# Placement was refused (e.g. firing face blocked) — try mirroring.
-			dock._assembly_key(KEY_A)
+			dock._assembly_cursor = place_pos
+			dock._assembly_key(KEY_M)
 			dock._assembly_key(KEY_ENTER)
 			for p in SaveData.layout.placements:
 				if p.module_id == place_id and p.grid_pos == place_pos:
 					placed = true
 			_check(placed, "placing the room (mirrored if needed) succeeds")
+
+		# The placed room is now an owned-cell with a "return_room" action —
+		# Enter there picks it back up into inventory (2026-06-14 nav rework).
+		if placed:
+			dock._assembly_cursor = place_pos
+			_check(dock._assembly_actions.get(place_pos, {}).has("return_room"),
+				"Assembly offers returning the placed room to inventory")
+			dock._assembly_key(KEY_ENTER)
+			_check(int(SaveData.layout.inventory.get(place_id, 0)) == inv_before,
+				"returning the room to inventory restores it")
+			_check(place_pos in SaveData.layout.slots,
+				"returning the room frees its cell back into an owned slot")
 
 	# Tab returns to the Upgrades list.
 	dock._assembly_key(KEY_TAB)

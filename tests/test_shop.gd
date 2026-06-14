@@ -24,6 +24,8 @@ func _ready() -> void:
 	_test_place_room_refused_when_firing_face_blocked()
 	_test_place_room_refused_without_slot()
 	_test_place_room_refused_without_inventory()
+	_test_return_room_to_inventory()
+	_test_return_room_refused_for_core()
 	SaveData.reset_for_test()
 
 	if _failures == 0:
@@ -186,6 +188,32 @@ func _test_place_room_refused_without_slot() -> void:
 		"the room remains in inventory")
 	_check(not SaveData.place_room_violations("turret_room", Vector2i(3, 0), false).is_empty(),
 		"the violation list explains there's no slot there")
+
+func _test_return_room_to_inventory() -> void:
+	print("[return a room to inventory]")
+	SaveData.reset_for_test()
+	SaveData.banked_scrap = 1000
+	var pos := Vector2i(3, 0)
+	SaveData.buy_slot(pos)
+	SaveData.buy_room("turret_room")
+	SaveData.place_room("turret_room", pos, false)
+	var ok := SaveData.return_room_to_inventory(pos)
+	_check(ok, "returning a placed room to inventory succeeds")
+	_check(pos in SaveData.layout.slots, "the cell becomes an owned empty slot again")
+	_check(SaveData.layout.inventory.get("turret_room", 0) == 1,
+		"the room is back in inventory")
+	var still_placed := false
+	for p in SaveData.layout.placements:
+		if p.module_id == "turret_room" and p.grid_pos == pos:
+			still_placed = true
+	_check(not still_placed, "the turret room is no longer placed")
+
+func _test_return_room_refused_for_core() -> void:
+	print("[can't return core rooms]")
+	SaveData.reset_for_test()
+	var ok := SaveData.return_room_to_inventory(Vector2i(2, 0))  # helm
+	_check(not ok, "returning a core room is refused")
+	_check(SaveData.layout.placements.size() == 6, "no placement was removed")
 
 func _test_place_room_refused_without_inventory() -> void:
 	print("[no inventory]")

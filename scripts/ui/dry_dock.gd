@@ -22,14 +22,17 @@ enum Mode { LIST, PLACEMENT, SHOP, ASSEMBLY }
 var _mode: Mode = Mode.LIST
 var _index: int = 0
 var _shop_index: int = 0
-var _assembly_index: int = 0
+var _assembly_cursor: Vector2i = Vector2i.ZERO
 var _place_mirrored: bool = false
 var _slot: SubLoadout.Slot = SubLoadout.Slot.STERN
 var _changed: bool = false
 var _note: String = ""
 var _entries: Array = []
 var _shop_entries: Array = []
-var _assembly_entries: Array = []
+## Cell -> available action(s) in Assembly (2026-06-14 nav rework). Each
+## value is a Dictionary with any of: "buy_slot" (bool), "place_room"
+## (Array[String] of inventory ids), "return_room" (String module id).
+var _assembly_actions: Dictionary = {}
 var _view: _View
 
 func _ready() -> void:
@@ -101,29 +104,46 @@ func _shop_key(code: int) -> void:
 func _assembly_key(code: int) -> void:
 	match code:
 		KEY_UP, KEY_W:
-			if not _assembly_entries.is_empty():
-				_assembly_index = wrapi(_assembly_index - 1, 0, _assembly_entries.size())
-				_place_mirrored = false
+			_move_assembly_cursor(Vector2i(0, -1))
 		KEY_DOWN, KEY_S:
-			if not _assembly_entries.is_empty():
-				_assembly_index = wrapi(_assembly_index + 1, 0, _assembly_entries.size())
-				_place_mirrored = false
-		KEY_LEFT, KEY_A, KEY_RIGHT, KEY_D:
-			if not _assembly_entries.is_empty():
-				var entry: Dictionary = _assembly_entries[_assembly_index]
-				if entry["type"] == "place_room" and entry["def"].has_firing_face:
+			_move_assembly_cursor(Vector2i(0, 1))
+		KEY_LEFT, KEY_A:
+			_move_assembly_cursor(Vector2i(-1, 0))
+		KEY_RIGHT, KEY_D:
+			_move_assembly_cursor(Vector2i(1, 0))
+		KEY_M:
+			var action: Dictionary = _assembly_actions.get(_assembly_cursor, {})
+			if action.has("place_room"):
+				var id: String = action["place_room"][0]
+				var def := ModuleCatalog.by_id(id)
+				if def != null and def.has_firing_face:
 					_place_mirrored = not _place_mirrored
 		KEY_ENTER, KEY_KP_ENTER, KEY_SPACE:
-			if not _assembly_entries.is_empty():
-				var entry: Dictionary = _assembly_entries[_assembly_index]
-				if entry["type"] == "buy_slot":
-					_try_buy_slot(entry["pos"])
-				else:
-					_try_place_room(entry["pos"], entry["id"], _place_mirrored)
+			_try_assembly_action()
 		KEY_TAB:
 			_mode = Mode.LIST
 		KEY_ESCAPE:
 			_close()
+
+## Moves the Assembly cursor one cell in `dir`, but only onto a cell that has
+## a valid action (buy a slot, place a room, or return one to inventory) —
+## the marker can never wander onto an inert cell or past the edge of the
+## buyable/placeable area (2026-06-14 nav rework).
+func _move_assembly_cursor(dir: Vector2i) -> void:
+	var candidate := _assembly_cursor + dir
+	if _assembly_actions.has(candidate):
+		_assembly_cursor = candidate
+		_place_mirrored = false
+
+func _try_assembly_action() -> void:
+	var action: Dictionary = _assembly_actions.get(_assembly_cursor, {})
+	if action.has("buy_slot"):
+		_try_buy_slot(_assembly_cursor)
+	elif action.has("place_room"):
+		var id: String = action["place_room"][0]
+		_try_place_room(_assembly_cursor, id, _place_mirrored)
+	elif action.has("return_room"):
+		_try_return_room(_assembly_cursor)
 
 func _placement_key(code: int) -> void:
 	match code:
@@ -166,25 +186,37 @@ func _rebuild_shop_entries() -> void:
 	else:
 		_shop_index = clampi(_shop_index, 0, _shop_entries.size() - 1)
 
-## Rebuilds the assembly list: one entry per cell currently buyable as a slot
-## (ROOM_SYSTEM.md §4.1). Called on open and after a successful slot purchase
-## (buying a slot changes which positions are buyable next).
+## Rebuilds the assembly cursor-action map (2026-06-14 nav rework): every cell
+## the marker can land on gets an entry describing what Enter does there —
+## buy a slot, place an inventory room into an owned empty slot, or return a
+## placed room to inventory. Called on open and after any successful
+## buy/place/return (since those change which cells have actions). Snaps the
+## cursor onto a valid cell if it isn't on one already.
 func _rebuild_assembly_entries() -> void:
-	_assembly_entries = []
+	_assembly_actions = {}
 	for pos in SaveData.layout.buyable_slot_positions():
-		_assembly_entries.append({"type": "buy_slot", "pos": pos})
+		_assembly_actions[pos] = {"buy_slot": true}
 	for slot in SaveData.layout.slots:
+		var ids: Array[String] = []
 		for id in SaveData.layout.inventory:
 			if int(SaveData.layout.inventory[id]) <= 0:
 				continue
 			var def := ModuleCatalog.by_id(id)
 			if def == null or def.is_core or def.is_pod:
 				continue
-			_assembly_entries.append({"type": "place_room", "pos": slot, "id": id, "def": def})
-	if _assembly_entries.is_empty():
-		_assembly_index = 0
-	else:
-		_assembly_index = clampi(_assembly_index, 0, _assembly_entries.size() - 1)
+			ids.append(id)
+		if not ids.is_empty():
+			_assembly_actions[slot] = {"place_room": ids}
+	for p in SaveData.layout.placements:
+		var def := ModuleCatalog.by_id(p.module_id)
+		if def == null or def.is_core or def.is_pod:
+			continue
+		_assembly_actions[p.grid_pos] = {"return_room": p.module_id}
+	if not _assembly_actions.has(_assembly_cursor):
+		if _assembly_actions.is_empty():
+			_assembly_cursor = Vector2i.ZERO
+		else:
+			_assembly_cursor = _assembly_actions.keys()[0]
 	_place_mirrored = false
 
 func _try_buy_room(def: ModuleDef) -> void:
@@ -218,6 +250,23 @@ func _try_place_room(pos: Vector2i, id: String, mirrored: bool) -> void:
 		_note = "%s placed!" % (def.display_name if def != null else id)
 		_rebuild_shop_entries()
 		_rebuild_assembly_entries()
+
+## Picks the placed room at `pos` back up into inventory (2026-06-14 Assembly
+## nav rework — the reverse of _try_place_room). No-op (with a note) if
+## SaveData refuses (core/pod or nothing there).
+func _try_return_room(pos: Vector2i) -> void:
+	var def: ModuleDef = null
+	for p in SaveData.layout.placements:
+		if p.grid_pos == pos:
+			def = ModuleCatalog.by_id(p.module_id)
+			break
+	if SaveData.return_room_to_inventory(pos):
+		_changed = true
+		_note = "%s returned to inventory." % (def.display_name if def != null else "Room")
+		_rebuild_shop_entries()
+		_rebuild_assembly_entries()
+	else:
+		_note = "That room can't be moved."
 
 static func _cost_string(cost: Dictionary) -> String:
 	var parts: Array[String] = []
@@ -269,7 +318,7 @@ class _View extends Control:
 			DryDock.Mode.SHOP:
 				hint = "W/S select   Enter buy   Tab: assembly   Esc leave"
 			DryDock.Mode.ASSEMBLY:
-				hint = "W/S select   Enter build/place   A/D mirror   Tab: upgrades   Esc leave"
+				hint = "Arrows move   Enter buy/place/return   M mirror   Tab: upgrades   Esc leave"
 			_:
 				hint = "A/D pick the end   Enter confirm   Esc back"
 		f.draw_string(get_canvas_item(), Vector2(80, size.y - 60), hint,
@@ -376,12 +425,11 @@ class _View extends Control:
 			f.draw_string(get_canvas_item(), r.position + Vector2(6, 22), "empty slot",
 				HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 8, 13, Color(1, 1, 1, 0.6))
 
-		for i in dock._assembly_entries.size():
-			var entry: Dictionary = dock._assembly_entries[i]
-			var pos: Vector2i = entry["pos"]
+		for pos in dock._assembly_actions:
+			var action: Dictionary = dock._assembly_actions[pos]
 			var r := _cell_rect(pos, min_pos, origin, CELL_PX)
-			var selected := i == dock._assembly_index
-			if entry["type"] == "buy_slot":
+			var selected: bool = pos == dock._assembly_cursor
+			if action.has("buy_slot"):
 				var price := SaveData.next_slot_price(pos)
 				var afford: bool = SaveData.banked_scrap >= price
 				var ghost_col := Color("e0c060") if selected else Color(0.5, 0.6, 0.4, 0.35)
@@ -390,16 +438,25 @@ class _View extends Control:
 				var price_col := Color.WHITE if afford else Color(1, 0.6, 0.4)
 				f.draw_string(get_canvas_item(), r.position + Vector2(6, 22), "%d sc" % price,
 					HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 8, 18, price_col)
-			elif selected:
-				var def: ModuleDef = entry["def"]
+			elif action.has("place_room") and selected:
+				var id: String = action["place_room"][0]
+				var def := ModuleCatalog.by_id(id)
 				var ghost_col := Color("6ad0a0")
 				draw_rect(r, Color(ghost_col.r, ghost_col.g, ghost_col.b, 0.30))
 				draw_rect(r, ghost_col, false, 3.0)
-				var label := "Place: %s" % def.display_name
-				if def.has_firing_face:
-					label += "  (mirrored)" if dock._place_mirrored else "  (A/D to mirror)"
+				var label := "Place: %s" % (def.display_name if def != null else id)
+				if def != null and def.has_firing_face:
+					label += "  (mirrored)" if dock._place_mirrored else "  (M to mirror)"
 				f.draw_string(get_canvas_item(), r.position + Vector2(6, 22), label,
 					HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 8, 13, Color.WHITE)
+			elif action.has("return_room") and selected:
+				var ghost_col := Color("e08060")
+				draw_rect(r, Color(ghost_col.r, ghost_col.g, ghost_col.b, 0.30))
+				draw_rect(r, ghost_col, false, 3.0)
+				f.draw_string(get_canvas_item(), r.position + Vector2(6, 22), "Enter: to inventory",
+					HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 8, 13, Color.WHITE)
+			elif selected:
+				draw_rect(r, Color(1, 1, 1, 0.2), false, 3.0)
 
 	func _cell_rect(cell: Vector2i, min_pos: Vector2i, origin: Vector2, cell_px: float) -> Rect2:
 		var local := Vector2(cell - min_pos) * cell_px
