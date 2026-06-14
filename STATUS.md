@@ -1,16 +1,14 @@
 # STATUS — DEEPER
 
-_Read this at session start. Last updated: 2026-06-16 (M4-13: the starting sub
-("the Minnow+2") is rebuilt with the placed Turret Room as its bow gun and a
-placed Bullet Room as its stern gun — the old placeholder "room" module type
-is gone entirely. Engine/helm/turret_room on the main row, tower over the
-helm, bullet_room/claw_room/storage on the lower deck. `buyable_slot_positions()`
-now permanently excludes a placed gun's firing-face cell, and validator rules
-5/8 (gun firing-face clear / at-row-edge) only consider actual placed rooms,
-not empty bought slots. Next: Checkpoint 2 — Snir plays the dock economy end
-to end with the new starting layout, then items 2-5 from Snir's latest brief
-(drop the dry-dock Upgrades tab, an inventory list in Shop/Assembly, the
-Assembly dropdown menu, and the Floodlight Room bundled with its pod).)_
+_Read this at session start. Last updated: 2026-06-16 (M4-14: the dry dock's
+old "Upgrades" tab is gone. The dock now opens straight to the Shop, and Tab
+cycles Shop <-> Assembly only. The Engine Boost and Repair Training upgrades
+(and the old M3 "second gun room" hardpoint-picker flow) are dropped for now —
+a future upgrade-tree pass can bring them back. Next: items 3-5 from Snir's
+latest brief — an inventory-rooms list on the right side of the Shop/Assembly
+screens, the Assembly dropdown's "feature position" (gun side) and "upgrade"
+stub options, and the Floodlight Room becoming a single bundled
+room+pod purchase with a placement-side choice.)_
 
 ## Where we are
 **Milestone 3 is closed (Modules A-E).** Milestone 4 ("The Dry Dock & The
@@ -19,12 +17,12 @@ Growing Sub") is well underway — **all 26 headless suites green.**
 **The submarine is now fully layout-driven** (built from a `SubLayout` via the
 `SubGeometry` pipeline; no hand-authored geometry). Snir **played Checkpoint 1**
 and the geometry is tuned (5m rooms / 1m sections, 0.9m ladders, elements
-snapped to their sections). The **dock UI is now complete for the room economy**:
-the dry dock has three tabs — Upgrades, Shop (buy rooms into inventory and buy
-slots), and Assembly (a hull blueprint where buyable slots show as ghost cells
-with prices, and owned inventory rooms can be placed into owned empty slots,
-with an A/D mirrored toggle for rooms with a firing face). Next up is M4-9
-(pods) → Checkpoint 2. See "Suggested next step" near the bottom.
+snapped to their sections). The **dock UI is now two tabs**: Shop (buy rooms
+into inventory and buy slots) and Assembly (a hull blueprint where buyable
+slots show as ghost cells with prices, and owned inventory rooms/pods can be
+placed into owned empty slots/exterior faces via a dropdown menu, with an M
+mirrored toggle for rooms with a firing face). The dock opens on the Shop;
+Tab cycles Shop <-> Assembly. See "Suggested next step" near the bottom.
 
 **Required reading for M4, in order:** `CLAUDE.md` → this file → `DECISIONS.md`
 → `MODULAR_SUB_IMPLEMENTATION.md` (grid/pipeline/validation/dock canon) →
@@ -585,6 +583,33 @@ gun rooms from the room economy, and the placeholder type is gone for good.
 - **Commit:** `M4-13: rebuild the starting sub around its placed guns, retire
   the placeholder Room module`.
 
+### Milestone 4 — Module 14: dry dock drops the Upgrades tab (DONE, 2026-06-16)
+Item 2 of Snir's latest brief: the dry dock's first tab — the old "Upgrades"
+list (Second Gun + Control Room / Engine Boost / Repair Training) — is gone.
+
+- `DryDock`: `enum Mode` is now just `{ SHOP, ASSEMBLY }`. The dock opens on
+  `Mode.SHOP` (was `Mode.LIST`). Tab on the Shop goes to Assembly; Tab on
+  Assembly goes back to the Shop — a clean 2-way cycle (was a 3-way
+  Upgrades -> Shop -> Assembly -> Upgrades loop).
+- Removed entirely: `_list_key()`, `_try_buy()`, `_draw_list()`, the
+  `PLACEMENT` mode (`_placement_key()`, `_draw_placement()`, the `_box`/
+  `_slot_box` schematic helpers, the `_slot` field), and the `_entries`/
+  `_index` fields that backed the Upgrades list.
+- **Consequence (accepted for now):** Engine Boost and Repair Training are no
+  longer purchasable anywhere, and the old M3 "buy a second gun room, then
+  pick stern/bow" flow (`SaveData.purchase("gun_room", ...)`) is unreachable.
+  `SubLoadout` itself (the data class behind these, plus its `move_mult()`/
+  `repair_time_mult()` multipliers) is left in place but dormant — a future
+  upgrade-tree pass can reconnect it. Nothing currently reads `gun_room`
+  (the M4-13 rework replaced that path with placed Turret/Bullet Rooms).
+- `tests/test_dock_shop_ui.gd`: opening check is now `dock._mode ==
+  DryDock.Mode.SHOP` (was `Mode.LIST` reached via `_list_key(KEY_TAB)`); the
+  "Tab from Assembly" check now expects a return to `Mode.SHOP`.
+- Headless-verified: `test_dock_shop_ui.tscn` -> "DOCK SHOP UI TESTS PASSED"
+  (all 45 checks), `test_shop.tscn` -> "SHOP TESTS PASSED", project loads
+  clean with `--headless --path . --quit`.
+- **Commit:** `M4-14: drop the dry dock's Upgrades tab, open straight to Shop`.
+
 ### M4 module order (corrected per `ROOM_SYSTEM.md` reconciliation, 2026-06-12)
 `MILESTONE_4_v2.md`'s eleven modules are still the backbone, but three things
 from `ROOM_SYSTEM.md` change the order and add a module. This list is the
@@ -1073,3 +1098,16 @@ deck/ladders/banking/victory beat — still apply; see git history. The dry-dock
 6. **Dry dock sanity:** at the dock, open the Shop/Assembly tabs as before —
    buying slots/rooms and placing/returning them should behave the same as
    before this change.
+
+## Verify by playing — Module 14 (dry dock drops the Upgrades tab)
+1. Launch: `"GODOT_PATH" --path .`
+2. Dock at the start of the run and open the dry dock as usual.
+3. **It opens straight on the Shop** — no more "Upgrades" page with Second
+   Gun + Control Room / Engine Boost / Repair Training. The Shop list of
+   buyable rooms/pods is the first thing you see.
+4. Press Tab: it switches to **Assembly** (the hull blueprint). Press Tab
+   again: it switches back to the **Shop**. Tab only ever toggles between
+   these two — there's no third page anymore.
+5. Everything else should feel the same: Esc leaves the dock (refused while
+   the helm is in inventory), buying/placing/returning rooms and pods in
+   Assembly works as before.

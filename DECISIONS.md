@@ -514,6 +514,23 @@ Snir's 7-part request, scoped via AskUserQuestion:
   removing/upgrading rooms and choosing a gun room's firing side) are
   accepted asks, not yet built — see STATUS.md "Next."
 
+## Settled (2026-06-16, round 5 — dry dock drops the Upgrades tab)
+- **Item 2 of Snir's latest brief is done**: the dry dock's "Upgrades" tab
+  (Second Gun + Control Room / Engine Boost / Repair Training) is removed
+  entirely. The dock opens straight on the Shop; Tab cycles Shop <-> Assembly
+  only (was a 3-way Upgrades -> Shop -> Assembly -> Upgrades loop).
+- **Engine Boost, Repair Training, and the M3 "second gun room hardpoint"
+  purchase flow are dropped for now** — chosen option was "remove the tab and
+  drop those upgrades for now" (a future upgrade-tree pass can re-add them).
+  `SubLoadout` (the data class behind `move_mult()`/`repair_time_mult()` and
+  the old `gun_room` slot) is left in place but dormant/unreachable — nothing
+  currently calls `SaveData.purchase()`. Not deleted, since it's small and
+  cheap to reconnect later; flag for cleanup if a future pass decides not to
+  bring these back.
+- Items 3-5 (inventory list in Shop/Assembly, Assembly dropdown's "feature
+  position"/"upgrade" options, Floodlight Room bundled with its pod) remain
+  accepted-but-pending — see STATUS.md "Next."
+
 ## Parked
 - **What station/ability lives in the conning tower?** It's a fixed, always-
   present single cell at the top of the sub (core, like the helm) — Snir is

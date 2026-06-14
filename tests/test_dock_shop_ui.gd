@@ -17,11 +17,7 @@ func _ready() -> void:
 	var dock := DryDock.new()
 	add_child(dock)
 
-	_check(dock._mode == DryDock.Mode.LIST, "the dock opens on the Upgrades list")
-
-	# Tab switches to the Shop tab and back.
-	dock._list_key(KEY_TAB)
-	_check(dock._mode == DryDock.Mode.SHOP, "Tab from the Upgrades list opens the Shop")
+	_check(dock._mode == DryDock.Mode.SHOP, "the dock opens on the Shop")
 	_check(not dock._shop_entries.is_empty(), "the shop lists at least one entry")
 
 	# The first entry should be the purchasable room (turret_room); pods (e.g.
@@ -245,12 +241,11 @@ func _ready() -> void:
 	_check(SaveData.layout.inventory.get("floodlight_pod", 0) == 1,
 		"the detached pod is back in inventory")
 
-	# Tab returns to the Upgrades list.
+	# Tab returns to the Shop.
 	dock._assembly_key(KEY_TAB)
-	_check(dock._mode == DryDock.Mode.LIST, "Tab from Assembly returns to the Upgrades list")
+	_check(dock._mode == DryDock.Mode.SHOP, "Tab from Assembly returns to the Shop")
 
 	# Esc closes from any tab.
-	dock._list_key(KEY_TAB)      # Shop
 	dock._shop_key(KEY_TAB)      # Assembly
 	dock._assembly_key(KEY_ESCAPE)
 	await get_tree().process_frame
