@@ -243,6 +243,16 @@ class FishFeel:
 	var hit_knockback_decay: float = 8.0
 	## Brief white flash duration (s) on a non-lethal hit.
 	var hit_flash_time: float = 0.15
+	## M5-C2: hunter aggression (design doc §7). A hunter fish (is_hunter=true)
+	## detects the sub from farther than its territorial chase range and
+	## pursues it anywhere on the map.
+	var hunter_detect_m: float = 16.0
+	## Once detected, a hunter only gives up after the sub stays beyond this
+	## range for hunter_lose_time seconds.
+	var hunter_lose_m: float = 24.0
+	var hunter_lose_time: float = 5.0
+	## m/s while hunting — faster than the territorial chase_speed.
+	var hunt_speed: float = 4.5
 
 var fish: FishFeel = FishFeel.new()
 

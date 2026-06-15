@@ -10,15 +10,22 @@ extends Area2D
 ## AI is deliberately dumb: distance checks + four states, no pathfinding.
 ## It can't enter the cave interior — avoiding it by piloting is valid play.
 
-enum State { PATROL, CHASE, RECOVER, RETURN }
+enum State { PATROL, CHASE, RECOVER, RETURN, HUNT }
 
 ## The sub it guards against (set at placement).
 var sub: Sub = null
 ## Territory center; the fish spawns here and always swims back here.
 var home: Vector2
 
+## M5-C2 (design doc §7, placement data): if true, this fish detects the sub
+## from hunter_detect_m and chases it anywhere on the map (no territory
+## leash), only giving up after hunter_lose_time spent beyond hunter_lose_m.
+## Default false = territorial (M2 behaviour, unchanged).
+var is_hunter: bool = false
+
 var state: State = State.PATROL
 var is_dead: bool = false
+var _hunter_lose_timer: float = 0.0
 
 ## M5: HP. Torpedo damage == hp_max (one-shot); bullet needs a burst.
 var hp_max: float = GameFeel.fish.hp_max
@@ -62,6 +69,14 @@ func _physics_process(delta: float) -> void:
 
 	var sub_in_territory := sub != null \
 		and home.distance_to(sub.global_position) <= feel.territory_radius_m * ppm
+	var dist_to_sub := global_position.distance_to(sub.global_position) if sub != null else INF
+
+	# Hunters lock on from farther away, in PATROL/CHASE/RETURN, regardless of
+	# territory (design doc §7).
+	if is_hunter and state != State.HUNT and state != State.RECOVER \
+			and dist_to_sub <= feel.hunter_detect_m * ppm:
+		state = State.HUNT
+		_hunter_lose_timer = 0.0
 
 	match state:
 		State.PATROL:
@@ -74,11 +89,25 @@ func _physics_process(delta: float) -> void:
 			else:
 				_swim_toward(sub.global_position, feel.chase_speed * ppm, delta)
 				_try_bite()
+		State.HUNT:
+			# No territory leash: chases anywhere, only gives up after a
+			# sustained spell beyond hunter_lose_m.
+			if dist_to_sub > feel.hunter_lose_m * ppm:
+				_hunter_lose_timer += delta
+				if _hunter_lose_timer >= feel.hunter_lose_time:
+					state = State.RETURN
+			else:
+				_hunter_lose_timer = 0.0
+			_swim_toward(sub.global_position, feel.hunt_speed * ppm, delta)
+			_try_bite()
 		State.RECOVER:
 			# Circle off after a bite, then come back for another pass.
 			global_position += _recover_dir * feel.return_speed * ppm * delta
 			if _bite_cooldown <= 0.0:
-				state = State.CHASE if sub_in_territory else State.RETURN
+				if is_hunter:
+					state = State.HUNT
+				else:
+					state = State.CHASE if sub_in_territory else State.RETURN
 		State.RETURN:
 			_swim_toward(home, feel.return_speed * ppm, delta)
 			if global_position.distance_to(home) < 10.0:
@@ -170,6 +199,7 @@ func reset_fish() -> void:
 	hp = hp_max
 	_hit_flash = 0.0
 	_knockback = Vector2.ZERO
+	_hunter_lose_timer = 0.0
 
 func _draw() -> void:
 	var ppm: float = GameFeel.PIXELS_PER_METER

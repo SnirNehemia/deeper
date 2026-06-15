@@ -14,6 +14,8 @@ func _ready() -> void:
 	await _test_bite()
 	await _test_torpedo_kill_and_reset()
 	await _test_bullet_burst()
+	await _test_hunter_chases_and_gives_up()
+	await _test_territorial_unaffected_by_hunt_path()
 
 	if _failures == 0:
 		print("FISH TESTS PASSED")
@@ -188,6 +190,70 @@ func _test_bullet_burst() -> void:
 
 	get_tree().call_group("fish", "reset_fish")
 	await _frames(2)
+	fish.queue_free()
+	sub.queue_free()
+	await _frames(2)
+
+func _test_hunter_chases_and_gives_up() -> void:
+	print("[hunter chases past the territorial leash, then gives up]")
+	var sub := Sub.new()
+	sub.position = Vector2(-100.0 * _ppm(), 0)
+	add_child(sub)
+
+	var fish := Fish.new()
+	fish.sub = sub
+	fish.is_hunter = true
+	fish.position = Vector2.ZERO
+	add_child(fish)
+	await _frames(5)
+
+	# Sub well outside the territorial leash (10m) but inside hunter_detect_m (16m).
+	sub.global_position = fish.home + Vector2(14.0 * _ppm(), 0)
+	await _frames(10)
+	_check(fish.state == Fish.State.HUNT, "hunter locks on beyond the territorial leash")
+
+	# Sub runs far away, beyond hunter_lose_m (24m). The hunter keeps chasing
+	# for a while (sustained lose-timer), not instantly.
+	sub.global_position = fish.home + Vector2(40.0 * _ppm(), 0)
+	await _frames(10)
+	_check(fish.state == Fish.State.HUNT, "hunter doesn't give up immediately when out of range")
+
+	# After the sustained lose-timer it disengages and heads home. Keep the
+	# sub far ahead each frame (outrunning the hunter) so the lose-timer
+	# actually accumulates instead of resetting as the fish closes in.
+	var gave_up := false
+	for i in int(GameFeel.fish.hunter_lose_time * 60.0) + 30:
+		sub.global_position = fish.global_position + Vector2(40.0 * _ppm(), 0)
+		await get_tree().physics_frame
+		if fish.state == Fish.State.RETURN or fish.state == Fish.State.PATROL:
+			gave_up = true
+			break
+	_check(gave_up, "hunter gives up after the sustained out-of-range timer")
+
+	fish.queue_free()
+	sub.queue_free()
+	await _frames(2)
+
+func _test_territorial_unaffected_by_hunt_path() -> void:
+	print("[territorial fish is unaffected by the hunt path]")
+	var sub := Sub.new()
+	sub.position = Vector2(-100.0 * _ppm(), 0)
+	add_child(sub)
+
+	var fish := Fish.new()
+	fish.sub = sub
+	fish.is_hunter = false
+	fish.position = Vector2.ZERO
+	add_child(fish)
+	await _frames(5)
+
+	# Same distance that triggers a hunter (beyond territory, within
+	# hunter_detect_m) — a territorial fish should just keep patrolling.
+	sub.global_position = fish.home + Vector2(14.0 * _ppm(), 0)
+	await _frames(10)
+	_check(fish.state == Fish.State.PATROL,
+		"territorial fish ignores a sub beyond its territory radius")
+
 	fish.queue_free()
 	sub.queue_free()
 	await _frames(2)

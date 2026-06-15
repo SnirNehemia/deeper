@@ -35,10 +35,13 @@ func _ready() -> void:
 	# Territorial fish: guarding the cave mouth, the cave treasure cluster,
 	# and the basin pillars/wreck. The shallows wreck stays unguarded. They
 	# reset home via the "fish" group on implosion.
+	# M5-C2: the two basin-pillar fish are hunters (design doc §7) — they
+	# lock on from farther out and chase across open water, teaching the
+	# hunter/territorial read on the same map.
 	_add_fish(Vector2(70.0 * M, 64.0 * M))    # cave mouth
 	_add_fish(Vector2(54.0 * M, 70.0 * M))    # cave treasure cluster
-	_add_fish(Vector2(96.0 * M, 47.0 * M))    # first pillar
-	_add_fish(Vector2(116.0 * M, 100.0 * M))  # second pillar / basin wreck
+	_add_fish(Vector2(96.0 * M, 47.0 * M), true)    # first pillar (hunter)
+	_add_fish(Vector2(116.0 * M, 100.0 * M), true)  # second pillar / basin wreck (hunter)
 	_add_fish(Vector2(138.0 * M, 54.0 * M))   # third pillar
 
 	# Fixed-zoom follow camera: ~60 m visible width, smoothed.
@@ -152,10 +155,11 @@ func reset_run() -> void:
 	get_tree().call_group("carryable", "queue_free")  # loose/caged catches in the hold
 	_cam.reset_smoothing()
 
-func _add_fish(pos: Vector2) -> void:
+func _add_fish(pos: Vector2, is_hunter := false) -> void:
 	var fish := Fish.new()
 	fish.sub = _sub
 	fish.position = pos
+	fish.is_hunter = is_hunter
 	add_child(fish)
 
 func _add_hint_label() -> void:
