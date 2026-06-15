@@ -183,7 +183,7 @@ class FloodlightFeel:
 	## Light intensity decays with distance from the lamp in a sigmoid falloff:
 	## centered at half the radius, falling off over this many meters.
 	var decay_center_m: float = 5.0      ## R / 2
-	var decay_width_m: float = 5.0
+	var decay_width_m: float = 2.0
 	var max_alpha: float = 0.35
 
 	## The cone's base half-width at reach `h` (m): sqrt(R^2 - h^2).

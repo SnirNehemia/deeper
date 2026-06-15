@@ -1,17 +1,25 @@
 # STATUS — DEEPER
 
-_Read this at session start. Last updated: 2026-06-19 (Module 18: turret,
-bullet, claw, and floodlight rooms can now be placed/rotated facing **any of
-the four outer faces** (right/left/top/bottom), not just left/right — this
-also answers Module 16's open question (the claw can now point any
-direction, not just down). The floodlight beam now has real-world geometry
-(R=10m cone radius, base width follows the chord formula as height changes)
-and brightness falls off with distance via a sigmoid centered at half the
-radius. Debug "+1" buttons now grant +100 scrap/carcass for faster
-playtesting. Module 17: the Floodlight Room and its lamp are one inseparable
-unit with a working rotate/zoom station and a redesigned light cone. Module
-16 bundled the Floodlight Room + pod into one purchase and added auto-flip
-placement + a "Rotate" menu option for placed guns.)_
+_Read this at session start. Last updated: 2026-06-19 (Module 19: the
+floodlight's lamp can be toggled on/off with "use", its light-decay width is
+now 2m (sharper falloff), the Assembly "Rotate" menu item now opens a
+sub-dropdown of the available facings/faces to pick directly (instead of
+blind-cycling), and a long-standing dropdown-navigation bug — Up and Down
+both moved the highlight the same direction — is fixed. Three items from this
+brief are flagged as separate out-of-scope tasks for later milestones: a
+damage/HP system (bullet=1/torpedo=5/fish=5hp), making empty hull slots
+non-physical instead of solid grey blocks, and a room-reachability check on
+dock exit. Module 18: turret, bullet, claw, and floodlight rooms can now be
+placed/rotated facing **any of the four outer faces**
+(right/left/top/bottom), not just left/right — this also answers Module 16's
+open question (the claw can now point any direction, not just down). The
+floodlight beam has real-world geometry (R=10m cone radius, base width
+follows the chord formula as height changes) and brightness falls off with
+distance via a sigmoid. Debug "+1" buttons grant +100 scrap/carcass. Module
+17: the Floodlight Room and its lamp are one inseparable unit with a working
+rotate/zoom station and a redesigned light cone. Module 16 bundled the
+Floodlight Room + pod into one purchase and added auto-flip placement + a
+"Rotate" menu option for placed guns.)_
 
 ## Where we are
 **Milestone 3 is closed (Modules A-E).** Milestone 4 ("The Dry Dock & The
@@ -754,6 +762,42 @@ light cone's look/controls are reworked.
 - **Commit:** `M4-18: any-outer-face placement/rotation + floodlight beam
   geometry/decay + debug top-up bump`.
 
+### Milestone 4 — Module 19: floodlight on/off toggle, sharper decay, rotate sub-dropdown, dropdown nav fix (DONE, 2026-06-19)
+
+1. **Floodlight on/off toggle.** `FloodlightStation.is_on` (default `true`) is
+   flipped by pressing "use" while seated. `SubVisual._draw_floodlight_beam`
+   skips drawing the cone entirely while `is_on` is false — the lamp goes
+   dark, the room/console still render normally.
+2. **Sharper light decay.** `GameFeel.floodlight.decay_width_m` lowered from
+   5m to **2m** — the beam now fades to dark over a tighter band around its
+   center (still at 5m, half the 10m radius), so the bright zone and the dark
+   edge are both more distinct.
+3. **"Rotate" now opens a sub-dropdown of choices.** Previously picking
+   "Rotate" from a placed room's menu immediately cycled to the next legal
+   facing (blind single-step). Now it opens a second dropdown
+   (`SaveData.rotate_options`) listing every facing/face that's currently
+   legal for that room — the player picks one directly with the
+   use/arrow-keys and confirms with interact. `SaveData.set_facing` commits
+   the chosen facing/face (replaces the old auto-cycling
+   `rotate_room`/`_rotate_facing`/`_rotate_floodlight_pod`).
+4. **Dropdown navigation bug fixed.** In any open Assembly dropdown (room
+   menu, rotate sub-dropdown, etc.), Up/W now moves the highlight up and
+   Down/S moves it down — previously both moved it the same direction
+   (`_menu_key` mapped both to `+1`).
+- Headless-verified: project loads clean with `--headless --path . --quit`,
+  plus `test_dock_shop_ui.tscn`, `test_shop.tscn`, `test_validate.tscn`,
+  `test_save_layout.tscn`, `test_turret.tscn` — all PASSED.
+- **Out of scope, flagged for later milestones** (background tasks spawned):
+  a damage/HP system (bullet=1 dmg, torpedo=5 dmg, fish=5 HP — currently
+  every projectile is an instant kill, no HP fields exist anywhere);
+  making bought-but-empty hull slots non-physical (currently they render as
+  solid grey rooms with full floors/walls/collision — a real
+  `SubGeometry.generate()` rework); and a room-reachability check that warns
+  on dock-exit if a placed room has no crew path to it (most useful once the
+  slot rework above lands).
+- **Commit:** `M4-19: floodlight on/off toggle, sharper decay, rotate
+  sub-dropdown, dropdown nav fix`.
+
 ### M4 module order (corrected per `ROOM_SYSTEM.md` reconciliation, 2026-06-12)
 `MILESTONE_4_v2.md`'s eleven modules are still the backbone, but three things
 from `ROOM_SYSTEM.md` change the order and add a module. This list is the
@@ -1371,3 +1415,20 @@ test_lower_deck, test_sub, test_geometry).
    its far edge** rather than staying a flat color all the way out. Zooming
    the beam in/out (the lamp station's up/down controls) should reshape the
    cone — wider/shorter when zoomed in, narrower/longer when zoomed out.
+
+## Verify by playing — Module 19 (floodlight toggle, sharper decay, rotate sub-dropdown, dropdown nav fix)
+1. Launch: `"D:\Godot_v4.4.1-stable_win64.exe\Godot_v4.4.1-stable_win64.exe" --path .`
+2. Sit in the Floodlight Room's seat and press "use" — the beam should turn
+   off (lamp goes dark). Press "use" again — the beam comes back on. Aiming
+   (left/right) and zooming (up/down) should still work while it's on.
+3. With the light on, the beam should now fade to dark noticeably closer to
+   the lamp than before (the dark edge starts closer in — tighter falloff).
+4. In Assembly, open a placed Turret/Bullet/Claw/Floodlight Room's menu and
+   pick "Rotate" — instead of immediately flipping, a second dropdown should
+   appear listing the available directions/faces (e.g. "Left", "Top",
+   "Bottom"). Use the cycle key to highlight one and interact to confirm —
+   the room/lamp should rotate to exactly that direction. Esc here should
+   back out to the room's menu without changing anything.
+5. In any dropdown menu (a room's action menu, the rotate sub-dropdown,
+   etc.), pressing Up/W should move the highlight up and Down/S should move
+   it down (previously both moved it the same way).

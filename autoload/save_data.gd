@@ -366,31 +366,6 @@ func reset_for_test() -> void:
 ## instead cycles its attached pod's face (the lamp, not the room, has a
 ## "facing"). Fails (false), with no state change, if there's no placement at
 ## `pos`, or no other facing/face validates.
-func rotate_room(pos: Vector2i) -> bool:
-	for p in layout.placements:
-		if p.grid_pos != pos:
-			continue
-		if p.module_id == "floodlight_room":
-			return _rotate_floodlight_pod(pos)
-		return _rotate_facing(p)
-	return false
-
-## Try each other facing in `SubLayout.FACINGS` order (starting after the
-## current one) and commit the first that validates.
-func _rotate_facing(p: SubLayout.Placement) -> bool:
-	var start := SubLayout.FACINGS.find(p.facing)
-	for i in range(1, SubLayout.FACINGS.size()):
-		var facing: String = SubLayout.FACINGS[(start + i) % SubLayout.FACINGS.size()]
-		var candidate := SubLayout.from_dict(layout.to_dict())
-		for cp in candidate.placements:
-			if cp.grid_pos == p.grid_pos:
-				cp.facing = facing
-		if SubValidator.validate(candidate)["violations"].is_empty():
-			p.facing = facing
-			save_data()
-			return true
-	return false
-
 ## Whether moving the floodlight pod at `pos` from `current_face` to `face`
 ## would validate, checked against a candidate layout (no mutation).
 func _floodlight_pod_face_ok(pos: Vector2i, current_face: String, face: String) -> bool:
@@ -403,54 +378,74 @@ func _floodlight_pod_face_ok(pos: Vector2i, current_face: String, face: String) 
 	candidate.pods.append(SubLayout.PodPlacement.new("floodlight_pod", pos, face))
 	return SubValidator.validate(candidate)["violations"].is_empty()
 
-## Cycle the floodlight pod attached at `pos` to the next exterior face in
-## `SubLayout.FACINGS` order that validates.
-func _rotate_floodlight_pod(pos: Vector2i) -> bool:
-	var target := _floodlight_rotate_target(pos)
-	if target == "":
-		return false
+## The floodlight pod's current exterior face at `pos`, or "" if there's none.
+func _floodlight_pod_face(pos: Vector2i) -> String:
 	for pod in layout.pods:
 		if pod.pod_id == "floodlight_pod" and pod.host_cell == pos:
-			pod.face = target
-			save_data()
-			return true
-	return false
+			return pod.face
+	return ""
 
-## The validation violations that rotating the placement at `pos` would cause,
-## without committing anything -- empty means the rotation is legal (or
-## there's no placement at `pos`, a no-op). Used by the assembly UI to decide
-## whether to show a "Rotate" option.
-func rotate_room_violations(pos: Vector2i) -> Array:
+## All facings/faces (other than the placement's current one) that the
+## placement at `pos` could legally rotate to, in `SubLayout.FACINGS` order.
+## Empty means there's no legal alternative (or no rotatable placement here).
+## Used by the Assembly UI to populate the "Rotate" submenu (2026-06-19).
+func rotate_options(pos: Vector2i) -> Array:
 	for p in layout.placements:
 		if p.grid_pos != pos:
 			continue
 		if p.module_id == "floodlight_room":
-			return [] if _floodlight_rotate_target(pos) != "" else ["No other exterior face is available."]
-		var start := SubLayout.FACINGS.find(p.facing)
-		for i in range(1, SubLayout.FACINGS.size()):
-			var facing: String = SubLayout.FACINGS[(start + i) % SubLayout.FACINGS.size()]
+			var current_face := _floodlight_pod_face(pos)
+			var options: Array = []
+			for face in SubLayout.FACINGS:
+				if face != current_face and _floodlight_pod_face_ok(pos, current_face, face):
+					options.append(face)
+			return options
+		var options: Array = []
+		for facing in SubLayout.FACINGS:
+			if facing == p.facing:
+				continue
 			var candidate := SubLayout.from_dict(layout.to_dict())
 			for cp in candidate.placements:
 				if cp.grid_pos == p.grid_pos:
 					cp.facing = facing
 			if SubValidator.validate(candidate)["violations"].is_empty():
-				return []
-		return ["No other facing is available."]
+				options.append(facing)
+		return options
 	return []
 
-## The next exterior face the floodlight pod at `pos` would rotate to, or ""
-## if none validates.
-func _floodlight_rotate_target(pos: Vector2i) -> String:
-	var current_face := ""
-	for pod in layout.pods:
-		if pod.pod_id == "floodlight_pod" and pod.host_cell == pos:
-			current_face = pod.face
-			break
-	var start := SubLayout.FACINGS.find(current_face)
-	for i in range(1, SubLayout.FACINGS.size()):
-		var face: String = SubLayout.FACINGS[(start + i) % SubLayout.FACINGS.size()]
-		if face == current_face:
+## Commits the placement (or floodlight pod) at `pos` to face `facing`
+## directly, if legal. Used by the Assembly UI's "Rotate" submenu after the
+## player picks an option from `rotate_options` (2026-06-19).
+func set_facing(pos: Vector2i, facing: String) -> bool:
+	for p in layout.placements:
+		if p.grid_pos != pos:
 			continue
-		if _floodlight_pod_face_ok(pos, current_face, face):
-			return face
-	return ""
+		if p.module_id == "floodlight_room":
+			var current_face := _floodlight_pod_face(pos)
+			if not _floodlight_pod_face_ok(pos, current_face, facing):
+				return false
+			for pod in layout.pods:
+				if pod.pod_id == "floodlight_pod" and pod.host_cell == pos:
+					pod.face = facing
+					save_data()
+					return true
+			return false
+		var candidate := SubLayout.from_dict(layout.to_dict())
+		for cp in candidate.placements:
+			if cp.grid_pos == p.grid_pos:
+				cp.facing = facing
+		if SubValidator.validate(candidate)["violations"].is_empty():
+			p.facing = facing
+			save_data()
+			return true
+		return false
+	return false
+
+## The validation violations that rotating the placement at `pos` would cause,
+## without committing anything -- empty means at least one other facing/face
+## is legal. Used by the assembly UI to decide whether to show a "Rotate"
+## option.
+func rotate_room_violations(pos: Vector2i) -> Array:
+	if rotate_options(pos).is_empty():
+		return ["No other facing is available."]
+	return []

@@ -598,6 +598,25 @@ Snir's 7-part request, scoped via AskUserQuestion:
   "+1 Scrap"/"+1 Carcass" buttons now grant +100 each, for faster
   playtesting.
 
+- **Floodlight on/off + sharper decay (2026-06-19, M4-19)**: the seated
+  floodlight crew can toggle the lamp on/off with "use"; off, no beam is
+  drawn at all. `decay_width_m` lowered 5m -> 2m for a sharper light/dark
+  edge.
+- **Rotate is now a pick-from-list, not blind-cycle (2026-06-19, M4-19)**:
+  the Assembly "Rotate" menu item opens a sub-dropdown of every currently-
+  legal facing/face (`SaveData.rotate_options`/`set_facing`), replacing the
+  old single-step auto-cycle (`rotate_room`).
+- **Dropdown Up/Down fixed (2026-06-19, M4-19)**: Up/W and Down/S now move
+  the highlight in opposite directions in any Assembly dropdown (previously
+  both moved it the same way — a longstanding bug).
+- **Flagged for later milestones (2026-06-19, out of scope this session)**:
+  a damage/HP system (bullet 1 dmg / torpedo 5 dmg / fish 5 HP — no HP
+  fields exist yet, every hit is currently an instant kill); making
+  bought-but-empty hull slots non-physical instead of solid grey rooms (a
+  `SubGeometry.generate()` rework); and a room-reachability check warning on
+  dock-exit if a placed room has no crew path (most useful once the slot
+  rework lands). Each spawned as its own background task.
+
 ## Parked
 - **What station/ability lives in the conning tower?** It's a fixed, always-
   present single cell at the top of the sub (core, like the helm) — Snir is

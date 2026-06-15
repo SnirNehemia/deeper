@@ -19,11 +19,17 @@ var aim_angle: float = 0.0
 ## narrower and a shorter beam is wider.
 var height_m: float = GameFeel.floodlight.initial_height_m
 
+## Whether the lamp is currently lit. Toggled by "use" — the beam is only
+## drawn while this is true.
+var is_on: bool = true
+
 ## The beam's live direction: base_dir rotated by aim_angle.
 func beam_dir() -> Vector2:
 	return base_dir.rotated(aim_angle)
 
 func handle_input(input: PlayerInput) -> void:
+	if input.use_pressed:
+		is_on = not is_on
 	var delta := get_physics_process_delta_time()
 	var cone := deg_to_rad(GameFeel.floodlight.rotate_cone_half_angle_deg)
 	aim_angle = clampf(

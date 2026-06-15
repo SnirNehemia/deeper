@@ -177,6 +177,8 @@ func _draw_storage_pen(sub: Sub) -> void:
 ## follows a sigmoid falloff with distance — light decays the farther it
 ## travels from the lamp, centered at decay_center_m with decay_width_m.
 func _draw_floodlight_beam(f: FloodlightStation) -> void:
+	if not f.is_on:
+		return
 	var beam := PlaceholderArt.FLOODLIGHT_COLOR
 	var feel := GameFeel.floodlight
 	var tip := f.tip_local

@@ -47,6 +47,12 @@ var _face_index: int = 0
 var _faces: Array = []
 ## The inventory pod id mid-attachment during face selection.
 var _pending_pod_id: String = ""
+## True while picking which facing/face a "Rotate" action commits to (entered
+## from a "rotate_room" menu item). "use"/arrows cycle `_rotate_index` over
+## `_rotate_options` (a list of facing strings, 2026-06-19).
+var _rotate_select: bool = false
+var _rotate_index: int = 0
+var _rotate_options: Array = []
 var _view: _View
 
 func _ready() -> void:
@@ -102,6 +108,9 @@ func _shop_key(code: int) -> void:
 			_close()
 
 func _assembly_key(code: int) -> void:
+	if _rotate_select:
+		_rotate_select_key(code)
+		return
 	if _face_select:
 		_face_select_key(code)
 		return
@@ -136,12 +145,41 @@ func _menu_key(code: int) -> void:
 		_close_menu()
 		return
 	match code:
-		KEY_Q, KEY_ENTER, KEY_UP, KEY_W, KEY_DOWN, KEY_S:
+		KEY_Q, KEY_ENTER, KEY_DOWN, KEY_S:
 			_menu_index = wrapi(_menu_index + 1, 0, menu.size())
+		KEY_UP, KEY_W:
+			_menu_index = wrapi(_menu_index - 1, 0, menu.size())
 		KEY_E, KEY_SHIFT, KEY_KP_ENTER, KEY_SPACE:
 			_confirm_menu_item(menu[_menu_index])
 		KEY_ESCAPE:
 			_close_menu()
+
+## While picking which facing/face to rotate to: "use"/arrows cycle through
+## `_rotate_options`, "interact" commits the highlighted option, Esc cancels
+## back to the cell's menu (which stays open, 2026-06-19).
+func _rotate_select_key(code: int) -> void:
+	match code:
+		KEY_Q, KEY_ENTER, KEY_UP, KEY_W, KEY_RIGHT, KEY_D:
+			_rotate_index = wrapi(_rotate_index + 1, 0, _rotate_options.size())
+		KEY_DOWN, KEY_S, KEY_LEFT, KEY_A:
+			_rotate_index = wrapi(_rotate_index - 1, 0, _rotate_options.size())
+		KEY_E, KEY_SHIFT, KEY_KP_ENTER, KEY_SPACE:
+			_confirm_rotate_select()
+		KEY_ESCAPE:
+			_rotate_select = false
+			_rotate_options = []
+			_rotate_index = 0
+
+func _confirm_rotate_select() -> void:
+	var facing: String = _rotate_options[_rotate_index]
+	if SaveData.set_facing(_assembly_cursor, facing):
+		_changed = true
+		_note = "Rotated."
+		_rebuild_assembly_entries()
+	_rotate_select = false
+	_rotate_options = []
+	_rotate_index = 0
+	_close_menu()
 
 ## While picking a pod's exterior face: "use"/arrows cycle through `_faces`,
 ## "interact" attaches the pod to the highlighted face, Esc cancels back to
@@ -200,8 +238,20 @@ func _confirm_menu_item(item: Dictionary) -> void:
 		"place_pod":
 			_enter_face_select(item["id"])
 		"rotate_room":
-			_try_rotate_room(_assembly_cursor)
-			_close_menu()
+			_enter_rotate_select(_assembly_cursor)
+
+## Drops into rotate-selection for the cursor's cell: lists every facing/face
+## `rotate_options` says is legal, so the player can pick one directly instead
+## of cycling blindly (2026-06-19). The menu stays open underneath until a
+## choice is confirmed or cancelled.
+func _enter_rotate_select(pos: Vector2i) -> void:
+	var options := SaveData.rotate_options(pos)
+	if options.is_empty():
+		_note = "No other facing is available."
+		return
+	_rotate_options = options
+	_rotate_index = 0
+	_rotate_select = true
 
 ## Drops into face-selection for attaching `pod_id` to the cursor's cell —
 ## only the cell's exterior faces are offered ("only on outer edges of the
@@ -232,6 +282,9 @@ func _close_menu() -> void:
 	_faces = []
 	_face_index = 0
 	_pending_pod_id = ""
+	_rotate_select = false
+	_rotate_options = []
+	_rotate_index = 0
 
 ## The cell's faces ("top"/"bottom"/"left"/"right") that aren't occupied by
 ## another room — the candidates for attaching a pod (2026-06-16).
@@ -406,18 +459,6 @@ func _try_place_room(pos: Vector2i, id: String) -> void:
 		var def := ModuleCatalog.by_id(id)
 		_note = "%s placed!" % (def.display_name if def != null else id)
 		_rebuild_shop_entries()
-		_rebuild_assembly_entries()
-
-## Flips a placed firing-face room's direction (2026-06-19). No-op (with a
-## note) if SaveData refuses — the flipped facing would be illegal.
-func _try_rotate_room(pos: Vector2i) -> void:
-	var violations := SaveData.rotate_room_violations(pos)
-	if not violations.is_empty():
-		_note = violations[0]
-		return
-	if SaveData.rotate_room(pos):
-		_changed = true
-		_note = "Rotated."
 		_rebuild_assembly_entries()
 
 ## Picks the placed room at `pos` back up into inventory (2026-06-14 Assembly
@@ -655,6 +696,14 @@ class _View extends Control:
 					for face in dock._faces:
 						face_items.append("%s face" % str(face).capitalize())
 					_draw_dropdown(f, r, face_items, dock._face_index)
+				elif selected and dock._rotate_select:
+					var ghost_col := Color("c0a0ff")
+					draw_rect(r, Color(ghost_col.r, ghost_col.g, ghost_col.b, 0.30))
+					draw_rect(r, ghost_col, false, 3.0)
+					var rotate_items: Array = []
+					for facing in dock._rotate_options:
+						rotate_items.append("%s" % str(facing).capitalize())
+					_draw_dropdown(f, r, rotate_items, dock._rotate_index)
 				elif selected and dock._menu_open:
 					var ghost_col := Color("6ad0a0")
 					draw_rect(r, Color(ghost_col.r, ghost_col.g, ghost_col.b, 0.30))
