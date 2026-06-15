@@ -94,6 +94,7 @@ const _IMPACT_COOLDOWN_TIME := 0.6
 
 # Cached seat/anchor positions (sub-local), computed from the geometry at build.
 var _helm_seat: Vector2 = Vector2.ZERO
+var _hull_station_seat: Vector2 = Vector2.ZERO
 var _claw_seat: Vector2 = Vector2.ZERO
 var _claw_anchor: Vector2 = Vector2.ZERO
 var _claw_down_dir: Vector2 = Vector2.DOWN
@@ -278,6 +279,10 @@ func _compute_anchors() -> void:
 	if tower != null:
 		_respawn_local = Vector2(tower.rect.get_center().x,
 			tower.rect.position.y + tower.rect.size.y - crew_half)
+		# Hull station (M5-C1): console in s3 of the tower, alongside the
+		# crew-start seats in s2/s4/s1/s5.
+		var tower_floor_y0 := tower.rect.position.y + tower.rect.size.y - crew_half
+		_hull_station_seat = Vector2(_section_x(tower, 3), tower_floor_y0)
 		# Crew start-of-run seats (up to 4 players), spread across the tower
 		# floor in sections 2/4/1/5 (s3 stays clear for the ladder/respawn
 		# center). ROOM_SYSTEM.md crew-start rework, 2026-06-14.
@@ -745,9 +750,36 @@ func _add_box(center: Vector2, size: Vector2, layer: int) -> void:
 
 # --- Stations (helm, base turret, claw), seated from the computed anchors ---
 
+## Room indices reachable from `start` within `max_depth` door/ladder hops
+## (BFS over _connections()), including `start` itself at depth 0. Used by the
+## Hull station (M5-C1) to find breaches "within N rooms".
+func rooms_within(start: int, max_depth: int) -> Array[int]:
+	var dist := {start: 0}
+	var frontier: Array[int] = [start]
+	var conns := _connections()
+	for _step in max_depth:
+		var next: Array[int] = []
+		for room in frontier:
+			for conn in conns:
+				var other := -1
+				if conn["a"] == room:
+					other = conn["b"]
+				elif conn["b"] == room:
+					other = conn["a"]
+				if other != -1 and not dist.has(other):
+					dist[other] = dist[room] + 1
+					next.append(other)
+		frontier = next
+	var result: Array[int] = []
+	for room in dist:
+		result.append(room)
+	return result
+
 func _build_stations() -> void:
 	if _room_by_id("helm") != null:
 		_build_helm()
+	if _room_by_id("tower") != null:
+		_build_hull_station()
 	for tr in _turret_rooms:
 		_build_turret_room(tr)
 	for br in _bullet_rooms:
@@ -756,6 +788,14 @@ func _build_stations() -> void:
 		_build_floodlight_room(fr)
 	if _room_by_id("claw_room") != null:
 		_build_claw()
+
+## Conning-tower Hull station (M5-C1): remote, slow auto-patch.
+func _build_hull_station() -> void:
+	var hull_station := HullStation.new()
+	hull_station.sub = self
+	hull_station.room_index = _room_by_id("tower").water_index
+	hull_station.position = _hull_station_seat
+	add_child(hull_station)
 
 func _build_helm() -> void:
 	var helm := HelmStation.new()

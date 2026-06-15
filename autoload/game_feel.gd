@@ -253,6 +253,18 @@ class WreckFeel:
 
 var wreck: WreckFeel = WreckFeel.new()
 
+## Conning-tower Hull station (M5-C1): a remote, slower alternative to
+## hand-patching. A seated crew holds `use` to auto-patch the nearest breach
+## within range_rooms, retargeting once each is sealed.
+class HullStationFeel:
+	## How many rooms away (via doors/ladders) a breach can be auto-patched from.
+	var range_rooms: int = 4
+	## Time (s) to fully patch a breach from the tower — slower than a hand
+	## patch (GameFeel.water.repair_time) so a free pair of hands always wins.
+	var patch_time: float = 8.0
+
+var hull_station: HullStationFeel = HullStationFeel.new()
+
 ## Salvage claw feel (Milestone 3 rework). A two-joint articulated arm hung
 ## from the keel under the claw room, driven excavator-style: one stick axis
 ## per joint, blended together. The operator poses it out to reach salvage,
