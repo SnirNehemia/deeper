@@ -31,6 +31,8 @@ const BREACH_BIG := Color("ff3030")       ## gusher (red)
 # --- Fauna ---
 const FISH_COLOR := Color("7a4ae8")       ## chunky territorial fish (purple)
 const FISH_LENGTH_M: float = 1.0
+const CHASER_COLOR := Color("39c45a")     ## basic_chaser: green, open-water
+const CHASER_LENGTH_M: float = 1.6        ## more elongated than the territorial fish
 
 # --- Salvage ---
 const SCRAP_COLOR := Color("c8a050")      ## scrap crate (warm metal)

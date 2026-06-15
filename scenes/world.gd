@@ -44,6 +44,11 @@ func _ready() -> void:
 	_add_fish(Vector2(116.0 * M, 100.0 * M), true)  # second pillar / basin wreck (hunter)
 	_add_fish(Vector2(138.0 * M, 54.0 * M))   # third pillar
 
+	# M5 follow-up: two "basic_chasers" patrolling open water between the
+	# pillars — green, elongated, relentless once they spot the sub.
+	_add_fish(Vector2(106.0 * M, 75.0 * M), false, true)
+	_add_fish(Vector2(128.0 * M, 90.0 * M), false, true)
+
 	# Fixed-zoom follow camera: ~60 m visible width, smoothed.
 	_cam = Camera2D.new()
 	var visible_width_m := 60.0
@@ -159,11 +164,12 @@ func reset_run() -> void:
 	get_tree().call_group("carryable", "queue_free")  # loose/caged catches in the hold
 	_cam.reset_smoothing()
 
-func _add_fish(pos: Vector2, is_hunter := false) -> void:
+func _add_fish(pos: Vector2, is_hunter := false, is_chaser := false) -> void:
 	var fish := Fish.new()
 	fish.sub = _sub
 	fish.position = pos
 	fish.is_hunter = is_hunter
+	fish.is_chaser = is_chaser
 	add_child(fish)
 
 func _add_hint_label() -> void:

@@ -23,11 +23,19 @@ var home: Vector2
 ## Default false = territorial (M2 behaviour, unchanged).
 var is_hunter: bool = false
 
+## "basic_chaser" (placement data): green, elongated, open-water fauna. Once
+## it spots the sub (from chaser_detect_m) it chases relentlessly and never
+## gives up — only a successful bite earns the crew a chaser_backoff_time
+## breather before it presses the attack again. Higher HP (8) than the
+## ordinary fish.
+var is_chaser: bool = false
+
 var state: State = State.PATROL
 var is_dead: bool = false
 var _hunter_lose_timer: float = 0.0
 
-## M5: HP. Torpedo damage == hp_max (one-shot); bullet needs a burst.
+## M5: HP. Torpedo damage == hp_max (one-shot); bullet needs a burst. Set in
+## _ready (after `is_chaser` is assigned by the placer) since chasers have more.
 var hp_max: float = GameFeel.fish.hp_max
 var hp: float = hp_max
 
@@ -47,9 +55,13 @@ func _ready() -> void:
 	collision_mask = Layers.PROJECTILE | Layers.SUB_HULL
 	monitoring = true
 	monitorable = true
+	if is_chaser:
+		hp_max = GameFeel.fish.chaser_hp_max
+		hp = hp_max
+	var length_m := PlaceholderArt.CHASER_LENGTH_M if is_chaser else PlaceholderArt.FISH_LENGTH_M
 	var shape := CollisionShape2D.new()
 	var circle := CircleShape2D.new()
-	circle.radius = PlaceholderArt.FISH_LENGTH_M * GameFeel.PIXELS_PER_METER * 0.5
+	circle.radius = length_m * GameFeel.PIXELS_PER_METER * 0.5
 	shape.shape = circle
 	add_child(shape)
 	area_entered.connect(_on_area_entered)
@@ -78,6 +90,11 @@ func _physics_process(delta: float) -> void:
 		state = State.HUNT
 		_hunter_lose_timer = 0.0
 
+	# Basic chasers lock on from chaser_detect_m and never let go.
+	if is_chaser and state != State.HUNT and state != State.RECOVER \
+			and dist_to_sub <= feel.chaser_detect_m * ppm:
+		state = State.HUNT
+
 	match state:
 		State.PATROL:
 			_patrol(feel, ppm, delta)
@@ -90,21 +107,23 @@ func _physics_process(delta: float) -> void:
 				_swim_toward(sub.global_position, feel.chase_speed * ppm, delta)
 				_try_bite()
 		State.HUNT:
-			# No territory leash: chases anywhere, only gives up after a
-			# sustained spell beyond hunter_lose_m.
-			if dist_to_sub > feel.hunter_lose_m * ppm:
-				_hunter_lose_timer += delta
-				if _hunter_lose_timer >= feel.hunter_lose_time:
-					state = State.RETURN
-			else:
-				_hunter_lose_timer = 0.0
-			_swim_toward(sub.global_position, feel.hunt_speed * ppm, delta)
+			# Basic chasers never give up. Hunters chase anywhere, only
+			# giving up after a sustained spell beyond hunter_lose_m.
+			if not is_chaser:
+				if dist_to_sub > feel.hunter_lose_m * ppm:
+					_hunter_lose_timer += delta
+					if _hunter_lose_timer >= feel.hunter_lose_time:
+						state = State.RETURN
+				else:
+					_hunter_lose_timer = 0.0
+			var speed := feel.chaser_speed if is_chaser else feel.hunt_speed
+			_swim_toward(sub.global_position, speed * ppm, delta)
 			_try_bite()
 		State.RECOVER:
 			# Circle off after a bite, then come back for another pass.
 			global_position += _recover_dir * feel.return_speed * ppm * delta
 			if _bite_cooldown <= 0.0:
-				if is_hunter:
+				if is_hunter or is_chaser:
 					state = State.HUNT
 				else:
 					state = State.CHASE if sub_in_territory else State.RETURN
@@ -143,7 +162,7 @@ func _try_bite() -> void:
 		return
 	var local := sub.to_local(global_position)
 	sub.breach_from_hit(sub.nearest_room(local), GameFeel.breach.bite_severity, local)
-	_bite_cooldown = GameFeel.fish.bite_interval
+	_bite_cooldown = GameFeel.fish.chaser_backoff_time if is_chaser else GameFeel.fish.bite_interval
 	# Circle away: mostly back the way it came, with some sideways drift.
 	var away := sub.global_position.direction_to(global_position)
 	_recover_dir = (away + Vector2(0, -0.5)).normalized()
@@ -196,6 +215,7 @@ func reset_fish() -> void:
 	_patrol_target = home
 	_bite_cooldown = 0.0
 	state = State.PATROL
+	hp_max = GameFeel.fish.chaser_hp_max if is_chaser else GameFeel.fish.hp_max
 	hp = hp_max
 	_hit_flash = 0.0
 	_knockback = Vector2.ZERO
@@ -203,12 +223,16 @@ func reset_fish() -> void:
 
 func _draw() -> void:
 	var ppm: float = GameFeel.PIXELS_PER_METER
-	var len_px := PlaceholderArt.FISH_LENGTH_M * ppm
+	var length_m := PlaceholderArt.CHASER_LENGTH_M if is_chaser else PlaceholderArt.FISH_LENGTH_M
+	var len_px := length_m * ppm
 	var half := len_px * 0.5
-	var c := Color.WHITE if _hit_flash > 0.0 else PlaceholderArt.FISH_COLOR
-	# All drawn facing right, mirrored by _facing.
+	var base_color := PlaceholderArt.CHASER_COLOR if is_chaser else PlaceholderArt.FISH_COLOR
+	var c := Color.WHITE if _hit_flash > 0.0 else base_color
+	# All drawn facing right, mirrored by _facing. Chasers are stretched
+	# lengthwise (more elongated) on top of their longer base length.
+	var stretch := 1.3 if is_chaser else 1.0
 	draw_set_transform(Vector2.ZERO, 0.0,
-		Vector2(_facing, 1.0 + 0.06 * sin(_wobble * 6.0)))
+		Vector2(_facing * stretch, 1.0 + 0.06 * sin(_wobble * 6.0)))
 	# Chunky body.
 	draw_circle(Vector2(0, 0), half * 0.55, c)
 	draw_rect(Rect2(-half * 0.55, -half * 0.4, half * 0.9, half * 0.8), c)
