@@ -202,6 +202,8 @@ func reserved_cells() -> Array:
 		var def := ModuleCatalog.by_id(p.module_id)
 		if def != null and def.has_firing_face:
 			reserved.append(p.grid_pos + SubValidator._firing_face_offset(p.mirrored))
+		if p.module_id == "claw_room":
+			reserved.append(p.grid_pos + Vector2i(0, 1))
 	return reserved
 
 func buyable_slot_positions() -> Array:

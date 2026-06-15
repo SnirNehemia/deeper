@@ -75,16 +75,22 @@ static func _floodlight_room() -> ModuleDef:
 	def.display_name = "Floodlight Room"
 	def.footprint = Vector2i(1, 1)
 	def.can_host_pod = true
-	def.cost = {"sc": 6}
+	def.cost = {"sc": 10}  # bundled price covers the room + its pod (2026-06-19)
 	return def
 
+## The floodlight pod is no longer sold separately (2026-06-19): buying the
+## Floodlight Room (above) grants both the room and this pod into inventory
+## in one purchase (SaveData.buy_room), per DECISIONS.md round 4. This entry
+## stays in the catalog (empty cost keeps it out of purchasable_pods()) so
+## ModuleCatalog.by_id("floodlight_pod") and SubValidator pod-placement rules
+## still resolve normally.
 static func _floodlight_pod() -> ModuleDef:
 	var def := ModuleDef.new()
 	def.id = "floodlight_pod"
 	def.display_name = "Floodlight Pod"
 	def.is_pod = true
 	def.footprint = Vector2i(0, 0)
-	def.cost = {"sc": 4}  # MODULAR_SUB_IMPLEMENTATION.md §8
+	def.cost = {}
 	return def
 
 ## The modules a player can buy into inventory at the dock right now: not core

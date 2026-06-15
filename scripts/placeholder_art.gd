@@ -19,6 +19,7 @@ const SUB_INTERIOR := Color("2a2f3a")     ## room background
 const SUB_STRUCTURE := Color("8a8f9c")    ## floors/walls/headers
 const SUB_FLOOR := Color("4a5160")        ## floor deck highlight
 const LADDER_COLOR := Color("e0c060")     ## ladder rails/rungs
+const FLOODLIGHT_COLOR := Color("f5e6a0")  ## floodlight pod lens/beam (warm white)
 const INTERIOR_WATER := Color(0.16, 0.42, 0.58, 0.75)  ## flooding water in a room
 const BREACH_COLOR := Color("ff8c3a")     ## generic danger hue (alert flash)
 # Breach severity tiers (playtest #3): distinct colour + size so the crew can

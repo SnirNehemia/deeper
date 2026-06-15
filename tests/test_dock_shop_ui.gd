@@ -27,11 +27,13 @@ func _ready() -> void:
 	_check(room_entry["type"] == "room", "the first shop entry is a purchasable room")
 	var def: ModuleDef = room_entry["def"]
 
+	# The floodlight pod is no longer sold separately (2026-06-19): buying the
+	# Floodlight Room bundles it in, so purchasable_pods() is now empty.
 	var found_pod := false
 	for entry in dock._shop_entries:
 		if entry["type"] == "pod":
 			found_pod = true
-	_check(found_pod, "the shop also lists at least one purchasable pod")
+	_check(not found_pod, "the shop no longer lists a separately purchasable pod")
 
 	# Buying with too little money is refused.
 	SaveData.banked_scrap = 0
@@ -200,9 +202,11 @@ func _ready() -> void:
 	SaveData.banked_scrap = 1000
 	var fl_pos: Vector2i = SaveData.layout.buyable_slot_positions()[0]
 	_check(SaveData.buy_slot(fl_pos), "buy a slot for the Floodlight Room")
+	# Buying the room bundles in its pod (2026-06-19, DECISIONS.md round 4).
 	_check(SaveData.buy_room("floodlight_room"), "buy a Floodlight Room into inventory")
+	_check(int(SaveData.layout.inventory.get("floodlight_pod", 0)) == 1,
+		"buying the Floodlight Room also grants its pod into inventory")
 	_check(SaveData.place_room("floodlight_room", fl_pos, false), "place the Floodlight Room")
-	_check(SaveData.buy_pod("floodlight_pod"), "buy a Floodlight Pod into inventory")
 	dock._rebuild_assembly_entries()
 
 	dock._assembly_cursor = fl_pos

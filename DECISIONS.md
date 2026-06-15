@@ -552,6 +552,26 @@ Snir's 7-part request, scoped via AskUserQuestion:
   make pod placement clearer once these land; revisit with him after he's
   tried the new dropdown.
 
+## Settled (2026-06-19, round 7 — floodlight bundle, weapon defaults/rotate, claw clearance)
+- **Floodlight Room + pod are now a single 10-scrap purchase** (round 4's
+  deferred decision, finally implemented): buying the room grants the pod too;
+  placing the room chains straight into the pod's face picker. Both now have
+  placeholder visuals (console mark inside, lamp+beam outside on the chosen
+  face) — previously neither rendered anything.
+- **Weapon placement default**: turret/bullet rooms default to firing
+  bow-ward ("right"); if that's blocked, placement **auto-flips** to
+  stern-ward ("left") instead of refusing. An explicit M-toggle choice is
+  still honored as-is (no silent override). A placed gun room's menu now
+  offers **"Rotate"** to flip its firing direction later, shown only when the
+  flip would still validate.
+- **New validator rule 9**: the cell directly below a placed Claw Room must
+  stay clear (claw drop path) — reserved the same way as a gun's firing line,
+  never buyable/placeable.
+- **Open question for Snir**: does "place the claw with a dropdown" mean the
+  claw itself should get a left/right directional choice (a new mechanic,
+  bigger change), or was protecting its current straight-down drop path the
+  whole ask? Parked until he weighs in — see STATUS.md Module 16.
+
 ## Parked
 - **What station/ability lives in the conning tower?** It's a fixed, always-
   present single cell at the top of the sub (core, like the helm) — Snir is

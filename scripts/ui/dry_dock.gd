@@ -198,7 +198,8 @@ func _confirm_menu_item(item: Dictionary) -> void:
 	match item["type"]:
 		"place_room":
 			_try_place_room(_assembly_cursor, item["id"], _place_mirrored)
-			_close_menu()
+			if not _face_select:
+				_close_menu()
 		"return_room":
 			_try_return_room(_assembly_cursor)
 			_close_menu()
@@ -207,6 +208,9 @@ func _confirm_menu_item(item: Dictionary) -> void:
 			_close_menu()
 		"place_pod":
 			_enter_face_select(item["id"])
+		"rotate_room":
+			_try_rotate_room(_assembly_cursor)
+			_close_menu()
 
 ## Drops into face-selection for attaching `pod_id` to the cursor's cell —
 ## only the cell's exterior faces are offered ("only on outer edges of the
@@ -270,6 +274,8 @@ func _menu_item_label(item: Dictionary) -> String:
 			return label
 		"return_room":
 			return "Return %s to inventory" % name
+		"rotate_room":
+			return "Rotate %s (flip firing direction)" % name
 		"place_pod":
 			return "Attach pod: %s" % name
 		"return_pod":
@@ -353,6 +359,8 @@ func _build_cell_menu(cell: Vector2i) -> Array:
 		return menu
 	if SaveData._is_relocatable(placed_def):
 		menu.append({"type": "return_room", "id": placed_id})
+	if placed_def.has_firing_face and SaveData.rotate_room_violations(cell).is_empty():
+		menu.append({"type": "rotate_room", "id": placed_id})
 	if placed_def.can_host_pod:
 		for id in SaveData.layout.inventory:
 			if int(SaveData.layout.inventory[id]) <= 0:
@@ -396,8 +404,21 @@ func _try_buy_slot(pos: Vector2i) -> void:
 		_note = "Slot bought at (%d, %d)!" % [pos.x, pos.y]
 		_rebuild_assembly_entries()
 
+## Places `id` at `pos`. For a firing-face room (turret/bullet), `mirrored` is
+## only the player's *explicit* choice (set by pressing M in the menu) — if
+## the player hasn't toggled it and the default bow-ward (unmirrored) facing
+## is blocked, this falls back to stern-ward (mirrored) automatically
+## (2026-06-19, "more intuitive weapon placement"). An explicit choice that's
+## illegal is reported as-is, with no silent fallback.
 func _try_place_room(pos: Vector2i, id: String, mirrored: bool) -> void:
 	var violations := SaveData.place_room_violations(id, pos, mirrored)
+	if not violations.is_empty() and not mirrored:
+		var def := ModuleCatalog.by_id(id)
+		if def != null and def.has_firing_face:
+			var flipped := SaveData.place_room_violations(id, pos, true)
+			if flipped.is_empty():
+				mirrored = true
+				violations = flipped
 	if not violations.is_empty():
 		_note = violations[0]
 		return
@@ -406,6 +427,20 @@ func _try_place_room(pos: Vector2i, id: String, mirrored: bool) -> void:
 		var def := ModuleCatalog.by_id(id)
 		_note = "%s placed!" % (def.display_name if def != null else id)
 		_rebuild_shop_entries()
+		_rebuild_assembly_entries()
+		if id == "floodlight_room" and int(SaveData.layout.inventory.get("floodlight_pod", 0)) > 0:
+			_enter_face_select("floodlight_pod")
+
+## Flips a placed firing-face room's direction (2026-06-19). No-op (with a
+## note) if SaveData refuses — the flipped facing would be illegal.
+func _try_rotate_room(pos: Vector2i) -> void:
+	var violations := SaveData.rotate_room_violations(pos)
+	if not violations.is_empty():
+		_note = violations[0]
+		return
+	if SaveData.rotate_room(pos):
+		_changed = true
+		_note = "Rotated."
 		_rebuild_assembly_entries()
 
 ## Picks the placed room at `pos` back up into inventory (2026-06-14 Assembly

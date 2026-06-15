@@ -116,6 +116,19 @@ var _turret_rooms: Array = []
 ## `_gun_room_anchors` helper, consumed by `_build_bullet_room`.
 var _bullet_rooms: Array = []
 
+## Sub-local exterior rects for each attached floodlight pod (M4-9c placeholder
+## visual, 2026-06-19): one rect per `SubLayout.PodPlacement` with
+## pod_id == "floodlight_pod", a small lamp box just outside its host cell's
+## attached face. Read by SubVisual._draw_floodlights.
+## Each entry: {"rect": Rect2, "face": String} — sub-local lamp box + which
+## hull face it's attached to ("top"/"bottom"/"left"/"right").
+var _floodlight_pods: Array[Dictionary] = []
+
+## Sub-local seat positions, one per placed `floodlight_room` (M4-9c
+## placeholder visual): a small switch/console mark on the room floor, so an
+## empty-looking room reads as "the floodlight control station".
+var _floodlight_seats: Array[Vector2] = []
+
 func _ready() -> void:
 	collision_layer = Layers.SUB_HULL
 	collision_mask = Layers.TERRAIN
@@ -275,6 +288,36 @@ func _compute_anchors() -> void:
 	_turret_rooms = _gun_room_anchors("turret_room", crew_half)
 	_bullet_rooms = _gun_room_anchors("bullet_room", crew_half)
 
+	# Placed floodlight rooms: a console mark in s3, like the helm/gun seats.
+	_floodlight_seats = []
+	for room in geometry.rooms:
+		if room.module_id == "floodlight_room":
+			var floor_y := room.rect.position.y + room.rect.size.y
+			_floodlight_seats.append(Vector2(_section_x(room, 3), floor_y - crew_half))
+
+	# Attached floodlight pods (M4-9c placeholder visual): a small lamp box
+	# just outside the host cell's attached face.
+	_floodlight_pods = []
+	const LAMP_T := 18.0
+	for pod in SaveData.layout.pods:
+		if pod.pod_id != "floodlight_pod":
+			continue
+		var index := geometry.index_at(pod.host_cell)
+		if index < 0:
+			continue
+		var r := geometry.rooms[index].rect
+		var lamp_rect: Rect2
+		match pod.face:
+			"top":
+				lamp_rect = Rect2(r.position.x, r.position.y - LAMP_T, r.size.x, LAMP_T)
+			"bottom":
+				lamp_rect = Rect2(r.position.x, r.position.y + r.size.y, r.size.x, LAMP_T)
+			"left":
+				lamp_rect = Rect2(r.position.x - LAMP_T, r.position.y, LAMP_T, r.size.y)
+			"right", _:
+				lamp_rect = Rect2(r.position.x + r.size.x, r.position.y, LAMP_T, r.size.y)
+		_floodlight_pods.append({"rect": lamp_rect, "face": pod.face})
+
 ## One {"room", "seat", "tube", "facing"} entry per placed room of `module_id`
 ## with a firing-face gun: gunner seat in s3, tube just outside the firing-face
 ## wall (mirrored -> stern/-x, unmirrored -> bow/+x), same convention as
@@ -309,6 +352,13 @@ func turret_tube_local() -> Vector2:
 	if _turret_rooms.is_empty():
 		return Vector2.ZERO
 	return _turret_rooms[0]["tube"]
+## Sub-local seats for each placed floodlight room's console mark.
+func floodlight_seats_local() -> Array[Vector2]:
+	return _floodlight_seats
+## Sub-local lamp box + face for each attached floodlight pod.
+func floodlight_pods() -> Array[Dictionary]:
+	return _floodlight_pods
+
 func claw_seat_local() -> Vector2:
 	return _claw_seat
 func claw_anchor_local() -> Vector2:

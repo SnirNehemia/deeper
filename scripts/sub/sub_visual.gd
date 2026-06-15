@@ -53,6 +53,9 @@ func _draw() -> void:
 	_draw_claw_console(sub)
 	_draw_storage_pen(sub)
 	_draw_claw()
+	for seat in sub.floodlight_seats_local():
+		_draw_console(seat)
+	_draw_floodlight_pods(sub)
 	_draw_water(sub)
 
 ## A small console box + dial standing on the floor at a seat (sub-local).
@@ -161,6 +164,31 @@ func _draw_storage_pen(sub: Sub) -> void:
 			draw_rect(Rect2(p - Vector2(5, 5), Vector2(10, 10)), PlaceholderArt.SCRAP_COLOR)
 		else:
 			draw_circle(p, 5.0, PlaceholderArt.CARCASS_COLOR)
+
+## Attached floodlight pods (M4-9c placeholder visual): a lamp box just outside
+## the hull, plus a beam fanning out from it across the host's exterior face.
+func _draw_floodlight_pods(sub: Sub) -> void:
+	var beam := PlaceholderArt.FLOODLIGHT_COLOR
+	var beam_color := Color(beam.r, beam.g, beam.b, 0.35)
+	var beam_dirs := {
+		"top": Vector2(0.0, -1.0), "bottom": Vector2(0.0, 1.0),
+		"left": Vector2(-1.0, 0.0), "right": Vector2(1.0, 0.0),
+	}
+	for pod in sub.floodlight_pods():
+		var r: Rect2 = pod["rect"]
+		draw_rect(r, PlaceholderArt.SUB_STRUCTURE)
+		var center := r.get_center()
+		var dir: Vector2 = beam_dirs.get(pod["face"], Vector2.ZERO)
+		draw_circle(center, 6.0, beam)
+		var tip := center + dir * 120.0
+		# The beam fans out perpendicular to its travel direction.
+		var spread: Vector2 = Vector2(0.0, r.size.y * 0.4) if dir.x != 0.0 \
+			else Vector2(r.size.x * 0.4, 0.0)
+		draw_colored_polygon(PackedVector2Array([
+			center - spread,
+			center + spread,
+			tip,
+		]), beam_color)
 
 ## Flooding water: a flat rect rising from each room's floor. Drawn last.
 func _draw_water(sub: Sub) -> void:

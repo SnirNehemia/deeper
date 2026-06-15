@@ -281,16 +281,22 @@ func _test_slot_price_stable_across_place_and_return() -> void:
 		"returning a room to inventory doesn't change the price of other slots")
 
 func _test_buy_pod_into_inventory() -> void:
+	# The floodlight pod is no longer sold separately (2026-06-19,
+	# DECISIONS.md round 4) — buying the Floodlight Room bundles it in.
 	print("[buy a pod into inventory]")
 	SaveData.reset_for_test()
 	SaveData.banked_scrap = 20
-	var cost: Dictionary = ModuleCatalog.by_id("floodlight_pod").cost_bundle()
-	var ok := SaveData.buy_pod("floodlight_pod")
-	_check(ok, "buying the floodlight pod with enough scrap succeeds")
+	_check(not SaveData.buy_pod("floodlight_pod"),
+		"the floodlight pod can no longer be bought separately")
+	var cost: Dictionary = ModuleCatalog.by_id("floodlight_room").cost_bundle()
+	var ok := SaveData.buy_room("floodlight_room")
+	_check(ok, "buying the floodlight room with enough scrap succeeds")
+	_check(SaveData.layout.inventory.get("floodlight_room", 0) == 1,
+		"the bought room lands in inventory")
 	_check(SaveData.layout.inventory.get("floodlight_pod", 0) == 1,
-		"the bought pod lands in inventory")
+		"its bundled pod also lands in inventory")
 	_check(SaveData.banked_scrap == 20 - int(cost.get("sc", 0)),
-		"the pod's scrap cost was deducted")
+		"the bundle's scrap cost was deducted")
 
 func _test_buy_pod_refused_when_broke() -> void:
 	print("[pod too expensive]")
@@ -322,7 +328,6 @@ func _test_place_pod_happy_path() -> void:
 	SaveData.reset_for_test()
 	SaveData.banked_scrap = 1000
 	_setup_floodlight_room()
-	SaveData.buy_pod("floodlight_pod")
 	var ok := SaveData.place_pod("floodlight_pod", Vector2i(3, 1), "right")
 	_check(ok, "attaching the floodlight pod to its room's exterior face succeeds")
 	_check(SaveData.layout.inventory.get("floodlight_pod", 0) == 0,
@@ -335,7 +340,6 @@ func _test_place_pod_refused_on_non_exterior_face() -> void:
 	SaveData.reset_for_test()
 	SaveData.banked_scrap = 1000
 	_setup_floodlight_room()
-	SaveData.buy_pod("floodlight_pod")
 	# The floodlight room's left face (2,1) is storage — not exterior.
 	var ok := SaveData.place_pod("floodlight_pod", Vector2i(3, 1), "left")
 	_check(not ok, "attaching a pod to a non-exterior face is refused")
@@ -348,7 +352,7 @@ func _test_place_pod_refused_on_room_that_cant_host_it() -> void:
 	print("[pod refused on a room that can't host it]")
 	SaveData.reset_for_test()
 	SaveData.banked_scrap = 1000
-	SaveData.buy_pod("floodlight_pod")
+	SaveData.buy_room("floodlight_room")  # bundles the pod into inventory
 	# Turret room's top face (2,-1) is exterior, but it isn't built to host a pod.
 	var ok := SaveData.place_pod("floodlight_pod", Vector2i(2, 0), "top")
 	_check(not ok, "attaching a pod to a room that can't host it is refused")
@@ -362,6 +366,9 @@ func _test_place_pod_refused_without_inventory() -> void:
 	SaveData.reset_for_test()
 	SaveData.banked_scrap = 1000
 	_setup_floodlight_room()
+	# Buying the room bundles in its pod (2026-06-19) — remove it to test the
+	# "not in inventory" case on its own.
+	SaveData.layout.inventory.erase("floodlight_pod")
 	var ok := SaveData.place_pod("floodlight_pod", Vector2i(3, 1), "right")
 	_check(not ok, "attaching a pod not owned in inventory is refused")
 	_check(SaveData.layout.pods.is_empty(), "no pod was attached")
@@ -371,7 +378,6 @@ func _test_return_pod_to_inventory() -> void:
 	SaveData.reset_for_test()
 	SaveData.banked_scrap = 1000
 	_setup_floodlight_room()
-	SaveData.buy_pod("floodlight_pod")
 	SaveData.place_pod("floodlight_pod", Vector2i(3, 1), "right")
 	var ok := SaveData.return_pod_to_inventory(Vector2i(3, 1), "right")
 	_check(ok, "detaching an attached pod succeeds")

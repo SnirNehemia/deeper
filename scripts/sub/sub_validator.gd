@@ -145,6 +145,16 @@ static func validate(layout: SubLayout) -> Dictionary:
 		if p.grid_pos.x != row_min_x and p.grid_pos.x != row_max_x:
 			violations.append("The %s must sit at the far left or right edge of its level." % p.module_id)
 
+	# Rule 9: clear claw drop — the cell directly below a placed claw_room must
+	# stay empty (`occupied`, so an owned slot blocks it too) so the salvage
+	# claw has a clear path to drop through the hull (2026-06-19, "weapon-like
+	# claw placement"). Like rules 5/8, this only considers placed rooms.
+	for p in layout.placements:
+		if p.module_id == "claw_room":
+			var below := p.grid_pos + Vector2i(0, 1)
+			if below in occupied:
+				violations.append("The claw's drop path below the Claw Room is blocked.")
+
 	# Rule 6: pod faces — a pod attaches only to an exterior face of an
 	# occupied cell that's built to host pods (ModuleDef.can_host_pod, e.g. the
 	# Floodlight Room); one pod per face.

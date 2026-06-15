@@ -1,14 +1,12 @@
 # STATUS — DEEPER
 
-_Read this at session start. Last updated: 2026-06-17 (M4-15: Assembly UI
-polish pass after Snir's playtest of M4-14 — added a right-hand "Inventory
-(unplaced)" panel (visible in both Shop and Assembly), turned the cell
-action/face menus into a real dropdown list (a panel of rows, the highlighted
-one filled in), fixed the "empty slot"/"Interact: open menu" text overlap, and
-marked a placed gun's reserved firing-face cell instead of leaving it blank.
-Next: item 4's still-missing "feature position" (gun firing side) and
-"upgrade" stub menu options, and item 5 — the Floodlight Room as a single
-bundled room+pod purchase with a placement-side choice.)_
+_Read this at session start. Last updated: 2026-06-19 (Module 16: bundled the
+Floodlight Room + pod into one purchase with a placeholder visual, made
+turret/bullet room placement auto-flip to the open side and added a "Rotate"
+menu option for placed guns, and added a validator rule keeping the cell below
+the Claw Room clear for its drop. Open question for Snir: whether the claw
+itself should also get a directional placement choice — see Module 16's
+"Open design question.")_
 
 ## Where we are
 **Milestone 3 is closed (Modules A-E).** Milestone 4 ("The Dry Dock & The
@@ -1175,3 +1173,76 @@ deck/ladders/banking/victory beat — still apply; see git history. The dry-dock
    room, then open its menu and pick "Attach pod"): the face picker is now
    also a dropdown list labelled "Left face" / "Right face" / etc.
 6. Confirm the highlighted-cell text is no longer doubled up / unreadable.
+
+## Module 16: Floodlight bundle + visual, smarter weapon placement, clear claw drop
+Three small fixes from Snir's M4-15 playtest feedback:
+
+1. **Floodlight bundle** (DECISIONS.md round 4, finally implemented): the
+   Floodlight Room and its pod are now **one purchase** (10 scrap) —
+   `ModuleCatalog._floodlight_room()`'s cost covers both, `_floodlight_pod()`'s
+   cost is now empty (drops out of the Shop's pod list), and
+   `SaveData.buy_room("floodlight_room")` grants both `floodlight_room` and
+   `floodlight_pod` into inventory in one go. Placing the room from its slot's
+   menu now **chains straight into face-selection** for the pod (if it's still
+   in inventory) — no separate "Attach pod" step needed for a first-time
+   placement (the menu option is still there for re-attaching later).
+   - **New visuals** (placeholder art, `SubVisual`/`Sub`): a placed Floodlight
+     Room now shows a small console mark on its floor (like the helm/turret
+     seats), and an attached pod shows as a light-coloured lamp box just
+     outside the hull on its chosen face, with a faint triangular beam fanning
+     outward. Both update live when you attach/detach the pod or move the room.
+
+2. **Smarter weapon placement** (turret_room/bullet_room): placing one from
+   inventory now defaults to **firing bow-ward ("right")** as before, but if
+   that direction would be blocked (e.g. another room already there), it now
+   **automatically flips to stern-ward ("left")** instead of just refusing —
+   no more needing to know to press M ahead of time. Pressing M to choose a
+   direction explicitly still works and is *not* auto-corrected (an explicit
+   illegal choice is still refused with a note).
+   - A placed turret/bullet room's menu now offers a new **"Rotate"** option
+     that flips its firing direction in place — but only when the flip would
+     still be a legal layout (its new firing-face cell must be clear and at
+     the edge of its row). `SaveData.rotate_room`/`rotate_room_violations` do
+     the validation/commit (mirrors `place_room`'s pattern).
+
+3. **Clear claw drop path** (new SubValidator rule 9): the cell directly below
+   a placed Claw Room must now stay empty — a new room (or even an owned empty
+   slot) can no longer be placed/bought there, since the claw drops straight
+   down through that cell to grab salvage. `SubLayout.reserved_cells()` now
+   also reserves this cell, so it's marked the same dim-red "reserved" way as
+   a gun's firing line in Assembly, and never offered as a buyable slot.
+   - **Open design question for Snir**: "place the claw with a dropdown" could
+     also mean giving the claw itself a left/right choice (like the guns), not
+     just protecting its current straight-down drop. That would be a bigger
+     change (new mechanic + visuals for a sideways claw) — parked until Snir
+     says whether he wants that, or whether "don't let rooms block it" was the
+     whole ask.
+
+All headless suites green (test_dock_shop_ui, test_shop, test_slots,
+test_validate, test_save_layout, test_layout, test_claw, test_turret,
+test_lower_deck, test_sub, test_geometry).
+
+## Verify by playing — Module 16 (floodlight bundle/visual, weapon defaults, claw clearance)
+1. Launch: `"D:\Godot_v4.4.1-stable_win64.exe\Godot_v4.4.1-stable_win64.exe" --path .`
+2. Open the dry dock (Shop tab). The Floodlight Room should now cost 10 scrap
+   total, and there should be **no separate "Floodlight Pod" entry** in the
+   Shop list.
+3. Buy a Floodlight Room (you'll need an empty slot first — buy one adjacent
+   to the hull in Assembly if you don't have one). Switch to Assembly, place
+   the Floodlight Room into the slot from its menu.
+4. Right after placing it, you should be dropped straight into a face picker
+   ("Left face" / "Right face" / etc.) for its pod — pick a face on the
+   outside of the sub. You should now see: inside the room, a small console
+   mark on the floor; outside the hull on the chosen face, a light-coloured
+   lamp box with a faint beam fanning outward.
+5. Open the Floodlight Room's menu again — it should offer "Detach" for the
+   pod (and re-"Attach" once detached).
+6. Buy and place a Turret Room or Bullet Room into a slot where its default
+   (bow-ward/right) firing direction would be blocked by another room — it
+   should place successfully facing the other way (stern-ward/left) instead
+   of being refused.
+7. Open a placed Turret/Bullet Room's menu — if flipping its firing direction
+   would still be legal, you should see a "Rotate (flip firing direction)"
+   option; picking it flips which side the gun points.
+8. In Assembly, the cell directly below the Claw Room should now be marked
+   reserved (dim red), and can't be bought as a slot.

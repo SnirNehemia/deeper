@@ -159,6 +159,10 @@ func buy_room(id: String) -> bool:
 	for code in cost:
 		_add_resource(code, -int(cost[code]))
 	layout.inventory[id] = int(layout.inventory.get(id, 0)) + 1
+	if id == "floodlight_room":
+		# Bundled purchase (2026-06-19, DECISIONS.md round 4): the room's price
+		# also covers its floodlight pod, so buying the room grants both.
+		layout.inventory["floodlight_pod"] = int(layout.inventory.get("floodlight_pod", 0)) + 1
 	save_data()
 	return true
 
@@ -313,3 +317,30 @@ func reset_for_test() -> void:
 	layout = SubLayout.starting_layout()
 	if FileAccess.file_exists(SAVE_PATH):
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(SAVE_PATH))
+
+## Flip a placed room's `mirrored` flag in place (2026-06-19, weapon-rotation
+## UX) -- e.g. a turret room firing bow-ward turns to fire stern-ward, or back.
+## Fails (false), with no state change, if there's no placement at `pos` or
+## flipping it would make the layout fail `SubValidator.validate` (most often
+## rule 5/8 -- the new firing face would be blocked or not at the row's end).
+func rotate_room(pos: Vector2i) -> bool:
+	return rotate_room_violations(pos).is_empty() and _commit_rotate_room(pos)
+
+## The validation violations that flipping the placement at `pos` would cause,
+## without committing anything -- empty means the rotation is legal. Also
+## empty (a no-op "legal") if there's no placement at `pos`.
+func rotate_room_violations(pos: Vector2i) -> Array:
+	var candidate := SubLayout.from_dict(layout.to_dict())
+	for p in candidate.placements:
+		if p.grid_pos == pos:
+			p.mirrored = not p.mirrored
+			return SubValidator.validate(candidate)["violations"]
+	return []
+
+func _commit_rotate_room(pos: Vector2i) -> bool:
+	for p in layout.placements:
+		if p.grid_pos == pos:
+			p.mirrored = not p.mirrored
+			save_data()
+			return true
+	return false
