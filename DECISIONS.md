@@ -572,6 +572,17 @@ Snir's 7-part request, scoped via AskUserQuestion:
   bigger change), or was protecting its current straight-down drop path the
   whole ask? Parked until he weighs in — see STATUS.md Module 16.
 
+- **Floodlight Room redesign (2026-06-19, M4-17)**: the room and its lamp are
+  **one inseparable unit**, like the Bullet Room's built-in gun — no
+  detachable pod UI for the player (placing/returning the room auto-attaches/
+  detaches the lamp under the hood; the generic pod plumbing stays for
+  internal use). The lamp is now a real station: left/right rotates the beam
+  (`aim_angle`), up/down scales `spread_factor` (both the cone's width and
+  length together). The cone's tip sits at the hull with its base flaring
+  outward (previously reversed), the base-lamp circle is gone, edges are
+  softened (layered translucent triangles), and the cone is 3x longer
+  (`base_length_m` 3m -> 9m).
+
 ## Parked
 - **What station/ability lives in the conning tower?** It's a fixed, always-
   present single cell at the top of the sub (core, like the helm) — Snir is

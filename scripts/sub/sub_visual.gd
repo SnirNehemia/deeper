@@ -14,6 +14,10 @@ var turrets: Array[TurretStation] = []
 ## tilts with the hull too.
 var claw: ClawStation = null
 
+## The floodlight stations, set by Sub. Each beam is drawn here so it tilts
+## with the hull's pitch, like the turrets.
+var floodlights: Array[FloodlightStation] = []
+
 func _draw() -> void:
 	var sub := get_parent() as Sub
 	if sub == null or sub.geometry == null:
@@ -53,9 +57,9 @@ func _draw() -> void:
 	_draw_claw_console(sub)
 	_draw_storage_pen(sub)
 	_draw_claw()
-	for seat in sub.floodlight_seats_local():
-		_draw_console(seat)
-	_draw_floodlight_pods(sub)
+	for f in floodlights:
+		_draw_console(f.position)
+		_draw_floodlight_beam(f)
 	_draw_water(sub)
 
 ## A small console box + dial standing on the floor at a seat (sub-local).
@@ -165,30 +169,28 @@ func _draw_storage_pen(sub: Sub) -> void:
 		else:
 			draw_circle(p, 5.0, PlaceholderArt.CARCASS_COLOR)
 
-## Attached floodlight pods (M4-9c placeholder visual): a lamp box just outside
-## the hull, plus a beam fanning out from it across the host's exterior face.
-func _draw_floodlight_pods(sub: Sub) -> void:
+## A floodlight's beam (M4-9c rework): a cone with its tip at the hull and its
+## base flaring outward into open water, in the station's live aim direction.
+## Drawn as several nested, increasingly-transparent polygons for soft edges.
+func _draw_floodlight_beam(f: FloodlightStation) -> void:
 	var beam := PlaceholderArt.FLOODLIGHT_COLOR
-	var beam_color := Color(beam.r, beam.g, beam.b, 0.35)
-	var beam_dirs := {
-		"top": Vector2(0.0, -1.0), "bottom": Vector2(0.0, 1.0),
-		"left": Vector2(-1.0, 0.0), "right": Vector2(1.0, 0.0),
-	}
-	for pod in sub.floodlight_pods():
-		var r: Rect2 = pod["rect"]
-		draw_rect(r, PlaceholderArt.SUB_STRUCTURE)
-		var center := r.get_center()
-		var dir: Vector2 = beam_dirs.get(pod["face"], Vector2.ZERO)
-		draw_circle(center, 6.0, beam)
-		var tip := center + dir * 120.0
-		# The beam fans out perpendicular to its travel direction.
-		var spread: Vector2 = Vector2(0.0, r.size.y * 0.4) if dir.x != 0.0 \
-			else Vector2(r.size.x * 0.4, 0.0)
+	var tip := f.tip_local
+	var dir := f.beam_dir()
+	var perp := Vector2(-dir.y, dir.x)
+	var length := GameFeel.floodlight.base_length_m * Sub.PPM * f.spread_factor
+	var half_width := GameFeel.floodlight.base_half_width_m * Sub.PPM * f.spread_factor
+	var base_center := tip + dir * length
+	# Layer several shrinking cones at decreasing opacity so the edges look soft.
+	var layers := 4
+	for i in range(layers, 0, -1):
+		var t := float(i) / float(layers)
+		var spread := perp * (half_width * t)
+		var alpha := 0.30 * (1.0 - t) + 0.05
 		draw_colored_polygon(PackedVector2Array([
-			center - spread,
-			center + spread,
 			tip,
-		]), beam_color)
+			base_center - spread,
+			base_center + spread,
+		]), Color(beam.r, beam.g, beam.b, alpha))
 
 ## Flooding water: a flat rect rising from each room's floor. Drawn last.
 func _draw_water(sub: Sub) -> void:

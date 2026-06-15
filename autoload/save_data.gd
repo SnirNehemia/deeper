@@ -211,6 +211,14 @@ func _commit_place_room(id: String, pos: Vector2i, mirrored: bool) -> bool:
 	layout.inventory[id] = int(layout.inventory.get(id, 0)) - 1
 	if layout.inventory[id] <= 0:
 		layout.inventory.erase(id)
+	if id == "floodlight_room":
+		# The room and its lamp are one inseparable unit (2026-06-19 rework) —
+		# auto-attach the bundled pod to the first valid exterior face so the
+		# player never sees a separate attach step.
+		for face in ["right", "left", "top", "bottom"]:
+			if _place_pod_candidate("floodlight_pod", pos, face)["violations"].is_empty():
+				_commit_place_pod("floodlight_pod", pos, face)
+				break
 	save_data()
 	return true
 
@@ -232,6 +240,14 @@ func return_room_to_inventory(pos: Vector2i) -> bool:
 		layout.placements.remove_at(i)
 		layout.slots.append(pos)
 		layout.inventory[p.module_id] = int(layout.inventory.get(p.module_id, 0)) + 1
+		if p.module_id == "floodlight_room":
+			# The lamp comes back with its room (2026-06-19 rework).
+			for j in layout.pods.size():
+				var pod: SubLayout.PodPlacement = layout.pods[j]
+				if pod.host_cell == pos:
+					layout.pods.remove_at(j)
+					layout.inventory[pod.pod_id] = int(layout.inventory.get(pod.pod_id, 0)) + 1
+					break
 		save_data()
 		return true
 	return false

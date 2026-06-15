@@ -322,6 +322,12 @@ func _setup_floodlight_room() -> void:
 	SaveData.buy_slot(Vector2i(3, 1))
 	SaveData.buy_room("floodlight_room")
 	SaveData.place_room("floodlight_room", Vector2i(3, 1), false)
+	# Placing the room auto-attaches its lamp (2026-06-19 rework) — undo that
+	# here so these tests can exercise place_pod/return_pod directly against a
+	# clean "room placed, pod in inventory, nothing attached" state.
+	for pod in SaveData.layout.pods.duplicate():
+		if pod.host_cell == Vector2i(3, 1):
+			SaveData.return_pod_to_inventory(Vector2i(3, 1), pod.face)
 
 func _test_place_pod_happy_path() -> void:
 	print("[attach a pod to an exterior face]")

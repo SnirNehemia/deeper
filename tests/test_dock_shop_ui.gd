@@ -197,8 +197,9 @@ func _ready() -> void:
 	_check(SaveData.layout.inventory.get("helm", 0) == 0, "the helm is placed back")
 	dock._rebuild_assembly_entries()
 
-	# M4-9c: the Floodlight Room's cell menu offers attaching/detaching its pod
-	# via face-selection ("only on outer edges of the sub").
+	# 2026-06-19 rework: the Floodlight Room and its lamp are one inseparable
+	# unit (like the Bullet Room's built-in gun) — placing the room
+	# auto-attaches its bundled pod, with no separate attach/detach menu.
 	SaveData.banked_scrap = 1000
 	var fl_pos: Vector2i = SaveData.layout.buyable_slot_positions()[0]
 	_check(SaveData.buy_slot(fl_pos), "buy a slot for the Floodlight Room")
@@ -207,43 +208,30 @@ func _ready() -> void:
 	_check(int(SaveData.layout.inventory.get("floodlight_pod", 0)) == 1,
 		"buying the Floodlight Room also grants its pod into inventory")
 	_check(SaveData.place_room("floodlight_room", fl_pos, false), "place the Floodlight Room")
+	_check(SaveData.layout.pods.size() == 1, "placing the room auto-attaches its lamp")
+	_check(SaveData.layout.inventory.get("floodlight_pod", 0) == 0,
+		"the lamp is no longer in inventory")
 	dock._rebuild_assembly_entries()
 
 	dock._assembly_cursor = fl_pos
-	var has_place_pod := false
+	var has_pod_menu := false
 	for item in dock._assembly_actions.get(fl_pos, {}).get("menu", []):
-		if item["type"] == "place_pod":
-			has_place_pod = true
-	_check(has_place_pod, "the Floodlight Room's menu offers attaching the pod")
+		if item["type"] == "place_pod" or item["type"] == "return_pod":
+			has_pod_menu = true
+	_check(not has_pod_menu, "the Floodlight Room's menu has no separate pod controls")
 
+	# Returning the room to inventory takes its lamp with it.
 	dock._assembly_key(KEY_E)  # open the menu
 	_check(dock._menu_open, "interact opens the Floodlight Room's menu")
-	while dock._assembly_actions[fl_pos]["menu"][dock._menu_index]["type"] != "place_pod":
+	while dock._assembly_actions[fl_pos]["menu"][dock._menu_index]["type"] != "return_room":
 		dock._assembly_key(KEY_Q)
-	dock._assembly_key(KEY_E)  # confirm "place pod" -> enters face-selection
-	_check(dock._face_select, "confirming 'place pod' enters face-selection")
-	_check(not dock._faces.is_empty(), "at least one exterior face is offered")
-	dock._assembly_key(KEY_E)  # confirm the highlighted face
-	_check(not dock._face_select, "confirming a face exits face-selection")
-	_check(SaveData.layout.pods.size() == 1, "the pod is now attached to the hull")
-	_check(SaveData.layout.inventory.get("floodlight_pod", 0) == 0,
-		"the pod is no longer in inventory")
-
-	# The cell's menu now offers detaching the pod.
-	dock._rebuild_assembly_entries()
-	dock._assembly_cursor = fl_pos
-	var has_return_pod := false
-	for item in dock._assembly_actions.get(fl_pos, {}).get("menu", []):
-		if item["type"] == "return_pod":
-			has_return_pod = true
-	_check(has_return_pod, "the Floodlight Room's menu now offers detaching the pod")
-	dock._assembly_key(KEY_E)  # open the menu
-	while dock._assembly_actions[fl_pos]["menu"][dock._menu_index]["type"] != "return_pod":
-		dock._assembly_key(KEY_Q)
-	dock._assembly_key(KEY_E)  # confirm detach
-	_check(SaveData.layout.pods.is_empty(), "the pod is detached from the hull")
+	dock._assembly_key(KEY_E)  # confirm "return room"
+	_check(SaveData.layout.pods.is_empty(), "the lamp is detached along with its room")
 	_check(SaveData.layout.inventory.get("floodlight_pod", 0) == 1,
-		"the detached pod is back in inventory")
+		"the lamp is back in inventory")
+	_check(SaveData.layout.inventory.get("floodlight_room", 0) == 1,
+		"the room is back in inventory")
+	dock._rebuild_assembly_entries()
 
 	# Tab returns to the Shop.
 	dock._assembly_key(KEY_TAB)

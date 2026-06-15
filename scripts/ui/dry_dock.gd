@@ -361,7 +361,7 @@ func _build_cell_menu(cell: Vector2i) -> Array:
 		menu.append({"type": "return_room", "id": placed_id})
 	if placed_def.has_firing_face and SaveData.rotate_room_violations(cell).is_empty():
 		menu.append({"type": "rotate_room", "id": placed_id})
-	if placed_def.can_host_pod:
+	if placed_def.can_host_pod and placed_id != "floodlight_room":
 		for id in SaveData.layout.inventory:
 			if int(SaveData.layout.inventory[id]) <= 0:
 				continue
@@ -428,8 +428,6 @@ func _try_place_room(pos: Vector2i, id: String, mirrored: bool) -> void:
 		_note = "%s placed!" % (def.display_name if def != null else id)
 		_rebuild_shop_entries()
 		_rebuild_assembly_entries()
-		if id == "floodlight_room" and int(SaveData.layout.inventory.get("floodlight_pod", 0)) > 0:
-			_enter_face_select("floodlight_pod")
 
 ## Flips a placed firing-face room's direction (2026-06-19). No-op (with a
 ## note) if SaveData refuses — the flipped facing would be illegal.

@@ -166,6 +166,20 @@ class BulletFeel:
 
 var bullet: BulletFeel = BulletFeel.new()
 
+## Floodlight Room feel (M4-9c rework): the seated crew steers the beam left/
+## right (like a weapon's aim) and widens/narrows its cone with the same
+## up/down input, scaling both the cone's base width and its length together.
+class FloodlightFeel:
+	var rotate_speed_deg: float = 60.0   ## left/right aim sweep (deg/s)
+	var rotate_cone_half_angle_deg: float = 75.0  ## clamp around the room's facing
+	var zoom_speed: float = 0.8          ## up/down change in spread_factor per second
+	var min_spread: float = 0.5
+	var max_spread: float = 2.0
+	var base_length_m: float = 9.0       ## cone length at spread_factor 1.0 (3x the old 3m)
+	var base_half_width_m: float = 1.5   ## cone half-width at the hull, at spread_factor 1.0
+
+var floodlight: FloodlightFeel = FloodlightFeel.new()
+
 ## Territorial fish feel (Milestone 2). Small fauna: avoidable by careful
 ## piloting — they only chase inside their territory and always swim home.
 class FishFeel:

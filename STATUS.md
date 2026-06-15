@@ -1,12 +1,14 @@
 # STATUS — DEEPER
 
-_Read this at session start. Last updated: 2026-06-19 (Module 16: bundled the
-Floodlight Room + pod into one purchase with a placeholder visual, made
-turret/bullet room placement auto-flip to the open side and added a "Rotate"
-menu option for placed guns, and added a validator rule keeping the cell below
-the Claw Room clear for its drop. Open question for Snir: whether the claw
-itself should also get a directional placement choice — see Module 16's
-"Open design question.")_
+_Read this at session start. Last updated: 2026-06-19 (Module 17: the
+Floodlight Room and its lamp are now one inseparable unit with a working
+rotate/zoom station and a redesigned light cone — tip at the hull, base
+flaring outward, softened edges, 3x longer. Module 16 bundled the Floodlight
+Room + pod into one purchase, made turret/bullet room placement auto-flip to
+the open side and added a "Rotate" menu option for placed guns, and added a
+validator rule keeping the cell below the Claw Room clear for its drop. Open
+question for Snir: whether the claw itself should also get a directional
+placement choice — see Module 16's "Open design question.")_
 
 ## Where we are
 **Milestone 3 is closed (Modules A-E).** Milestone 4 ("The Dry Dock & The
@@ -653,6 +655,58 @@ Fixes:
   (Floodlight Room bundled with its pod) are still pending — see "Next."
 - **Commit:** `M4-15: Assembly UI polish — inventory panel, real dropdown,
   reserved-cell label, fix overlapping text`.
+
+### Milestone 4 — Module 17: Floodlight Room redesign — one unit, working station, new cone (DONE, 2026-06-19)
+Follow-up on M4-16's placeholder: the Floodlight Room and its lamp are now
+**one inseparable unit** (like the Bullet Room's built-in gun — no separate
+pod attach/detach), the lamp is a real interactable crew station, and the
+light cone's look/controls are reworked.
+
+- **One unit, not a detachable pod.** Placing a Floodlight Room from inventory
+  (`SaveData._commit_place_room`) auto-attaches its bundled lamp to the first
+  valid exterior face (right/left/top/bottom, in that order); returning the
+  room to inventory auto-detaches the lamp with it
+  (`SaveData.return_room_to_inventory`). The Assembly cell menu no longer
+  offers "Attach pod"/"Detach pod" for the Floodlight Room (`dry_dock.gd`).
+  The underlying generic pod plumbing (`SaveData.place_pod`/
+  `return_pod_to_inventory`, `SubValidator` rule 6, `SubLayout.PodPlacement`)
+  is unchanged — it just isn't exposed to the player for this room anymore.
+- **A real station** (`scripts/stations/floodlight_station.gd`,
+  `FloodlightStation extends Station`): the lamp is now seated and
+  interactable, like the turret/bullet gunner seats. Built per placed
+  Floodlight Room in `Sub._build_floodlight_room`, pushed to
+  `SubVisual.floodlights`.
+- **Controls** (left/right rotates, up/down zooms — mirrors how a weapon
+  station's aim works): moving left/right sweeps the beam's `aim_angle`
+  (clamped to `GameFeel.floodlight.rotate_cone_half_angle_deg`, at
+  `rotate_speed_deg`/s); moving up/down scales `spread_factor` (clamped to
+  `[min_spread, max_spread]`, at `zoom_speed`/s) — `spread_factor` scales
+  *both* the cone's base width and its length together, so "wider" and
+  "longer" move in lockstep.
+- **New cone visual** (`SubVisual._draw_floodlight_beam`): the cone's tip sits
+  at the hull (the lamp's mount point) and its base flares outward into open
+  water — the old M4-16 version had this backwards. The lamp circle at the
+  base is gone. The beam is **3x longer** than M4-16's placeholder
+  (`GameFeel.floodlight.base_length_m` raised to 9m) and its edges are
+  softened by layering four nested, increasingly-transparent triangles instead
+  of one flat-colored polygon.
+- New tunables in `GameFeel.FloodlightFeel`: `rotate_speed_deg`,
+  `rotate_cone_half_angle_deg`, `zoom_speed`, `min_spread`/`max_spread`,
+  `base_length_m` (9m), `base_half_width_m` (1.5m).
+- Headless-verified: project loads clean with `--headless --path . --quit`
+  (after `--import` to register the new `FloodlightStation` class), plus
+  `test_dock_shop_ui.tscn`, `test_shop.tscn`, `test_validate.tscn`,
+  `test_layout.tscn`, `test_sub.tscn`, `test_turret.tscn`,
+  `test_lower_deck.tscn`, `test_claw.tscn` — all PASSED.
+- `test_dock_shop_ui.gd`'s Floodlight Room section rewritten: it now checks
+  that placing the room auto-attaches the lamp (no menu step), that the
+  cell's menu has no `place_pod`/`return_pod` entries, and that returning the
+  room to inventory takes the lamp with it. `test_shop.gd`'s
+  `_setup_floodlight_room` helper now undoes the auto-attach after placing, so
+  its existing `place_pod`/`return_pod_to_inventory` unit tests still exercise
+  those functions directly against a clean state.
+- **Commit:** `M4-17: floodlight room+lamp as one unit, working station, cone
+  redesign`.
 
 ### M4 module order (corrected per `ROOM_SYSTEM.md` reconciliation, 2026-06-12)
 `MILESTONE_4_v2.md`'s eleven modules are still the backbone, but three things
