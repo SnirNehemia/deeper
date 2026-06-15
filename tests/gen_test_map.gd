@@ -1,0 +1,53 @@
+extends SceneTree
+
+## One-off generator for the M6 Module 2 test map assets. Run once with:
+##   godot --headless --script res://tests/gen_test_map.gd
+## Produces res://maps/test_map/*.png + test_map.json. Re-run any time the
+## marker layout needs to change; the outputs are checked into the repo.
+
+const DIR := "res://maps/test_map"
+
+func _init() -> void:
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(DIR))
+
+	_write_generation_layer()
+	_write_stub_layer(DIR + "/test_map_phys.png")
+	_write_stub_layer(DIR + "/test_map_bg.png")
+	_write_stub_layer(DIR + "/test_map_fg.png")
+	_write_config()
+
+	print("Test map assets written to " + DIR)
+	quit()
+
+## 10x10 image, transparent except for four marker pixels (one per spawn
+## color from MILESTONE_6 Module 2):
+##   (1,1) white   -> player spawn
+##   (5,2) purple  -> territorial fish
+##   (8,8) green   -> hunter fish
+##   (3,8) grey    -> wreckage
+func _write_generation_layer() -> void:
+	var img := Image.create(10, 10, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0, 0, 0, 0))
+	img.set_pixel(1, 1, Color(1, 1, 1))       # #FFFFFF
+	img.set_pixel(5, 2, Color(0.5, 0, 0.5))   # #800080
+	img.set_pixel(8, 8, Color(0, 1, 0))       # #00FF00
+	img.set_pixel(3, 8, Color(0.5, 0.5, 0.5)) # #808080
+	img.save_png(DIR + "/test_map_gen.png")
+
+func _write_stub_layer(path: String) -> void:
+	var img := Image.create(10, 10, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0, 0, 0, 0))
+	img.save_png(path)
+
+func _write_config() -> void:
+	var data := {
+		"map_id": "test_map",
+		"pixels_per_meter": 1.0,
+		"physical_layer": DIR + "/test_map_phys.png",
+		"generation_layer": DIR + "/test_map_gen.png",
+		"visual_background": DIR + "/test_map_bg.png",
+		"visual_foreground": DIR + "/test_map_fg.png",
+	}
+	var file := FileAccess.open(DIR + "/test_map.json", FileAccess.WRITE)
+	file.store_string(JSON.stringify(data, "  "))
+	file.close()

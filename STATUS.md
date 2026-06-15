@@ -1,6 +1,24 @@
 # STATUS — DEEPER
 
-_Read this at session start. Last updated: 2026-06-16 — **Milestone 6, Module 1
+_Read this at session start. Last updated: 2026-06-16 — **Milestone 6, Module 2
+(Multi-Layer Configuration & Generation Parsing) done**: new `MapConfig`
+resource (`scripts/maps/map_config.gd`) loads a map's JSON config (map_id,
+pixels_per_meter, and the four layer PNG paths) and exposes `pixel_scale()` =
+`GameFeel.PIXELS_PER_METER / pixels_per_meter` so coordinate math never
+hardcodes a 1:1 ratio. New `GenerationLayerParser`
+(`scripts/maps/generation_layer_parser.gd`) scans a `generation_layer` PNG
+pixel-by-pixel and buckets marker colors into world-space spawn points: white
+-> player spawn, purple -> territorial fish, green -> hunter fish, grey ->
+wreckage. A generated test map lives at `maps/test_map/` (config + 4 small
+PNGs, one marker pixel per color, produced by `tests/gen_test_map.gd` — re-run
+that script if the marker layout needs to change). New headless suite
+`tests/test_map_loader.gd/.tscn` verifies the config loads and each marker
+maps to the correct world coordinate. This module only adds the
+config/parser; nothing in `world.tscn` consumes it yet (Module 3's physical
+layer and Module 4's visual layers still need to land before a real map can
+replace ShoreShelf). 25/25 suites green.
+
+_Previous update: 2026-06-16 — **Milestone 6, Module 1
 (Sub Builder Validation & Tight Hulls) done**: `Sub.hull_rects()`
 (`scripts/sub/sub.gd`) now builds the hull silhouette and collision shapes only
 from cells holding an actual placed room — bought-but-empty slots no longer

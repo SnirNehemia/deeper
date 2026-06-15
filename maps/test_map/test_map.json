@@ -1,0 +1,8 @@
+{
+  "generation_layer": "res://maps/test_map/test_map_gen.png",
+  "map_id": "test_map",
+  "physical_layer": "res://maps/test_map/test_map_phys.png",
+  "pixels_per_meter": 1.0,
+  "visual_background": "res://maps/test_map/test_map_bg.png",
+  "visual_foreground": "res://maps/test_map/test_map_fg.png"
+}
