@@ -661,7 +661,9 @@ Snir's 7-part request, scoped via AskUserQuestion:
   (`SubLayout.tower_x_bounds()`: 3 columns left, 5 right, 9 total) instead of
   a fixed 8-wide box (`SubGrid.CELLS_LEFT_OF_TOWER`/`CELLS_RIGHT_OF_TOWER`);
   the vertical cap (`SubGrid.MAX_CELLS.y` = 5) is unchanged. The floodlight's
-  height range widened from 1m-9m to 3m-15m.
+  minimum reach widened from 1m to 3m; max stays `cone_radius_m - 1` (9m) —
+  15m was tried first but made the cone vanish at full zoom since
+  `base_half_width_m(h)` goes to 0 as h approaches the cone radius.
 
 ## Parked
 - **What station/ability lives in the conning tower?** It's a fixed, always-

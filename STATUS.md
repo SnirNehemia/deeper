@@ -5,8 +5,9 @@ _Read this at session start. Last updated: 2026-06-20 (Module 23: Assembly's
 "reserved / claw", or "reserved / floodlight" — instead of all saying "(gun's
 line of fire)". The hull's length cap is now relative to the conning tower (up
 to 3 columns left of it, 5 columns right, 9 total) instead of a fixed 8-wide
-box; height cap unchanged at 5. The floodlight's height range widened to 3m-
-15m (was 1m-9m). Module 22: fixed
+box; height cap unchanged at 5. The floodlight's minimum reach widened from
+1m to 3m (max stays at 9m = cone_radius_m - 1; 15m made the cone vanish at
+full zoom). Module 22: fixed
 Module 21's beam-range tweak, which had the opposite of the intended effect —
 the cone got wider as it swung toward the hull. Now `aim_angle` is clamped to
 the cone's own half-angle (`atan(half_width_m / height_m)`), so the beam's
@@ -908,7 +909,10 @@ light cone's look/controls are reworked.
    `SubLayout.buyable_slot_positions()` both use this instead of a fixed
    x-width; the vertical cap (`SubGrid.MAX_CELLS.y` = 5) is unchanged.
 3. **Floodlight height range widened.** `GameFeel.floodlight.min_height_m`
-   1m -> **3m**, `max_height_m` 9m -> **15m** (initial reach unchanged at 5m).
+   1m -> **3m** (initial reach unchanged at 5m). `max_height_m` stays
+   `cone_radius_m - 1` (9m) — a quick try at 15m made the cone vanish at full
+   zoom, since `base_half_width_m(h) = sqrt(R^2 - h^2)` goes to 0 (and beyond
+   R, negative-under-sqrt clamps to 0) as h approaches/exceeds R.
 - Headless-verified: project loads clean with `--headless --path . --quit`,
   plus `test_validate.tscn`, `test_shop.tscn`, `test_slots.tscn`,
   `test_layout.tscn`, `test_dock_shop_ui.tscn` — all PASSED.
@@ -1594,8 +1598,8 @@ test_lower_deck, test_sub, test_geometry).
    5 columns right of it (9 columns total including the tower's own column);
    no buyable ghost cells should appear beyond that, in either direction.
 3. Sit in the Floodlight Room and zoom all the way in and all the way out —
-   the beam's reach should now range from about 3m (short) to about 15m
-   (long), noticeably more range than before on both ends.
+   the beam's reach should now range from about 3m (short, was 1m) up to 9m
+   (long, unchanged) and should stay visible (not vanish) at full zoom.
 
 ## Verify by playing — Module 20 (floodlight beam polish: soft edges, hull occlusion, reserved pod face)
 1. Launch: `"D:\Godot_v4.4.1-stable_win64.exe\Godot_v4.4.1-stable_win64.exe" --path .`
