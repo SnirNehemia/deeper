@@ -88,10 +88,12 @@ func _build_terrain() -> void:
 	])
 	_add_visual_polygon(deep, PlaceholderArt.TERRAIN_DEEP_ROCK, -79)
 
-	# Rock pillars rising from the basin floor.
-	_add_pillar(body, 93.0, 10.0, 55.0)
-	_add_pillar(body, 120.0, 12.0, 38.0)
-	_add_pillar(body, 141.0, 9.0, 62.0)
+	# Rock pillars rising from the basin floor, spaced wide enough for the
+	# 3-room-wide sub (~17-20m) to pass between them (M5 follow-up: the
+	# original spacing was too tight to navigate).
+	_add_pillar(body, 85.0, 8.0, 55.0)
+	_add_pillar(body, 115.0, 10.0, 38.0)
+	_add_pillar(body, 148.0, 8.0, 62.0)
 
 	# Dark fill inside the carved cave so it reads as a recess (nothing in it yet).
 	var cave := PackedVector2Array([
@@ -137,9 +139,9 @@ func _build_cave_marker() -> void:
 func _build_salvage_pickups() -> void:
 	var spots := [
 		_v(35.0, 17.0),   # shallows plateau
-		_v(93.0, 48.0),   # by the first pillar
-		_v(120.0, 32.0),  # by the second pillar
-		_v(141.0, 56.0),  # by the third pillar
+		_v(85.0, 48.0),   # by the first pillar
+		_v(115.0, 32.0),  # by the second pillar
+		_v(148.0, 56.0),  # by the third pillar
 		_v(50.0, 65.0),   # inside the cave (lamp's treasure cluster)
 		_v(56.0, 70.0),   # inside the cave
 		_v(46.0, 72.0),   # inside the cave
@@ -156,7 +158,7 @@ func _build_wrecks() -> void:
 	add_child(wreck)
 
 	var basin_wreck := Wreck.new()
-	basin_wreck.position = _v(116.0, 107.0)  # basin floor, near the second pillar
+	basin_wreck.position = _v(115.0, 107.0)  # basin floor, near the second pillar
 	add_child(basin_wreck)
 
 ## A pulsing placeholder lamp/star (visual only).

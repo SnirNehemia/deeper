@@ -35,19 +35,21 @@ func _ready() -> void:
 	# Territorial fish: guarding the cave mouth, the cave treasure cluster,
 	# and the basin pillars/wreck. The shallows wreck stays unguarded. They
 	# reset home via the "fish" group on implosion.
-	# M5-C2: the two basin-pillar fish are hunters (design doc §7) — they
-	# lock on from farther out and chase across open water, teaching the
-	# hunter/territorial read on the same map.
+	# M5 follow-up: the basin-pillar fish are back to plain territorial (all
+	# purple fish now behave the same — guard their spot, break off when the
+	# sub leaves). The relentless-chase role is now exclusively the green
+	# basic_chasers below, so the two aggression reads don't look identical.
 	_add_fish(Vector2(70.0 * M, 64.0 * M))    # cave mouth
 	_add_fish(Vector2(54.0 * M, 70.0 * M))    # cave treasure cluster
-	_add_fish(Vector2(96.0 * M, 47.0 * M), true)    # first pillar (hunter)
-	_add_fish(Vector2(116.0 * M, 100.0 * M), true)  # second pillar / basin wreck (hunter)
-	_add_fish(Vector2(138.0 * M, 54.0 * M))   # third pillar
+	_add_fish(Vector2(85.0 * M, 47.0 * M))    # first pillar
+	_add_fish(Vector2(115.0 * M, 100.0 * M))  # second pillar / basin wreck
+	_add_fish(Vector2(148.0 * M, 54.0 * M))   # third pillar
 
-	# M5 follow-up: two "basic_chasers" patrolling open water between the
-	# pillars — green, elongated, relentless once they spot the sub.
-	_add_fish(Vector2(106.0 * M, 75.0 * M), false, true)
-	_add_fish(Vector2(128.0 * M, 90.0 * M), false, true)
+	# M5 follow-up: two "basic_chasers" patrolling the open-water gaps between
+	# the (now wider-spaced) pillars — green, elongated, relentless once they
+	# spot the sub.
+	_add_fish(Vector2(99.0 * M, 75.0 * M), false, true)
+	_add_fish(Vector2(132.0 * M, 90.0 * M), false, true)
 
 	# Fixed-zoom follow camera: ~60 m visible width, smoothed.
 	_cam = Camera2D.new()
