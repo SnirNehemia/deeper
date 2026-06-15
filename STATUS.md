@@ -1,6 +1,29 @@
 # STATUS — DEEPER
 
-_Read this at session start. Last updated: 2026-06-16 — **Milestone 6, Module 2
+_Read this at session start. Last updated: 2026-06-16 — **Milestone 6, Module 3
+(Physical Layer Parser & Micro-Terrain Modifiers) done**: new
+`PhysicalLayerParser` (`scripts/maps/physical_layer_parser.gd`) scans a
+`physical_layer` PNG and merges adjacent same-terrain pixels along each row
+into world-space rectangles, tagged with a `TerrainType` (`scripts/maps/terrain_type.gd`)
+read from the pixel's hex color: grey `#808080` normal rock, tan `#D2B48C`
+sand/silt, black `#000000` sharp rock, brown `#6E473B` docking zone.
+`PhysicalLayerBuilder` (`scripts/maps/physical_layer_builder.gd`) turns those
+blocks into one `TerrainBody` (`scripts/maps/terrain_body.gd`, a StaticBody2D
+on the TERRAIN layer) per terrain type, plus a "dock_zone" Area2D over any
+docking-zone blocks (for a future Helm/Core dry-dock interaction check —
+not yet wired). `Sub._check_terrain_impacts`/`register_impact`
+(`scripts/sub/sub.gd`) now read the struck `TerrainBody`'s `terrain_type` and
+apply `TerrainType`'s modifiers: sand doubles the safe-impact threshold (4 m/s)
+and halves breach severity, sharp rock halves it (1 m/s) and forces
+max-severity rapid-flooding breaches, dock never breaches. Plain ShoreShelf
+terrain (no TerrainBody) still behaves as normal rock — unchanged baseline.
+New headless suite `tests/test_physical_layer.gd/.tscn` covers the
+parse/merge, the built node tree, and all four terrain impact rules.
+26/26 suites green. As with Module 2, nothing in `world.tscn` consumes the
+physical-layer builder yet — Module 4 (visual layers) is the natural point to
+wire a real map into the world.
+
+_Previous update: 2026-06-16 — **Milestone 6, Module 2
 (Multi-Layer Configuration & Generation Parsing) done**: new `MapConfig`
 resource (`scripts/maps/map_config.gd`) loads a map's JSON config (map_id,
 pixels_per_meter, and the four layer PNG paths) and exposes `pixel_scale()` =

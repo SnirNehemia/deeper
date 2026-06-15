@@ -509,17 +509,31 @@ func _check_terrain_impacts(pre_velocity: Vector2, delta: float) -> void:
 	for i in get_slide_collision_count():
 		var col := get_slide_collision(i)
 		var approach_mps := maxf(0.0, -pre_velocity.dot(col.get_normal())) / PPM
-		if register_impact(approach_mps, col.get_position()):
+		var terrain := TerrainType.Type.NORMAL_ROCK
+		var collider := col.get_collider()
+		if collider is TerrainBody:
+			terrain = collider.terrain_type
+		if register_impact(approach_mps, col.get_position(), terrain):
 			_impact_cooldown = _IMPACT_COOLDOWN_TIME
 			break
 
-## Apply a terrain impact at the given speed (m/s) and global point. Exposed
-## for headless tests.
-func register_impact(speed_mps: float, global_point: Vector2) -> bool:
-	var w: GameFeel.WaterFeel = GameFeel.water
-	if speed_mps < w.breach_speed_threshold:
+## Apply a terrain impact at the given speed (m/s) and global point, against
+## the given TerrainType (M6 Module 3: sand/sharp-rock/dock modify the
+## baseline threshold and severity). Exposed for headless tests.
+func register_impact(speed_mps: float, global_point: Vector2,
+		terrain: TerrainType.Type = TerrainType.Type.NORMAL_ROCK) -> bool:
+	if TerrainType.is_non_damaging(terrain):
 		return false
-	var severity: float = (speed_mps - w.breach_speed_threshold) * GameFeel.breach.ram_severity_per_speed
+	var w: GameFeel.WaterFeel = GameFeel.water
+	var threshold := w.breach_speed_threshold * TerrainType.threshold_mult(terrain)
+	if speed_mps < threshold:
+		return false
+	var severity: float
+	if TerrainType.forces_max_severity(terrain):
+		severity = GameFeel.breach.severity_max
+	else:
+		severity = (speed_mps - threshold) * GameFeel.breach.ram_severity_per_speed
+		severity *= TerrainType.severity_mult(terrain)
 	var local := to_local(global_point)
 	breach_from_hit(nearest_room(local), severity, local)
 	return true

@@ -11,7 +11,7 @@ func _init() -> void:
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(DIR))
 
 	_write_generation_layer()
-	_write_stub_layer(DIR + "/test_map_phys.png")
+	_write_physical_layer()
 	_write_stub_layer(DIR + "/test_map_bg.png")
 	_write_stub_layer(DIR + "/test_map_fg.png")
 	_write_config()
@@ -33,6 +33,24 @@ func _write_generation_layer() -> void:
 	img.set_pixel(8, 8, Color(0, 1, 0))       # #00FF00
 	img.set_pixel(3, 8, Color(0.5, 0.5, 0.5)) # #808080
 	img.save_png(DIR + "/test_map_gen.png")
+
+## 10x10 image with one merge-able run per terrain type (M6 Module 3):
+##   row 0, x0-4 grey    (#808080) -> normal rock, 5px run
+##   row 1, x0-3 tan     (#D2B48C) -> sand
+##   row 2, x0-1 black   (#000000) -> sharp rock
+##   row 3, x0-2 brown   (#6E473B) -> docking zone
+func _write_physical_layer() -> void:
+	var img := Image.create(10, 10, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0, 0, 0, 0))
+	for x in range(0, 5):
+		img.set_pixel(x, 0, Color(0.5, 0.5, 0.5))
+	for x in range(0, 4):
+		img.set_pixel(x, 1, Color(0xD2 / 255.0, 0xB4 / 255.0, 0x8C / 255.0))
+	for x in range(0, 2):
+		img.set_pixel(x, 2, Color(0, 0, 0))
+	for x in range(0, 3):
+		img.set_pixel(x, 3, Color(0x6E / 255.0, 0x47 / 255.0, 0x3B / 255.0))
+	img.save_png(DIR + "/test_map_phys.png")
 
 func _write_stub_layer(path: String) -> void:
 	var img := Image.create(10, 10, false, Image.FORMAT_RGBA8)
