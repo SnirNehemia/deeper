@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://dvisuallayertest6"]
+
+[ext_resource type="Script" path="res://tests/test_visual_layers.gd" id="1_visuallayertest"]
+
+[node name="TestVisualLayers" type="Node"]
+script = ExtResource("1_visuallayertest")

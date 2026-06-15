@@ -12,8 +12,8 @@ func _init() -> void:
 
 	_write_generation_layer()
 	_write_physical_layer()
-	_write_stub_layer(DIR + "/test_map_bg.png")
-	_write_stub_layer(DIR + "/test_map_fg.png")
+	_write_visual_layer(DIR + "/test_map_bg.png", Color(0.10, 0.25, 0.45), Color(0.06, 0.16, 0.32))
+	_write_visual_layer(DIR + "/test_map_fg.png", Color(0.05, 0.08, 0.07, 0.9), Color(0.0, 0.0, 0.0, 0.0))
 	_write_config()
 
 	print("Test map assets written to " + DIR)
@@ -52,9 +52,15 @@ func _write_physical_layer() -> void:
 		img.set_pixel(x, 3, Color(0x6E / 255.0, 0x47 / 255.0, 0x3B / 255.0))
 	img.save_png(DIR + "/test_map_phys.png")
 
-func _write_stub_layer(path: String) -> void:
+## M6 Module 4: a 10x10 checkerboard so nearest-neighbor scaling is visible
+## as crisp 48px squares once placed in the world. `even`/`odd` are the two
+## tile colors (the foreground layer uses a mostly-transparent checker so it
+## reads as a sparse rocky silhouette).
+func _write_visual_layer(path: String, even: Color, odd: Color) -> void:
 	var img := Image.create(10, 10, false, Image.FORMAT_RGBA8)
-	img.fill(Color(0, 0, 0, 0))
+	for y in 10:
+		for x in 10:
+			img.set_pixel(x, y, even if (x + y) % 2 == 0 else odd)
 	img.save_png(path)
 
 func _write_config() -> void:

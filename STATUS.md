@@ -1,6 +1,28 @@
 # STATUS — DEEPER
 
-_Read this at session start. Last updated: 2026-06-16 — **Milestone 6, Module 3
+_Read this at session start. Last updated: 2026-06-16 — **Milestone 6, Module 4
+(Ambient Aesthetics & Visual Layering) done**: new `VisualLayerBuilder`
+(`scripts/maps/visual_layer_builder.gd`) loads a map's `visual_background`/
+`visual_foreground` PNGs as nearest-neighbor-filtered Sprite2Ds scaled exactly
+to world dimensions via `MapConfig.pixel_scale()`. New `WaterShimmerOverlay`
+(`scripts/maps/water_shimmer_overlay.gd` + `shaders/water_shimmer.gdshader`)
+is a full-coverage `ColorRect` with a canvas-item shader that applies a gentle
+looping horizontal sine-wave UV displacement to everything drawn beneath it.
+`MapVisualLayers` (`scripts/maps/map_visual_layers.gd`) assembles the spec's
+stacking order via z_index: background (-100, behind gameplay) -> gameplay at
+default z -> shimmer overlay (50) -> foreground (100, in front of everything).
+The test map's bg/fg PNGs are now a navy/dark checkerboard (background) and a
+sparse dark checker (foreground) so nearest-neighbor scaling is visible. New
+headless suite `tests/test_visual_layers.gd/.tscn` covers layer properties,
+shimmer shader wiring, and stack ordering — 27/27 suites green. New playable
+demo `tests/visual_layers_demo.tscn` (launch with
+`"GODOT_PATH" --path . res://tests/visual_layers_demo.tscn`) shows the full
+stack — background, a placeholder sub rect, the shimmer, and the foreground —
+with the shimmer wobble visible live. As with Modules 2-3, `world.tscn` still
+runs on ShoreShelf; wiring a real hand-drawn map (all 4 modules together) into
+the main world is the natural next step once Snir has map art.
+
+_Previous update: 2026-06-16 — **Milestone 6, Module 3
 (Physical Layer Parser & Micro-Terrain Modifiers) done**: new
 `PhysicalLayerParser` (`scripts/maps/physical_layer_parser.gd`) scans a
 `physical_layer` PNG and merges adjacent same-terrain pixels along each row
