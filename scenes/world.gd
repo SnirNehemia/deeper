@@ -48,8 +48,8 @@ func _ready() -> void:
 	# M5 follow-up: two "basic_chasers" patrolling the open-water gaps between
 	# the (now wider-spaced) pillars — green, elongated, relentless once they
 	# spot the sub.
-	_add_fish(Vector2(99.0 * M, 75.0 * M), false, true)
-	_add_fish(Vector2(132.0 * M, 90.0 * M), false, true)
+	_add_fish(Vector2(99.0 * M, 50.0 * M), false, true)
+	_add_fish(Vector2(132.0 * M, 48.0 * M), false, true)
 
 	# Fixed-zoom follow camera: ~60 m visible width, smoothed.
 	_cam = Camera2D.new()

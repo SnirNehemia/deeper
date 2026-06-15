@@ -258,7 +258,7 @@ class FishFeel:
 	## relentless pursuit until they die. After a successful bite they back
 	## off for chaser_backoff_time before pressing the attack again, giving
 	## the crew a window to land a hit.
-	var chaser_detect_m: float = 18.0
+	var chaser_detect_m: float = 22.0
 	var chaser_speed: float = 5.0
 	var chaser_hp_max: float = 8.0
 	var chaser_backoff_time: float = 5.0

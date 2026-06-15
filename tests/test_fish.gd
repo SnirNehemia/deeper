@@ -16,6 +16,7 @@ func _ready() -> void:
 	await _test_bullet_burst()
 	await _test_hunter_chases_and_gives_up()
 	await _test_territorial_unaffected_by_hunt_path()
+	await _test_chaser_locks_on_and_never_gives_up()
 
 	if _failures == 0:
 		print("FISH TESTS PASSED")
@@ -253,6 +254,37 @@ func _test_territorial_unaffected_by_hunt_path() -> void:
 	await _frames(10)
 	_check(fish.state == Fish.State.PATROL,
 		"territorial fish ignores a sub beyond its territory radius")
+
+	fish.queue_free()
+	sub.queue_free()
+	await _frames(2)
+
+func _test_chaser_locks_on_and_never_gives_up() -> void:
+	print("[basic_chaser locks on and never gives up]")
+	var sub := Sub.new()
+	sub.position = Vector2(-100.0 * _ppm(), 0)
+	add_child(sub)
+
+	var fish := Fish.new()
+	fish.sub = sub
+	fish.is_chaser = true
+	fish.position = Vector2.ZERO
+	add_child(fish)
+	await _frames(5)
+
+	_check(fish.hp_max == GameFeel.fish.chaser_hp_max, "chaser has the higher chaser HP")
+
+	# Within chaser_detect_m (18m) but beyond the territorial leash (10m).
+	sub.global_position = fish.home + Vector2(15.0 * _ppm(), 0)
+	await _frames(10)
+	_check(fish.state == Fish.State.HUNT, "chaser locks on within chaser_detect_m")
+
+	# Run the sub far away, well beyond hunter_lose_m (24m), for longer than
+	# hunter_lose_time — a chaser should keep hunting regardless.
+	for i in int(GameFeel.fish.hunter_lose_time * 60.0) + 30:
+		sub.global_position = fish.global_position + Vector2(40.0 * _ppm(), 0)
+		await get_tree().physics_frame
+	_check(fish.state == Fish.State.HUNT, "chaser never gives up even far out of range")
 
 	fish.queue_free()
 	sub.queue_free()
