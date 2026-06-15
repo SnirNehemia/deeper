@@ -1745,6 +1745,70 @@ Launch: `"D:\Godot_v4.4.1-stable_win64.exe\Godot_v4.4.1-stable_win64.exe" --path
    tune `GameFeel.breach` / `GameFeel.fish` / `GameFeel.hull_station` from
    there.
 
+## M5 follow-up fixes (2026-06-15, before Snir's playtest)
+
+Made between the M5 close-out and Snir's first playtest pass, in response to
+early issues found while poking at the build:
+
+- **Fresh start every launch/run.** `SaveData.reset_for_test()` now runs in
+  `_ready()` on every launch and in `world.gd.reset_run()` on every run reset
+  — banked salvage, loadout, and layout all return to the stock Minnow+.
+  Nothing persists between rounds yet (Snir will decide later what should).
+  Fixes "I still load the last sub" and "I'm stuck with a too-big sub and
+  can't explore."
+- **Pillar fish reverted to territorial.** All three pillar-guard fish
+  (cave mouth, cave treasure, third pillar) are plain territorial again — they
+  guard their spot and break off when the sub leaves, like M2. The relentless
+  "hunter" feel is now carried only by the new basic_chaser (below); having a
+  purple territorial fish behave like a hunter was confusing in play.
+- **Pillar spacing widened.** The basin pillars were too close together for
+  the 3-room-wide sub to pass between. Re-centered/widened to 85m (8m wide),
+  115m (10m wide), 148m (8m wide); matching salvage pickups and the basin
+  wreck repositioned to line up.
+- **New fauna: basic_chaser** (`scripts/fauna/fish.gd`, `is_chaser` flag).
+  Green, elongated (1.6m), 8 HP (vs 5 for normal fish). Locks on from
+  `chaser_detect_m = 22m` and **never gives up** — relentless pursuit at
+  `chaser_speed = 5.0`. After a successful bite it backs off for
+  `chaser_backoff_time = 5s` before pressing the attack again (a breather
+  window for the crew). Placed mid-basin (where the sub actually travels) at
+  (99m, 50m) and (132m, 48m). Test: `test_fish` —
+  `_test_chaser_locks_on_and_never_gives_up`. All green.
+- **New salvage: medium carcass (green).** A basic_chaser kill drops a
+  medium carcass (`SalvageItem.Kind.MED_FISH`, green —
+  `PlaceholderArt.CARCASS_MED_COLOR`) instead of the usual small purple
+  carcass. Wired through the full pipeline: claw pickup, on-board storage
+  (`sub.storage_med_carcass`), banking (`SaveData.banked_med_carcass`,
+  `bank(scrap, fish, med_carcass)`), the storage-pen visual (stacks alongside
+  scrap/carcasses), the top-right HUD readout, and a debug "+100 med carcass"
+  button. Full headless suite (`test_salvage`, `test_claw`, `test_fish`,
+  `test_dock_shop_ui`, `test_shop`) green.
+
+## Verify by playing — M5 follow-up (fresh start, basic_chaser, medium carcass, pillar gap)
+Launch: `"D:\Godot_v4.4.1-stable_win64.exe\Godot_v4.4.1-stable_win64.exe" --path .`
+
+1. **Fresh start.** Whatever you bought/banked last time should be gone — you
+   start back at the stock Minnow+ with nothing banked.
+2. **Pillar gap.** Pilot the sub between the basin pillars — there should now
+   be comfortable room to pass through without scraping.
+3. **Pillar fish are calm again.** The three purple fish guarding the cave
+   mouth/treasure/third pillar should only attack while you're right on top of
+   them, and break off as soon as you pull away — no more relentless chasing.
+4. **Basic_chaser.** Out in the open mid-basin (roughly between the first and
+   third pillars) you should run into a **green, longer** fish. Once it spots
+   you it should chase you persistently — running away shouldn't shake it off
+   for long. After it bites you, it backs off for a few seconds before
+   attacking again — use that window to fight back. It takes more hits to kill
+   than a normal fish.
+5. **Medium carcass.** Kill a basic_chaser — it should drop a **green** blob
+   (instead of the usual purple one). Scoop it up with the claw, drop it in
+   the storage pen (it should stack visibly alongside scrap/carcasses), and
+   bank it at the dock. The top-right HUD should show a separate "med
+   carcasses" count for both storage and banked totals.
+6. Report back: does the basic_chaser feel meaningfully different/scarier than
+   the normal fish now? Is the medium-carcass green clearly distinct from the
+   regular carcass purple? → PLAYTEST_LOG.md, then tune `GameFeel.fish` from
+   there.
+
 ## Verify by playing — Module 20 (floodlight beam polish: soft edges, hull occlusion, reserved pod face)
 1. Launch: `"D:\Godot_v4.4.1-stable_win64.exe\Godot_v4.4.1-stable_win64.exe" --path .`
 2. With the floodlight on, look closely at the beam's left/right edges —

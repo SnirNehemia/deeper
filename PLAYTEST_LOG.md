@@ -45,6 +45,24 @@ across open water vs. the territorial cave/third-pillar fish.
 **Feel notes (raw, in player words):**
 - (pending)
 
+**Update 2026-06-15, before this playtest happened:** early poking surfaced
+four issues, fixed before Snir's actual checkpoint (see STATUS.md "M5
+follow-up fixes" and DECISIONS.md "M5 follow-up"):
+- the run loaded last session's (too-big) sub instead of starting fresh —
+  fixed by wiping save state on every launch/run reset (nothing persists
+  between rounds for now)
+- the two "hunter" pillar fish chased relentlessly and read as a bug — pillar
+  fish reverted to plain territorial; the relentless-chase feel moved to a new
+  dedicated green **basic_chaser** fish (8 HP, never gives up, short backoff
+  after each bite), placed mid-basin
+- the basin pillars were too tight for the 3-room-wide sub to pass — widened
+  pillar spacing
+- basic_chasers now drop a new **medium carcass (green)** salvage, separate
+  from the regular carcass, wired through storage/banking/HUD
+
+The "Verify by playing" steps above (1-7) plus the new M5-follow-up checklist
+in STATUS.md are both still open for this playtest.
+
 **Top 3 problems (ranked):**
 1.
 2.

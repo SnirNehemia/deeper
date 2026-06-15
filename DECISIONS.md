@@ -689,6 +689,26 @@ Snir's 7-part request, scoped via AskUserQuestion:
   detected, giving up only after a sustained out-of-range timer. Same fish
   art, toggled by `is_hunter`.
 
+## M5 follow-up (settled 2026-06-15, before playtest)
+- **Aggression split, revised:** the M5 "hunter" archetype (chase past the
+  territorial leash, give up after a timer) was applied to the basin pillar
+  fish and felt confusing — a purple fish that looked territorial but acted
+  like a hunter. **Pillar fish are back to plain territorial.** The
+  relentless-chase feel now lives in a new dedicated archetype,
+  **basic_chaser** (green, elongated, 8 HP, never gives up once it locks on,
+  short backoff after each bite). `is_hunter` stays in the code for a future
+  enemy that needs the "chase-then-give-up" behaviour; right now nothing uses
+  it.
+- **Nothing persists between rounds (for now).** Every launch and every run
+  reset wipes banked salvage, loadout, and layout back to the stock Minnow+.
+  This was a stopgap to unblock testing (a too-big sub from a prior run made
+  the new fish unreachable) — Snir will decide later what, if anything,
+  should carry over between runs.
+- **New salvage tier: medium carcass (green),** dropped only by basic_chasers.
+  Same pipeline as the existing carcass (claw → storage → bank), just a third
+  `SalvageItem.Kind` and a third banked total. No new mechanic, just a
+  higher-value drop to mark the chaser as a better kill.
+
 ## Re-parked for a future milestone
 - **Non-physical empty slots** and **dock-reachability warning** — the two M4
   cleanups noted in MILESTONE_5.md's scope discipline; the M5 3-module slice
