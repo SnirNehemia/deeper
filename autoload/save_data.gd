@@ -31,7 +31,10 @@ var loadout: SubLoadout = SubLoadout.new()
 var layout: SubLayout = SubLayout.starting_layout()
 
 func _ready() -> void:
-	load_data()
+	# M5: nothing persists between rounds yet — every launch starts from the
+	# stock Minnow+, not whatever was saved before. (Snir will decide later
+	# what should persist.)
+	reset_for_test()
 
 ## Read the save file, if any. Missing/corrupt files just leave everything at
 ## its defaults — there's nothing to lose on a fresh install. A pre-M4 save with
