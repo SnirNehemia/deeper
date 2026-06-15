@@ -43,11 +43,12 @@ func _build_debug_controls() -> void:
 
 	_debug_buttons.append(_make_debug_button("+100 scrap", -340, SalvageItem.Kind.SCRAP))
 	_debug_buttons.append(_make_debug_button("+100 carcass", -236, SalvageItem.Kind.FISH))
+	_debug_buttons.append(_make_debug_button("+100 med carcass", -132, SalvageItem.Kind.MED_FISH))
 	_apply_debug_visibility()
 
-## Debug shortcut: banks 100 scrap or 100 carcasses directly (so a single
-## click affords a room/slot purchase in the dry dock), instead of the normal
-## one-at-a-time storage-pen deposit.
+## Debug shortcut: banks 100 scrap, carcasses, or medium carcasses directly (so
+## a single click affords a room/slot purchase in the dry dock), instead of the
+## normal one-at-a-time storage-pen deposit.
 func _make_debug_button(text: String, left: float, kind: int) -> Button:
 	var btn := Button.new()
 	btn.focus_mode = Control.FOCUS_NONE  # don't eat Tab (opens the dry dock)
@@ -57,13 +58,18 @@ func _make_debug_button(text: String, left: float, kind: int) -> Button:
 	btn.offset_right = left + 96.0
 	btn.offset_top = 110.0
 	btn.offset_bottom = 136.0
-	btn.pressed.connect(func() -> void:
-		if kind == SalvageItem.Kind.SCRAP:
-			SaveData.bank(100, 0)
-		else:
-			SaveData.bank(0, 100))
+	btn.pressed.connect(_on_debug_bank.bind(kind))
 	add_child(btn)
 	return btn
+
+func _on_debug_bank(kind: int) -> void:
+	match kind:
+		SalvageItem.Kind.SCRAP:
+			SaveData.bank(100, 0)
+		SalvageItem.Kind.FISH:
+			SaveData.bank(0, 100)
+		SalvageItem.Kind.MED_FISH:
+			SaveData.bank(0, 0, 100)
 
 func _on_debug_toggled(on: bool) -> void:
 	_debug = on
@@ -76,8 +82,8 @@ func _apply_debug_visibility() -> void:
 func _process(_delta: float) -> void:
 	if sub == null:
 		return
-	_label.text = "Storage: %d/%d (%d scrap, %d carcasses)\nBanked: %d scrap, %d carcasses" % [
+	_label.text = "Storage: %d/%d (%d scrap, %d carcasses, %d med carcasses)\nBanked: %d scrap, %d carcasses, %d med carcasses" % [
 		sub.storage_count(), GameFeel.claw.storage_capacity,
-		sub.storage_scrap, sub.storage_fish,
-		SaveData.banked_scrap, SaveData.banked_fish,
+		sub.storage_scrap, sub.storage_fish, sub.storage_med_carcass,
+		SaveData.banked_scrap, SaveData.banked_fish, SaveData.banked_med_carcass,
 	]

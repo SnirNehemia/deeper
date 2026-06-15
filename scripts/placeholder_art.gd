@@ -37,6 +37,7 @@ const CHASER_LENGTH_M: float = 1.6        ## more elongated than the territorial
 # --- Salvage ---
 const SCRAP_COLOR := Color("c8a050")      ## scrap crate (warm metal)
 const CARCASS_COLOR := Color("9a7ab8")    ## sunken fish carcass (faded fish purple)
+const CARCASS_MED_COLOR := Color("4ac46a") ## medium carcass from a basic_chaser (green)
 const WRECK_COLOR := Color("5a5a52")      ## closed wreck hull (dull rust-grey)
 const WRECK_OPEN_COLOR := Color("3a3a36") ## cracked-open wreck (darker, hollow)
 const WRECK_LENGTH_M: float = 4.0

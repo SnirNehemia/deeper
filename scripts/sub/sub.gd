@@ -79,6 +79,8 @@ var breaches: Array[Breach] = []
 ## On-board salvage storage (Module B): banked at the dock, lost on implosion.
 var storage_scrap: int = 0
 var storage_fish: int = 0
+## M5: medium carcasses, dropped by basic_chasers.
+var storage_med_carcass: int = 0
 
 signal salvage_collected(kind: int)
 signal breach_spawned(breach: Breach)
@@ -563,6 +565,7 @@ func reset_state() -> void:
 	breaches.clear()
 	storage_scrap = 0
 	storage_fish = 0
+	storage_med_carcass = 0
 	velocity = Vector2.ZERO
 	drive_input = Vector2.ZERO
 	pitch = 0.0
@@ -582,7 +585,7 @@ func near_storage(local_pos: Vector2) -> bool:
 	return local_pos.distance_to(storage_pen_center()) <= 1.6 * PPM
 
 func storage_count() -> int:
-	return storage_scrap + storage_fish
+	return storage_scrap + storage_fish + storage_med_carcass
 
 func storage_full() -> bool:
 	return storage_count() >= GameFeel.claw.storage_capacity
@@ -595,17 +598,20 @@ func deposit_salvage(kind: int) -> bool:
 			storage_scrap += 1
 		SalvageItem.Kind.FISH:
 			storage_fish += 1
+		SalvageItem.Kind.MED_FISH:
+			storage_med_carcass += 1
 	salvage_collected.emit(kind)
 	return true
 
 func try_bank(dock_pos: Vector2, radius: float) -> bool:
 	if global_position.distance_to(dock_pos) > radius:
 		return false
-	if storage_scrap <= 0 and storage_fish <= 0:
+	if storage_scrap <= 0 and storage_fish <= 0 and storage_med_carcass <= 0:
 		return false
-	SaveData.bank(storage_scrap, storage_fish)
+	SaveData.bank(storage_scrap, storage_fish, storage_med_carcass)
 	storage_scrap = 0
 	storage_fish = 0
+	storage_med_carcass = 0
 	return true
 
 # --- Hull (generated from the occupied cells) ---

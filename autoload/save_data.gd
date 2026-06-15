@@ -73,11 +73,12 @@ func save_data() -> void:
 	}))
 
 ## Add salvage to the banked totals and persist immediately.
-func bank(scrap: int, fish: int) -> void:
-	if scrap <= 0 and fish <= 0:
+func bank(scrap: int, fish: int, med_carcass: int = 0) -> void:
+	if scrap <= 0 and fish <= 0 and med_carcass <= 0:
 		return
 	banked_scrap += scrap
 	banked_fish += fish
+	banked_med_carcass += med_carcass
 	save_data()
 
 ## Can the player currently afford `cost` scrap?

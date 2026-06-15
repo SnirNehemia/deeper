@@ -13,7 +13,7 @@ extends Area2D
 ## Placeholder visuals only: scrap = a bobbing crate, carcass = a faded fish
 ## blob that sinks toward the seafloor before settling.
 
-enum Kind { SCRAP, FISH }
+enum Kind { SCRAP, FISH, MED_FISH }
 enum State { WATER, CAGED, LOOSE, CARRIED }
 
 const RADIUS_PX := 14.0
@@ -35,9 +35,11 @@ static func make_scrap(world_pos: Vector2) -> SalvageItem:
 	return item
 
 ## A fish carcass: spawns at the kill site and slowly sinks before settling.
-static func make_carcass(world_pos: Vector2) -> SalvageItem:
+## `kind` is FISH (small, purple) or MED_FISH (medium, green — from a
+## basic_chaser).
+static func make_carcass(world_pos: Vector2, kind: Kind = Kind.FISH) -> SalvageItem:
 	var item := SalvageItem.new()
-	item.kind = Kind.FISH
+	item.kind = kind
 	item.position = world_pos
 	item._sink_speed = 1.0 * GameFeel.PIXELS_PER_METER
 	item.add_to_group("salvage_carcass")
@@ -127,7 +129,7 @@ func _draw() -> void:
 			draw_rect(r, c.darkened(0.35), false, 2.0)
 			draw_line(r.position, r.position + r.size, c.darkened(0.35), 2.0)
 			draw_line(r.position + Vector2(r.size.x, 0), r.position + Vector2(0, r.size.y), c.darkened(0.35), 2.0)
-		Kind.FISH:
-			var c := PlaceholderArt.CARCASS_COLOR
+		Kind.FISH, Kind.MED_FISH:
+			var c := PlaceholderArt.CARCASS_MED_COLOR if kind == Kind.MED_FISH else PlaceholderArt.CARCASS_COLOR
 			draw_circle(Vector2(0, bob), RADIUS_PX, c)
 			draw_circle(Vector2(0, bob), RADIUS_PX * 0.4, c.darkened(0.3))

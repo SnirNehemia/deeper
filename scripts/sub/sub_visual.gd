@@ -161,7 +161,8 @@ func _draw_storage_pen(sub: Sub) -> void:
 	while x <= pen.position.x + pen.size.x + 0.1:
 		draw_line(Vector2(x, pen.position.y), Vector2(x, floor_y), bar, 2.0)
 		x += sec_w * 0.25  # four bars across the section
-	# Stacked contents: scrap squares then carcass blobs, packed bottom-up.
+	# Stacked contents: scrap squares then carcass blobs (small, then medium),
+	# packed bottom-up.
 	var total: int = sub.storage_count()
 	var per_row := 3
 	var slot := pen.size.x / per_row
@@ -171,8 +172,10 @@ func _draw_storage_pen(sub: Sub) -> void:
 		var p := Vector2(pen.position.x + slot * (col + 0.5), floor_y - 10.0 - row * 14.0)
 		if i < sub.storage_scrap:
 			draw_rect(Rect2(p - Vector2(5, 5), Vector2(10, 10)), PlaceholderArt.SCRAP_COLOR)
-		else:
+		elif i < sub.storage_scrap + sub.storage_fish:
 			draw_circle(p, 5.0, PlaceholderArt.CARCASS_COLOR)
+		else:
+			draw_circle(p, 5.0, PlaceholderArt.CARCASS_MED_COLOR)
 
 ## A floodlight's beam (M4-17 rework): a cone with its tip at the hull and its
 ## base flaring outward into open water, in the station's live aim direction.

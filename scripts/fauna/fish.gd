@@ -203,7 +203,8 @@ func die() -> void:
 	var pop := Torpedo.Puff.new()
 	pop.global_position = global_position
 	get_parent().add_child(pop)
-	get_parent().add_child(SalvageItem.make_carcass(global_position))
+	var carcass_kind := SalvageItem.Kind.MED_FISH if is_chaser else SalvageItem.Kind.FISH
+	get_parent().add_child(SalvageItem.make_carcass(global_position, carcass_kind))
 
 ## Back home, alive — the world's run reset calls this on the "fish" group.
 func reset_fish() -> void:
