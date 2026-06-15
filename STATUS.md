@@ -48,9 +48,22 @@ Floodlight Room + pod into one purchase and added auto-flip placement + a
 
 ## Where we are
 **Milestone 3 is closed (Modules A-E).** Milestone 4 ("The Dry Dock & The
-Growing Sub") is well underway — **all headless suites green** (except a
-pre-existing, unrelated `test_station_flood` failure — see "Known issues"
-below).
+Growing Sub")'s twelve core modules (M4-1 through M4-12) are done, plus a long
+run of post-M4-12 polish (M4-18 through M4-23: any-outer-face placement,
+floodlight beam rework + on/off + soft edges + hull occlusion + rotation cap,
+rotate-pick-from-list, dropdown nav fix, reserved-cell labels, tower-relative
+hull length, face-relative aim controls, floodlight height range) —
+**all headless suites green** (except a pre-existing, unrelated
+`test_station_flood` failure — see "Known issues" below).
+
+**What's left for M4:** **CHECKPOINT 2** (Snir plays: buy a slot, buy a room
+incl. the Turret Room, place/rotate it, fire its gun, buy/attach/detach a
+floodlight pod and try its controls) — flagged as next in the module order
+below — then **M4-13 close-out** (final full-suite pass + docs + push). Three
+items flagged during M4-19 remain parked as separate background tasks for a
+later milestone: a damage/HP system (bullet=1/torpedo=5/fish=5hp), making
+empty hull slots non-physical instead of solid grey blocks, and a
+room-reachability check on dock exit — none block Checkpoint 2 or M4-13.
 
 **The submarine is now fully layout-driven** (built from a `SubLayout` via the
 `SubGeometry` pipeline; no hand-authored geometry). Snir **played Checkpoint 1**
@@ -909,10 +922,11 @@ light cone's look/controls are reworked.
    `SubLayout.buyable_slot_positions()` both use this instead of a fixed
    x-width; the vertical cap (`SubGrid.MAX_CELLS.y` = 5) is unchanged.
 3. **Floodlight height range widened.** `GameFeel.floodlight.min_height_m`
-   1m -> **3m** (initial reach unchanged at 5m). `max_height_m` stays
-   `cone_radius_m - 1` (9m) — a quick try at 15m made the cone vanish at full
-   zoom, since `base_half_width_m(h) = sqrt(R^2 - h^2)` goes to 0 (and beyond
-   R, negative-under-sqrt clamps to 0) as h approaches/exceeds R.
+   1m -> **3m** (initial reach unchanged at 5m). `max_height_m` stays just
+   under `cone_radius_m` (`cone_radius_m - 0.1` ~ 9.9m, tuned in-editor by
+   Snir) — a quick try at 15m made the cone vanish at full zoom, since
+   `base_half_width_m(h) = sqrt(R^2 - h^2)` goes to 0 (and beyond R,
+   negative-under-sqrt clamps to 0) as h approaches/exceeds R.
 - Headless-verified: project loads clean with `--headless --path . --quit`,
   plus `test_validate.tscn`, `test_shop.tscn`, `test_slots.tscn`,
   `test_layout.tscn`, `test_dock_shop_ui.tscn` — all PASSED.

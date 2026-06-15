@@ -179,7 +179,7 @@ class FloodlightFeel:
 	var min_height_m: float = 3.0
 	## Must stay below cone_radius_m, or base_half_width_m(h) -> 0 and the
 	## cone's drawn width vanishes (2026-06-20: capped to radius - 1m).
-	var max_height_m: float = cone_radius_m - 1.0
+	var max_height_m: float = cone_radius_m - 0.1
 	var initial_height_m: float = 5.0
 	## Light intensity decays with distance from the lamp in a sigmoid falloff:
 	## centered at half the radius, falling off over this many meters.
