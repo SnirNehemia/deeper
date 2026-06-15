@@ -23,6 +23,12 @@ func _draw() -> void:
 	if sub == null or sub.geometry == null:
 		return
 
+	# Floodlight beams are drawn first, underneath everything else — the hull
+	# silhouette and room interiors drawn next cover any part of a beam that
+	# would otherwise show through the hull from inside the sub (2026-06-19).
+	for f in floodlights:
+		_draw_floodlight_beam(f)
+
 	# Outer hull silhouette: one continuous shape, drawn as overlapping rounded
 	# rects (one per occupied cell), so it reads as a single hull.
 	for r in sub.hull_rects():
@@ -59,7 +65,6 @@ func _draw() -> void:
 	_draw_claw()
 	for f in floodlights:
 		_draw_console(f.position)
-		_draw_floodlight_beam(f)
 	_draw_water(sub)
 
 ## A small console box + dial standing on the floor at a seat (sub-local).
@@ -175,7 +180,10 @@ func _draw_storage_pen(sub: Sub) -> void:
 ## GameFeel.floodlight.base_half_width_m(h) (a chord of a circle of radius R
 ## centered on the lamp). Drawn as several length-wise slices whose alpha
 ## follows a sigmoid falloff with distance — light decays the farther it
-## travels from the lamp, centered at decay_center_m with decay_width_m.
+## travels from the lamp, centered at decay_center_m with decay_width_m. Each
+## slice is further drawn as a few nested, wider, more-transparent trapezoids
+## (widest first) so the beam's lateral edges fade out softly instead of
+## cutting off sharply (2026-06-19).
 func _draw_floodlight_beam(f: FloodlightStation) -> void:
 	if not f.is_on:
 		return
@@ -187,19 +195,28 @@ func _draw_floodlight_beam(f: FloodlightStation) -> void:
 	var h := f.height_m
 	var half_width_m := feel.base_half_width_m(h)
 	var segments := 10
+	# Widest/faintest fringe first, narrowest/brightest core last (drawn on
+	# top), so the overlap reads as a soft glow toward the edges.
+	var fringes := [
+		{"scale": 1.6, "alpha_mul": 0.12},
+		{"scale": 1.3, "alpha_mul": 0.35},
+		{"scale": 1.0, "alpha_mul": 1.0},
+	]
 	for i in range(segments):
 		var d0 := h * float(i) / segments
 		var d1 := h * float(i + 1) / segments
 		var p0 := tip + dir * (d0 * Sub.PPM)
 		var p1 := tip + dir * (d1 * Sub.PPM)
-		var w0 := perp * (half_width_m * (d0 / h) * Sub.PPM)
-		var w1 := perp * (half_width_m * (d1 / h) * Sub.PPM)
 		var d_mid := (d0 + d1) * 0.5
 		var alpha := feel.max_alpha \
 			/ (1.0 + exp((d_mid - feel.decay_center_m) / feel.decay_width_m))
-		draw_colored_polygon(PackedVector2Array([
-			p0 - w0, p0 + w0, p1 + w1, p1 - w1,
-		]), Color(beam.r, beam.g, beam.b, alpha))
+		for fringe in fringes:
+			var scale: float = fringe["scale"]
+			var w0 := perp * (half_width_m * (d0 / h) * scale * Sub.PPM)
+			var w1 := perp * (half_width_m * (d1 / h) * scale * Sub.PPM)
+			draw_colored_polygon(PackedVector2Array([
+				p0 - w0, p0 + w0, p1 + w1, p1 - w1,
+			]), Color(beam.r, beam.g, beam.b, alpha * float(fringe["alpha_mul"])))
 
 ## Flooding water: a flat rect rising from each room's floor. Drawn last.
 func _draw_water(sub: Sub) -> void:

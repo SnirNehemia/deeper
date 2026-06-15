@@ -222,6 +222,12 @@ func reserved_cells() -> Array:
 			reserved.append(p.grid_pos + SubValidator._firing_face_offset(p.facing))
 		if p.module_id == "claw_room":
 			reserved.append(p.grid_pos + SubValidator._firing_face_offset(p.facing))
+	# A floodlight pod's exterior face must stay clear too — a room placed
+	# there would block the lamp, just like a gun's firing face or the claw's
+	# drop cell (2026-06-19).
+	for pod in pods:
+		if pod.pod_id == "floodlight_pod":
+			reserved.append(pod.host_cell + SubValidator._pod_face_offset(pod.face))
 	return reserved
 
 func buyable_slot_positions() -> Array:

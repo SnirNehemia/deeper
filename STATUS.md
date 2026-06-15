@@ -1,15 +1,19 @@
 # STATUS — DEEPER
 
-_Read this at session start. Last updated: 2026-06-19 (Module 19: the
-floodlight's lamp can be toggled on/off with "use", its light-decay width is
-now 2m (sharper falloff), the Assembly "Rotate" menu item now opens a
+_Read this at session start. Last updated: 2026-06-19 (Module 20: the
+floodlight beam's lateral edges are now soft (layered fading fringes), the
+beam is drawn underneath the hull so it no longer shines through into the
+sub's interior, and the pod's exterior face is now reserved — blocking room
+placement there, like a gun's firing face or the claw's drop cell. Module 19:
+the floodlight's lamp can be toggled on/off with "use", its light-decay width
+is now 2m (sharper falloff), the Assembly "Rotate" menu item now opens a
 sub-dropdown of the available facings/faces to pick directly (instead of
 blind-cycling), and a long-standing dropdown-navigation bug — Up and Down
-both moved the highlight the same direction — is fixed. Three items from this
-brief are flagged as separate out-of-scope tasks for later milestones: a
-damage/HP system (bullet=1/torpedo=5/fish=5hp), making empty hull slots
-non-physical instead of solid grey blocks, and a room-reachability check on
-dock exit. Module 18: turret, bullet, claw, and floodlight rooms can now be
+both moved the highlight the same direction — is fixed. Three items from
+M4-19's brief are flagged as separate out-of-scope tasks for later
+milestones: a damage/HP system (bullet=1/torpedo=5/fish=5hp), making empty
+hull slots non-physical instead of solid grey blocks, and a room-reachability
+check on dock exit. Module 18: turret, bullet, claw, and floodlight rooms can now be
 placed/rotated facing **any of the four outer faces**
 (right/left/top/bottom), not just left/right — this also answers Module 16's
 open question (the claw can now point any direction, not just down). The
@@ -798,6 +802,30 @@ light cone's look/controls are reworked.
 - **Commit:** `M4-19: floodlight on/off toggle, sharper decay, rotate
   sub-dropdown, dropdown nav fix`.
 
+### Milestone 4 — Module 20: floodlight beam polish — soft edges, hull occlusion, reserved pod face (DONE, 2026-06-19)
+
+1. **Soft cone edges.** `SubVisual._draw_floodlight_beam` now draws each
+   length-wise slice as three nested trapezoids — a wide, faint outer fringe
+   (1.6x width, 12% of the slice's alpha), a medium fringe (1.3x, 35%), and
+   the core (1x, full alpha) — drawn widest-first so the overlap reads as a
+   soft glow fading laterally instead of a hard-edged triangle.
+2. **The hull blocks the beam from view inside the sub.** `SubVisual._draw()`
+   now draws all floodlight beams **first**, before the hull silhouette and
+   room interiors — those opaque shapes are drawn on top and cover any part
+   of a beam that would otherwise show through the hull into the interior.
+   The beam still reads correctly in open water around the hull.
+3. **The lamp's exterior face blocks room placement.** `SubLayout.
+   reserved_cells()` now also reserves the cell directly in front of an
+   attached floodlight pod (`pod.host_cell + _pod_face_offset(pod.face)`) —
+   same treatment as a gun's firing face or the claw's drop cell: marked
+   "reserved" in Assembly and excluded from buyable slots, so a room can
+   never be placed where it would block the lamp.
+- Headless-verified: project loads clean with `--headless --path . --quit`,
+  plus `test_dock_shop_ui.tscn`, `test_shop.tscn`, `test_validate.tscn`,
+  `test_sub.tscn` — all PASSED.
+- **Commit:** `M4-20: floodlight beam polish — soft edges, hull occlusion,
+  reserved pod face`.
+
 ### M4 module order (corrected per `ROOM_SYSTEM.md` reconciliation, 2026-06-12)
 `MILESTONE_4_v2.md`'s eleven modules are still the backbone, but three things
 from `ROOM_SYSTEM.md` change the order and add a module. This list is the
@@ -1432,3 +1460,16 @@ test_lower_deck, test_sub, test_geometry).
 5. In any dropdown menu (a room's action menu, the rotate sub-dropdown,
    etc.), pressing Up/W should move the highlight up and Down/S should move
    it down (previously both moved it the same way).
+
+## Verify by playing — Module 20 (floodlight beam polish: soft edges, hull occlusion, reserved pod face)
+1. Launch: `"D:\Godot_v4.4.1-stable_win64.exe\Godot_v4.4.1-stable_win64.exe" --path .`
+2. With the floodlight on, look closely at the beam's left/right edges —
+   they should look soft/glowing rather than a sharp triangle outline.
+3. Aim the beam so part of its cone overlaps the hull (e.g. pointed mostly
+   along the hull rather than straight out) — the hull and room interiors
+   should appear solid on top, with no light visible bleeding through into
+   the sub's rooms.
+4. In Assembly, look at the cell directly in front of the floodlight's lamp
+   (the face it's pointed out of) — it should now be marked "reserved" (dim
+   red) like a gun's firing line, and can't be bought as a slot or have a
+   room placed there.

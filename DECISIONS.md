@@ -617,6 +617,13 @@ Snir's 7-part request, scoped via AskUserQuestion:
   dock-exit if a placed room has no crew path (most useful once the slot
   rework lands). Each spawned as its own background task.
 
+- **Floodlight beam polish (2026-06-19, M4-20)**: the beam's lateral edges
+  are now soft (layered nested trapezoids fading outward); the beam is drawn
+  before the hull silhouette so the hull occludes it from the sub's
+  interior; and the pod's exterior face is now a `reserved_cells()` entry,
+  blocking room placement there like a gun's firing face or the claw's drop
+  cell.
+
 ## Parked
 - **What station/ability lives in the conning tower?** It's a fixed, always-
   present single cell at the top of the sub (core, like the helm) — Snir is
