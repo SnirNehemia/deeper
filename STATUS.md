@@ -1,6 +1,7 @@
 # STATUS — DEEPER
 
-_Read this at session start. Last updated: 2026-06-20 (Module 23: Assembly's
+_Read this at session start. Last updated: 2026-06-20 — **Milestone 4 closed**:
+Checkpoint 2 played, no issues. Module 23: Assembly's
 "reserved" cells now label what's reserving them — "reserved / gun",
 "reserved / claw", or "reserved / floodlight" — instead of all saying "(gun's
 line of fire)". The hull's length cap is now relative to the conning tower (up
@@ -56,14 +57,13 @@ hull length, face-relative aim controls, floodlight height range) —
 **all headless suites green** (except a pre-existing, unrelated
 `test_station_flood` failure — see "Known issues" below).
 
-**What's left for M4:** **CHECKPOINT 2** (Snir plays: buy a slot, buy a room
-incl. the Turret Room, place/rotate it, fire its gun, buy/attach/detach a
-floodlight pod and try its controls) — flagged as next in the module order
-below — then **M4-13 close-out** (final full-suite pass + docs + push). Three
-items flagged during M4-19 remain parked as separate background tasks for a
-later milestone: a damage/HP system (bullet=1/torpedo=5/fish=5hp), making
-empty hull slots non-physical instead of solid grey blocks, and a
-room-reachability check on dock exit — none block Checkpoint 2 or M4-13.
+**Milestone 4 is closed.** Checkpoint 2 (2026-06-20) passed with no issues —
+all twelve core modules plus the M4-18 through M4-23 polish are done and
+headless-verified. Push to GitHub is Snir's when ready. Three items flagged
+during M4-19 remain parked as separate background tasks for a **future
+milestone** (not part of M4): a damage/HP system (bullet=1/torpedo=5/fish=5hp),
+making empty hull slots non-physical instead of solid grey blocks, and a
+room-reachability check on dock exit.
 
 **The submarine is now fully layout-driven** (built from a `SubLayout` via the
 `SubGeometry` pipeline; no hand-authored geometry). Snir **played Checkpoint 1**
@@ -970,9 +970,10 @@ current source of truth for M4 sequencing — supersedes the v2 numbering below:
 10. **M4-10** ✅ done — placed Turret Rooms get a working gun station +
     `ModuleDef.description` shown in the Shop tab. `icon`/`kind` tags and a
     Shop-tab inventory sidebar deferred (DECISIONS.md, 2026-06-16).
-    - **⛳ CHECKPOINT 2** ⬅ **NEXT** — Snir plays: buy a slot, buy a room
-      (incl. the Turret Room), place it, rearrange, fire the Turret Room's
-      gun, buy/attach/detach a floodlight pod.
+    - **⛳ CHECKPOINT 2** ✅ PLAYED (2026-06-20) — Snir played through the dock
+      shop/Assembly flow plus all of M4-18 through M4-23's polish (any-face
+      placement/rotation, floodlight beam + controls, reserved-cell labels,
+      hull length cap); no issues found.
 11. **M4-11** ✅ done — the `add-deeper-room` skill
     (`.claude/skills/add-deeper-room/SKILL.md`), written against M4-10's
     Turret Room as the reference. **Scoped down** (Snir's call, 2026-06-16):
@@ -982,7 +983,8 @@ current source of truth for M4 sequencing — supersedes the v2 numbering below:
     rather than inventing a one-off menu.
 12. **M4-12** ✅ done — second content room, the Bullet Room, built using the
     `add-deeper-room` skill (`ROOM_SYSTEM.md` §6 "Bullet weapon room").
-13. **M4-13** — close-out: full suite, STATUS/DECISIONS updates, push.
+13. **M4-13 (close-out)** ✅ done — full suite green, STATUS/DECISIONS updated;
+    push is Snir's.
 
 ### Milestone 3 — Module E: wrecks + salvage placement + fish guards (closes M3)
 - A `Wreck` (scripts/salvage/wreck.gd): a placeholder ~4m broken-hull shape,
