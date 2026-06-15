@@ -25,5 +25,14 @@ const CELL_W_PX := 240.0
 const CELL_H_PX := 144.0
 
 ## Bounds sanity guard (§5 rule 7) — a technical guard only; real growth
-## limiting is economic (price escalation), not this box.
-const MAX_CELLS := Vector2i(8, 5)
+## limiting is economic (price escalation), not this box. .x is unused for the
+## horizontal bound (see SubLayout.tower_x_bounds(), 2026-06-20, which is
+## relative to the conning tower's column instead of a fixed total width); .y
+## still caps the vertical span.
+const MAX_CELLS := Vector2i(9, 5)
+
+## Horizontal bounds, relative to the conning tower's column (2026-06-20): up
+## to this many cells to its left, and up to this many to its right
+## (inclusive of the tower's own column) — 3 + 1 + 5 = 9 cells total.
+const CELLS_LEFT_OF_TOWER := 3
+const CELLS_RIGHT_OF_TOWER := 5

@@ -653,6 +653,16 @@ Snir's 7-part request, scoped via AskUserQuestion:
   the hull) always lengthens the beam, zooming toward the hull always
   shortens it, on any wall.
 
+- **Reserved-cell labels, tower-relative hull length, floodlight height range
+  (2026-06-20, M4-23)**: Assembly's "reserved" cells now show what's reserving
+  them (`SubLayout.reserved_cell_types()` -> "gun"/"claw"/"floodlight") instead
+  of a one-size-fits-all "(gun's line of fire)". The hull's horizontal growth
+  cap is now anchored to the conning tower's column
+  (`SubLayout.tower_x_bounds()`: 3 columns left, 5 right, 9 total) instead of
+  a fixed 8-wide box (`SubGrid.CELLS_LEFT_OF_TOWER`/`CELLS_RIGHT_OF_TOWER`);
+  the vertical cap (`SubGrid.MAX_CELLS.y` = 5) is unchanged. The floodlight's
+  height range widened from 1m-9m to 3m-15m.
+
 ## Parked
 - **What station/ability lives in the conning tower?** It's a fixed, always-
   present single cell at the top of the sub (core, like the helm) — Snir is

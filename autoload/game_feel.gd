@@ -176,8 +176,8 @@ class FloodlightFeel:
 	var rotate_speed_deg: float = 60.0   ## left/right aim sweep (deg/s)
 	var zoom_speed_m: float = 2.0        ## up/down change to h (m/s)
 	var cone_radius_m: float = 10.0      ## R, the circle h and the base half-width are drawn from
-	var min_height_m: float = 1.0
-	var max_height_m: float = 9.0
+	var min_height_m: float = 3.0
+	var max_height_m: float = 15.0
 	var initial_height_m: float = 5.0
 	## Light intensity decays with distance from the lamp in a sigmoid falloff:
 	## centered at half the radius, falling off over this many meters.

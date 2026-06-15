@@ -193,6 +193,26 @@ func _tower_row() -> Variant:
 			return p.grid_pos.y
 	return null
 
+## The grid column occupied by the conning tower, or null if there is no
+## tower placement (defensive only — every valid layout has exactly one).
+func _tower_col() -> Variant:
+	for p in placements:
+		if p.module_id == "tower":
+			return p.grid_pos.x
+	return null
+
+## The allowed range of x (column) values for the hull, anchored on the
+## conning tower's column: up to SubGrid.CELLS_LEFT_OF_TOWER columns to its
+## left and SubGrid.CELLS_RIGHT_OF_TOWER to its right, inclusive of the
+## tower's own column (2026-06-20 tower-relative length cap). Returns null if
+## there's no tower (shouldn't happen in a valid layout) -- callers should
+## then skip the x-bounds check.
+func tower_x_bounds() -> Variant:
+	var col: Variant = _tower_col()
+	if col == null:
+		return null
+	return Vector2i(int(col) - SubGrid.CELLS_LEFT_OF_TOWER, int(col) + SubGrid.CELLS_RIGHT_OF_TOWER)
+
 ## The "level" of a grid row for the slot economy (2026-06-14 levels rework,
 ## ROOM_SYSTEM.md §4.1): the tower's row is level 0 and stays the tower's
 ## alone forever; the row directly beneath it is level 1, the next is level
@@ -215,19 +235,25 @@ func level_of(pos: Vector2i) -> int:
 ## mark these cells as "reserved" instead of leaving them blank and
 ## unexplained.
 func reserved_cells() -> Array:
-	var reserved: Array = []
+	return reserved_cell_types().keys()
+
+## Like reserved_cells(), but maps each reserved cell to what's reserving it
+## ("gun", "claw", or "floodlight") so the Assembly view can label it
+## specifically (2026-06-20).
+func reserved_cell_types() -> Dictionary:
+	var reserved: Dictionary = {}
 	for p in placements:
 		var def := ModuleCatalog.by_id(p.module_id)
 		if def != null and def.has_firing_face:
-			reserved.append(p.grid_pos + SubValidator._firing_face_offset(p.facing))
+			reserved[p.grid_pos + SubValidator._firing_face_offset(p.facing)] = "gun"
 		if p.module_id == "claw_room":
-			reserved.append(p.grid_pos + SubValidator._firing_face_offset(p.facing))
+			reserved[p.grid_pos + SubValidator._firing_face_offset(p.facing)] = "claw"
 	# A floodlight pod's exterior face must stay clear too — a room placed
 	# there would block the lamp, just like a gun's firing face or the claw's
 	# drop cell (2026-06-19).
 	for pod in pods:
 		if pod.pod_id == "floodlight_pod":
-			reserved.append(pod.host_cell + SubValidator._pod_face_offset(pod.face))
+			reserved[pod.host_cell + SubValidator._pod_face_offset(pod.face)] = "floodlight"
 	return reserved
 
 func buyable_slot_positions() -> Array:
@@ -239,6 +265,7 @@ func buyable_slot_positions() -> Array:
 		max_pos = Vector2i(max(max_pos.x, cell.x), max(max_pos.y, cell.y))
 
 	var reserved := reserved_cells()
+	var x_bounds: Variant = tower_x_bounds()
 	var candidates: Array = []
 	for cell in occupied:
 		for n in neighbors(cell):
@@ -246,9 +273,11 @@ func buyable_slot_positions() -> Array:
 				continue
 			if level_of(n) < 1:
 				continue
+			if x_bounds != null and (n.x < x_bounds.x or n.x > x_bounds.y):
+				continue
 			var span_min := Vector2i(min(min_pos.x, n.x), min(min_pos.y, n.y))
 			var span_max := Vector2i(max(max_pos.x, n.x), max(max_pos.y, n.y))
 			var span := span_max - span_min + Vector2i.ONE
-			if span.x <= SubGrid.MAX_CELLS.x and span.y <= SubGrid.MAX_CELLS.y:
+			if span.y <= SubGrid.MAX_CELLS.y:
 				candidates.append(n)
 	return candidates

@@ -1,6 +1,12 @@
 # STATUS — DEEPER
 
-_Read this at session start. Last updated: 2026-06-20 (Module 22: fixed
+_Read this at session start. Last updated: 2026-06-20 (Module 23: Assembly's
+"reserved" cells now label what's reserving them — "reserved / gun",
+"reserved / claw", or "reserved / floodlight" — instead of all saying "(gun's
+line of fire)". The hull's length cap is now relative to the conning tower (up
+to 3 columns left of it, 5 columns right, 9 total) instead of a fixed 8-wide
+box; height cap unchanged at 5. The floodlight's height range widened to 3m-
+15m (was 1m-9m). Module 22: fixed
 Module 21's beam-range tweak, which had the opposite of the intended effect —
 the cone got wider as it swung toward the hull. Now `aim_angle` is clamped to
 the cone's own half-angle (`atan(half_width_m / height_m)`), so the beam's
@@ -885,6 +891,29 @@ light cone's look/controls are reworked.
   plus `test_sub.tscn`, `test_turret.tscn` — all PASSED.
 - **Commit:** `M4-22: floodlight rotation capped at the hull, outward-zoom fix`.
 
+### Milestone 4 — Module 23: reserved-cell labels, tower-relative hull length cap, floodlight height range (DONE, 2026-06-20)
+
+1. **Reserved-cell labels now say what's reserving them.** The Assembly
+   view's "reserved" cells (gun firing line, claw drop, floodlight lamp face)
+   used to all read "(gun's line of fire)". New `SubLayout.
+   reserved_cell_types()` maps each reserved cell to "gun"/"claw"/
+   "floodlight"; the view now prints "reserved" + that type underneath.
+   `reserved_cells()` is now a thin wrapper (`reserved_cell_types().keys()`).
+2. **Hull length cap is now relative to the conning tower.** Previously the
+   whole hull's bounding box had to fit in an 8-wide box (an arbitrary
+   absolute limit). New `SubLayout.tower_x_bounds()`: up to
+   `SubGrid.CELLS_LEFT_OF_TOWER` (3) columns left of the tower's column and
+   `SubGrid.CELLS_RIGHT_OF_TOWER` (5) columns right of it (inclusive of the
+   tower's own column) — 9 columns total. `SubValidator`'s bounds rule and
+   `SubLayout.buyable_slot_positions()` both use this instead of a fixed
+   x-width; the vertical cap (`SubGrid.MAX_CELLS.y` = 5) is unchanged.
+3. **Floodlight height range widened.** `GameFeel.floodlight.min_height_m`
+   1m -> **3m**, `max_height_m` 9m -> **15m** (initial reach unchanged at 5m).
+- Headless-verified: project loads clean with `--headless --path . --quit`,
+  plus `test_validate.tscn`, `test_shop.tscn`, `test_slots.tscn`,
+  `test_layout.tscn`, `test_dock_shop_ui.tscn` — all PASSED.
+- **Commit:** `M4-23: reserved-cell labels, tower-relative hull length cap, floodlight height range`.
+
 ### M4 module order (corrected per `ROOM_SYSTEM.md` reconciliation, 2026-06-12)
 `MILESTONE_4_v2.md`'s eleven modules are still the backbone, but three things
 from `ROOM_SYSTEM.md` change the order and add a module. This list is the
@@ -1553,6 +1582,20 @@ test_lower_deck, test_sub, test_geometry).
 3. Zoom the lamp: pushing the zoom control outward (toward open water, away
    from the sub's hull) should lengthen the beam; pushing it the other way
    (toward the hull) should shorten it.
+
+## Verify by playing — Module 23 (reserved-cell labels, tower-relative hull length, floodlight height range)
+
+1. In Assembly, find a reserved cell in front of a gun, the claw, and the
+   floodlight (if placed) — each should now read "reserved" with a second
+   line naming what reserves it ("gun" / "claw" / "floodlight") instead of
+   all saying "(gun's line of fire)".
+2. Buy slots out toward the bow and stern until you hit the new length limit
+   — you should be able to grow up to 3 columns left of the conning tower and
+   5 columns right of it (9 columns total including the tower's own column);
+   no buyable ghost cells should appear beyond that, in either direction.
+3. Sit in the Floodlight Room and zoom all the way in and all the way out —
+   the beam's reach should now range from about 3m (short) to about 15m
+   (long), noticeably more range than before on both ends.
 
 ## Verify by playing — Module 20 (floodlight beam polish: soft edges, hull occlusion, reserved pod face)
 1. Launch: `"D:\Godot_v4.4.1-stable_win64.exe\Godot_v4.4.1-stable_win64.exe" --path .`

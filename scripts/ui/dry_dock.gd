@@ -618,7 +618,8 @@ class _View extends Control:
 
 		var layout := SaveData.layout
 		var buyable: Array = layout.buyable_slot_positions()
-		var reserved: Array = layout.reserved_cells()
+		var reserved_types: Dictionary = layout.reserved_cell_types()
+		var reserved: Array = reserved_types.keys()
 		var cells: Array = layout.occupied_cells().duplicate()
 		for c in buyable:
 			if c not in cells:
@@ -670,7 +671,7 @@ class _View extends Control:
 			draw_rect(r, Color(0.8, 0.4, 0.4, 0.5), false, 1.5)
 			f.draw_string(get_canvas_item(), r.position + Vector2(6, 22), "reserved",
 				HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 8, 13, Color(1, 0.7, 0.7, 0.8))
-			f.draw_string(get_canvas_item(), r.position + Vector2(6, 40), "(gun's line of fire)",
+			f.draw_string(get_canvas_item(), r.position + Vector2(6, 40), str(reserved_types.get(cell, "")),
 				HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 8, 11, Color(1, 0.7, 0.7, 0.6))
 
 		for pos in dock._assembly_actions:

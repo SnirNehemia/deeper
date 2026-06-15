@@ -73,8 +73,9 @@ static func validate(layout: SubLayout) -> Dictionary:
 	var occupied := layout.occupied_cells()
 
 	# Rule 7: bounds sanity — the layout's bounding box fits inside
-	# SubGrid.MAX_CELLS (a technical guard only; real growth limiting is
-	# economic price escalation, not this box).
+	# SubGrid.MAX_CELLS.y vertically, and horizontally within
+	# tower_x_bounds() (a technical guard only; real growth limiting is
+	# economic price escalation, not these boxes).
 	if not occupied.is_empty():
 		var min_pos := Vector2i(999, 999)
 		var max_pos := Vector2i(-999, -999)
@@ -82,9 +83,13 @@ static func validate(layout: SubLayout) -> Dictionary:
 			min_pos = Vector2i(min(min_pos.x, cell.x), min(min_pos.y, cell.y))
 			max_pos = Vector2i(max(max_pos.x, cell.x), max(max_pos.y, cell.y))
 		var span := max_pos - min_pos + Vector2i.ONE
-		if span.x > SubGrid.MAX_CELLS.x or span.y > SubGrid.MAX_CELLS.y:
-			violations.append("The sub is too large (%dx%d cells, max is %dx%d)." % [
-				span.x, span.y, SubGrid.MAX_CELLS.x, SubGrid.MAX_CELLS.y])
+		if span.y > SubGrid.MAX_CELLS.y:
+			violations.append("The sub is too tall (%d cells, max is %d)." % [
+				span.y, SubGrid.MAX_CELLS.y])
+		var x_bounds: Variant = layout.tower_x_bounds()
+		if x_bounds != null and (min_pos.x < x_bounds.x or max_pos.x > x_bounds.y):
+			violations.append("The sub extends too far from the conning tower (columns %d to %d, allowed %d to %d)." % [
+				min_pos.x, max_pos.x, x_bounds.x, x_bounds.y])
 
 	# Rule 3: tower support — the cell directly below the tower is occupied
 	# (the tower must stand on a room and gain its ladder).
