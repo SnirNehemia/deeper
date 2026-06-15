@@ -724,3 +724,17 @@ Snir's 7-part request, scoped via AskUserQuestion:
 - Fire/electrical damage systems (water must prove fun first)
 - EVA dive-suit module (v1 content at earliest)
 - Cosmetics (paint, flags, googly eyes) — vertical-slice era
+
+## Settled (2026-06-16, Milestone 6 Module 1)
+- **Empty slots have no hull:** a bought-but-unfilled assembly slot is purely
+  reserved space — it has no exterior hull rect, no collider, and doesn't
+  render. The hull/collider is generated only from cells holding an actual
+  placed room.
+- **Empty slots don't bridge connectivity or block outward faces:** the
+  "every room must connect back to the helm" check now walks placed-room
+  cells only (an empty slot can't be the only thing holding two rooms
+  together); pod/turret/claw "must face open exterior" checks likewise treat
+  an empty slot as open, not as blocking hull.
+- **Dry Dock close-time check:** leaving the dock now re-runs the full layout
+  validator and refuses (with the violation text, staying in the dock) if any
+  placed room is left disconnected from the helm.

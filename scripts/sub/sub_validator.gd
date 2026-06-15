@@ -99,25 +99,23 @@ static func validate(layout: SubLayout) -> Dictionary:
 		if below not in occupied:
 			violations.append("The conning tower has nothing beneath it to stand on.")
 
-	# Rule 2: connectivity — every occupied cell (placed rooms and bought
-	# slots alike) reaches the helm through the auto-connection graph
-	# (adjacency stands in for doors/ladders here; the pipeline generates the
-	# real connections from the same adjacency).
-	if helm_placements.size() == 1 and not occupied.is_empty():
+	# Rule 2: connectivity — every placed room reaches the helm through the
+	# auto-connection graph (adjacency stands in for doors/ladders here; the
+	# pipeline generates the real connections from the same adjacency).
+	# Bought-but-empty slots have no hull (M6-1) and so don't bridge
+	# connectivity — only cells holding an actual room count.
+	if helm_placements.size() == 1 and not cell_owners.is_empty():
 		var start: Vector2i = helm_placements[0].grid_pos
-		var occupied_set: Dictionary = {}
-		for cell in occupied:
-			occupied_set[cell] = true
 		var visited: Dictionary = {}
 		var queue: Array = [start]
 		visited[start] = true
 		while not queue.is_empty():
 			var cell: Vector2i = queue.pop_front()
 			for n in SubLayout.neighbors(cell):
-				if occupied_set.has(n) and not visited.has(n):
+				if cell_owners.has(n) and not visited.has(n):
 					visited[n] = true
 					queue.append(n)
-		for cell in occupied:
+		for cell in cell_owners:
 			if not visited.has(cell):
 				violations.append("Cell %s is cut off from the rest of the sub." % cell)
 
@@ -165,19 +163,22 @@ static func validate(layout: SubLayout) -> Dictionary:
 				violations.append("The %s must sit at the top or bottom edge of its column." % p.module_id)
 
 	# Rule 9: clear claw drop — the cell the claw's arm reaches toward (in its
-	# `facing` direction) must stay empty (`occupied`, so an owned slot blocks
-	# it too) so the salvage claw has a clear path to drop through the hull
-	# (2026-06-19, "weapon-like claw placement", generalized for "any outer
-	# face"). Like rules 5/8, this only considers placed rooms.
+	# `facing` direction) must stay clear of other rooms (`cell_owners`; an
+	# empty bought slot has no hull (M6-1) and doesn't block it) so the salvage
+	# claw has a clear path to drop through the hull (2026-06-19, "weapon-like
+	# claw placement", generalized for "any outer face"). Like rules 5/8, this
+	# only considers placed rooms.
 	for p in layout.placements:
 		if p.module_id == "claw_room":
 			var reach := p.grid_pos + _firing_face_offset(p.facing)
-			if reach in occupied:
+			if cell_owners.has(reach):
 				violations.append("The claw's drop path is blocked.")
 
 	# Rule 6: pod faces — a pod attaches only to an exterior face of an
 	# occupied cell that's built to host pods (ModuleDef.can_host_pod, e.g. the
-	# Floodlight Room); one pod per face.
+	# Floodlight Room); one pod per face. A face counts as exterior if no other
+	# room sits there — an empty bought slot has no hull (M6-1) and doesn't
+	# block it.
 	var host_module: Dictionary = {}
 	for p in layout.placements:
 		host_module[p.grid_pos] = p.module_id
@@ -190,7 +191,7 @@ static func validate(layout: SubLayout) -> Dictionary:
 		if host_def == null or not host_def.can_host_pod:
 			violations.append("The %s pod is attached to a room that can't host it." % pod.pod_id)
 		var exterior_cell := pod.host_cell + _pod_face_offset(pod.face)
-		if exterior_cell in occupied:
+		if cell_owners.has(exterior_cell):
 			violations.append("The %s pod's %s face is not exterior." % [pod.pod_id, pod.face])
 		var key := str(pod.host_cell) + ":" + pod.face
 		if pod_faces.has(key):

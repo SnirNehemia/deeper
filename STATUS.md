@@ -1,6 +1,23 @@
 # STATUS — DEEPER
 
-_Read this at session start. Last updated: 2026-06-20 — **Milestone 4 closed**:
+_Read this at session start. Last updated: 2026-06-16 — **Milestone 6, Module 1
+(Sub Builder Validation & Tight Hulls) done**: `Sub.hull_rects()`
+(`scripts/sub/sub.gd`) now builds the hull silhouette and collision shapes only
+from cells holding an actual placed room — bought-but-empty slots no longer
+render as a grey hull box or contribute a collider. `SubValidator`'s
+connectivity check (rule 2, `scripts/sub/sub_validator.gd`) was reworked to
+match: it now BFS's over placed-room cells only (empty slots don't bridge
+connectivity, since they have no hull), and the pod-exterior-face (rule 6) and
+claw-drop-path (rule 9) checks were loosened the same way — an empty slot no
+longer counts as "occupied" for blocking a pod/turret/claw's outward face.
+`DryDock._close()` (`scripts/ui/dry_dock.gd`) now runs `SubValidator.validate()`
+before letting the player leave and refuses with the "cut off" violation text
+if any placed room has lost its path back to the helm (e.g. after picking up
+the room that was its only connection). 24/24 suites green
+(`test_validate`, `test_geometry`, `test_slots` rechecked).
+---
+
+_Previous update: 2026-06-20 — **Milestone 4 closed**:
 Checkpoint 2 played, no issues. Module 23: Assembly's
 "reserved" cells now label what's reserving them — "reserved / gun",
 "reserved / claw", or "reserved / floodlight" — instead of all saying "(gun's

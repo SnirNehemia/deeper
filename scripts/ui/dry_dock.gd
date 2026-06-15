@@ -530,6 +530,10 @@ func _close() -> void:
 	if not _has_helm_placed():
 		_note = "The sub needs its helm placed before you can leave the dock."
 		return
+	for v in SubValidator.validate(SaveData.layout)["violations"]:
+		if v.find("cut off") != -1:
+			_note = v
+			return
 	get_tree().paused = false
 	closed.emit(_changed)
 	queue_free()

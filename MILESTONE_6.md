@@ -1,0 +1,78 @@
+# MILESTONE_6.md — Cartography & Structural Discipline (Hand-Drawn Maps and Tight Assemblies)
+
+Brief for Claude Code. Read CLAUDE.md first, then STATUS.md, DECISIONS.md, and MODULAR_SUB_IMPLEMENTATION.md (the architecture canon for this milestone — how the grid, generation pipeline, validation, and dock work; this brief only orders the work). Do not start until Milestone 5 is closed out.
+
+## Goal
+Transition the game from a hardcoded test world to an image-driven pipeline powered by hand-drawn maps (e.g., drawn in Krita and exported as layered PNG files). The world parser must map image pixel data to physical blocks, entity spawns, docking areas, background layers, and foreground masks. 
+
+Additionally, clean up the sub builder's layout logic by enforcing room connectivity constraints and ensuring the generated submarine hull/collider wraps tightly around active modules, entirely omitting unoccupied slots.
+
+This milestone answers: Does moving through a hand-authored, visually distinct cavern elevate exploration and navigation, and does strict sub geometry layout validation make building feel reliable?
+
+## Architecture & Ratio Flexibility Rule
+To address concerns regarding visual blockiness/pixelation, the level loader must read a `pixels_per_meter` parameter from the map configuration file:
+- **Starting Target:** 1 pixel = 1 meter. With our world scale (1 meter = 48 screen pixels), a pixel maps to a 48x48px world square.
+- **Flexibility Constraint:** Do not hardcode a 1:1 ratio into the loops. Map calculations must dynamically use `(48 / pixels_per_meter)` as their coordinate spacing. This ensures that shifting the map configuration to 10 pixels/meter (or higher) later to achieve a less pixelated cave layout requires zero rewrites of the underlying parser. Playtest this early to determine if a higher resolution is needed.
+
+---
+
+## Spec
+
+### Module 1: Sub Builder Validation & Tight Hulls (Assembly Constraints)
+- **Connectedness Validation Rule:** Extend `SubLayout` validation. A submarine design is invalid if any placed room module is structurally isolated. Every active room cell must possess a contiguous orthogonal path (Up, Down, Left, Right) that leads back to the Core/Helm cell. If a disconnected room is found, the assembler must block the "Apply" command and display a specific visual/text error.
+- **Omit Unoccupied Slots:** Modify the submarine assembly generation pipeline (`rebuild_from_layout`). Non-physical empty slots on the placement grid must be completely ignored. The generated external hull sprite collage, tile tiling logic, and the structural `CollisionPolygon2D` must conform tightly to the shape of cells containing active room modules. No placeholder shapes or empty buffer bounds are allowed for omitted slots.
+
+### Module 2: Multi-Layer Configuration & Generation Parsing
+- **Map Config Format:** Store map paths in a lightweight JSON configuration or Godot Resource format. Example configuration properties (formatted with dashes):
+  
+```  {
+    "map_id": "cavern_depths_01",
+    "pixels_per_meter": 1.0,
+    "physical_layer": "res://maps/cavern_01_phys.png",
+    "generation_layer": "res://maps/cavern_01_gen.png",
+    "visual_background": "res://maps/cavern_01_bg.png",
+    "visual_foreground": "res://maps/cavern_01_fg.png"
+  }```
+  
+- **Generation Layer Parser:** Scans the `generation_layer` PNG image pixel-by-pixel using `Image.get_pixel()`. Coordinates are multiplied into world coordinates based on the pixel-scale rule. Spawns entities according to exact hex colors:
+  - **White (`#FFFFFF`):** Initial spawn point of the player submarine.
+  - **Purple (`#800080`):** Spawns a Territorial Fish.
+  - **Green (`#00FF00`):** Spawns a Hunter Fish.
+  - **Grey (`#808080`):** Spawns a Wreckage entity.
+
+### Module 3: Physical Layer Parser & Micro-Terrain Modifiers
+- **Solid Block Collision:** Scan the `physical_layer` PNG. Every non-transparent pixel creates a solid block matching the world scale of a meter. To optimize physics performance, adjacent horizontal pixels of identical terrain properties should ideally be merged into combined `CollisionShape2D` rectangles.
+- **Terrain Properties & Impact Thresholds:** Read specific hex codes on the physical layer to assign localized material types with modified hull breach variables:
+  - **Normal Rock (Grey, `#808080`):** Standard baseline impact limits from Milestone 2. Ramming speeds under 2 m/s are safe; impacts above that generate standard breaches.
+  - **Sand/Silt (Brown-Yellow, `#D2B48C`):** Soft, forgiving terrain. Impact damage thresholds are **doubled** (Safe up to 4 m/s; impacts above that generate half-severity breaches).
+  - **Sharp Rock (Black, `#000000`):** Jagged, punishing terrain. Impact thresholds are **halved** (Safe only under 1 m/s; any impact above 1 m/s automatically forces high-severity, rapid-flooding breaches).
+  - **Docking Zone (Brown, `#6E473B`):** Non-damaging surface blocks representing structural surface bays. When the sub is stationary and overlapping a world zone generated by these pixels, players can interact at the Helm/Core to access the Dry Dock screen.
+
+### Module 4: Ambient Aesthetics & Visual Layering
+- **Layer Stacking:** Arrange the visual stack in the game viewport loop in the following explicit order:
+  1. Visual Background Layer (rendered behind the submarine, players, and fish).
+  2. Submarine Interior, Stations, Crew, Objects, and Enemies.
+  3. Ambient Water Motion Sub-Module.
+  4. Visual Foreground Layer (rendered in front of everything, creating rocky silhouette foreground masks).
+- **Ambient Water Motion Sub-Module:** Implement a lightweight custom Godot `ShaderMaterial` attached to a viewport overlay panel layered between the Background and Foreground graphics. The shader must apply a gentle, horizontal sine-wave UV displacement or animated low-res heat shimmer effect to simulate fluid, undulating water movement across the background landscape.
+- **Texture Integrity:** Both visual layer images are scaled exactly up to world dimensions using Nearest-Neighbor filtering (`TextureFilter.TEXTURE_FILTER_NEAREST`) to preserve sharp, chunky pixel arts.
+
+---
+
+## Out of Scope
+- Runtime destructible map terrain.
+- Multi-layer moving parallax backgrounds or scrolling background layers.
+- In-game mini-maps, full-screen map menus, or map selection overlays.
+- Real-time fluid simulation for water movement outside of visual shaders.
+
+---
+
+## Verify by Playing (for Snir)
+
+1. **Test Strict Layout Bounds:** Open the Sub Builder Assembly screen. Intentionally place a room module completely floating and isolated away from the conning tower or core sub hull. Try to hit "Apply". The game must reject the design, displaying a layout validation error text. 
+2. **Verify Tight Hull Wrap:** Delete the isolated room and leave an empty interior block inside the sub boundary grid. Click "Apply". Enter the level; look at the exterior of your sub. The sprite outline and external sub colliders must wrap tightly to the remaining active rooms, leaving no visual empty spacer tiles or hanging physics nodes.
+3. **Map Verification (Image Parsing):** Launch a custom map configuration. The submarine must spawn exactly where the White pixel was drawn in Krita. Drive outward; confirm that Territorial and Hunter fish spawn precisely at the points marked by your Purple and Green pixels.
+4. **Soft Sand Impacts:** Find a terrain sector painted in Brown-Yellow (`#D2B48C`). Intentionally ram the submarine into the sand wall at 3 m/s. The submarine should bounce off harmlessly without creating hull breaches.
+5. **Sharp Rock Impacts:** Find a terrain sector painted in Black (`#000000`). Graze or gently tap the sharp rock at 1.5 m/s. The hull should instantly fracture, spawning severe, orange/red-coded rapid flooding breaches.
+6. **Docking Check:** Steer the sub into a region colored Brown (`#6E473B`). Bring the vessel to a complete stop and press the interact button at the Helm. The Dry Dock overlay menu must open seamlessly.
+7. **Water Ambient Shimmer:** Park the sub near a distinct structural detail in your background layer. Watch the background closely; the visual shader should create a gentle, looping wave-like shimmer or fluid wobble in the water texture, visible behind your submarine hull.

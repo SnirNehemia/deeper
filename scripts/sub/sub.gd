@@ -621,14 +621,15 @@ func try_bank(dock_pos: Vector2, radius: float) -> bool:
 func cell_rect(cell: Vector2i) -> Rect2:
 	return geometry.cell_rect(cell)
 
-## The rounded rects that make up the hull silhouette: one per occupied cell
-## (placed room or bought slot) grown by the hull margin. Adjacent grown rects
-## overlap so the union reads as one continuous hull. Shared by the collider
-## and SubVisual so they always match.
+## The rounded rects that make up the hull silhouette: one per cell holding an
+## actual placed room (M6-1: bought-but-empty slots are not hull — they don't
+## exist in the world until a room is placed into them) grown by the hull
+## margin. Adjacent grown rects overlap so the union reads as one continuous
+## hull. Shared by the collider and SubVisual so they always match.
 func hull_rects() -> Array:
 	var rects: Array = []
-	for cell in layout.occupied_cells():
-		rects.append(cell_rect(cell).grow(HULL_MARGIN))
+	for room in geometry.rooms:
+		rects.append(cell_rect(room.cell).grow(HULL_MARGIN))
 	return rects
 
 func _build_hull_collision() -> void:
