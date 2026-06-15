@@ -642,14 +642,16 @@ Snir's 7-part request, scoped via AskUserQuestion:
   removed.
 
 - **Floodlight rotation capped at the hull, outward-zoom fix (2026-06-20,
-  M4-22)**: `aim_angle` is now clamped to `atan(half_width_m / height_m)` —
-  the cone's own half-angle — so the beam's near edge can swing at most flush
-  with the lamp's mounted wall, never past it into the hull; this tightens as
-  the beam lengthens. Removed `GameFeel.floodlight.rotate_cone_half_angle_deg`
-  (the old fixed 75° clamp) and the M4-21 `cos(aim_angle)` range shrink — the
-  rotation cap alone is sufficient. New shared helper `Station.
-  face_zoom_input()`: zooming outward (away from the hull) always lengthens
-  the beam, zooming toward the hull always shortens it, on any wall.
+  M4-22)**: `aim_angle` is now clamped to `90deg - atan(half_width_m /
+  height_m)` — a right angle minus the cone's own half-angle — so the beam's
+  near edge can swing at most flush with the lamp's mounted wall, never past
+  it into the hull; this loosens as the beam lengthens (narrower cone, more
+  room to rotate) and tightens as it shortens/widens. Removed `GameFeel.
+  floodlight.rotate_cone_half_angle_deg` (the old fixed 75° clamp) and the
+  M4-21 `cos(aim_angle)` range shrink — the rotation cap alone is sufficient.
+  New shared helper `Station.face_zoom_input()`: zooming outward (away from
+  the hull) always lengthens the beam, zooming toward the hull always
+  shortens it, on any wall.
 
 ## Parked
 - **What station/ability lives in the conning tower?** It's a fixed, always-

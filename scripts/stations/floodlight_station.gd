@@ -42,10 +42,12 @@ func handle_input(input: PlayerInput) -> void:
 
 	# The beam may rotate at most to where its near edge is flush with the
 	# lamp's own wall — any farther and the cone would shine back into the
-	# sub. That edge sits at the cone's half-angle (atan(half-width/height))
-	# from straight-out, so the max rotation tightens as the beam lengthens
-	# (2026-06-2x).
-	var cone := atan(GameFeel.floodlight.base_half_width_m(height_m) / height_m)
+	# sub. The cone's own half-angle (atan(half-width/height)) is the angle
+	# between its near edge and the aim direction, so the aim direction itself
+	# can swing up to 90 degrees minus that half-angle before the near edge
+	# reaches the wall. This tightens as the beam lengthens (2026-06-2x).
+	var half_angle := atan(GameFeel.floodlight.base_half_width_m(height_m) / height_m)
+	var cone := PI / 2.0 - half_angle
 	aim_angle = clampf(
 		aim_angle + Station.face_aim_input(base_dir, input) * deg_to_rad(GameFeel.floodlight.rotate_speed_deg) * delta,
 		-cone, cone)

@@ -867,15 +867,16 @@ light cone's look/controls are reworked.
 1. **Rotation no longer lets the beam shine into the hull.** Module 21's
    `cos(aim_angle)` range shrink had the opposite effect (the cone got
    *wider* as it swung toward the hull). Replaced it: `FloodlightStation.
-   handle_input` now clamps `aim_angle` to `atan(half_width_m / height_m)` —
-   the cone's own half-angle — so its near edge can swing at most flush with
-   the lamp's mounted wall, never past it. This tightens automatically as the
-   beam lengthens (a longer, narrower beam can swing less before its edge
-   would clip the wall). `GameFeel.floodlight.rotate_cone_half_angle_deg`
-   (the old fixed 75° clamp) is removed — superseded by this dynamic limit.
-   `SubVisual._draw_floodlight_beam` no longer shortens the drawn reach by
-   `cos(aim_angle)` (Module 21's range tweak is reverted; the rotation cap
-   alone keeps the beam off the hull).
+   handle_input` now clamps `aim_angle` to `90deg - atan(half_width_m /
+   height_m)` — the cone's own half-angle subtracted from a right angle — so
+   its near edge can swing at most flush with the lamp's mounted wall, never
+   past it. This loosens automatically as the beam lengthens (a longer,
+   narrower cone has more room to rotate before its near edge clips the
+   wall) and tightens as it shortens/widens. `GameFeel.floodlight.
+   rotate_cone_half_angle_deg` (the old fixed 75° clamp) is removed —
+   superseded by this dynamic limit. `SubVisual._draw_floodlight_beam` no
+   longer shortens the drawn reach by `cos(aim_angle)` (Module 21's range
+   tweak is reverted; the rotation cap alone keeps the beam off the hull).
 2. **Zoom direction fixed.** New shared helper `Station.face_zoom_input()`:
    pushing the zoom axis *outward* (away from the hull, into open water)
    always lengthens the beam; pushing it back toward the hull shortens it —
@@ -1547,7 +1548,7 @@ test_lower_deck, test_sub, test_geometry).
    swing past it into the hull (no widening or shining into the sub as it
    rotates).
 2. Try this at both a short and a long zoom — the beam should be allowed to
-   swing less (clamp tighter) when it's zoomed in long/narrow than when it's
+   swing more (clamp looser) when it's zoomed in long/narrow than when it's
    short/wide.
 3. Zoom the lamp: pushing the zoom control outward (toward open water, away
    from the sub's hull) should lengthen the beam; pushing it the other way
