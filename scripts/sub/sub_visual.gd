@@ -180,10 +180,15 @@ func _draw_storage_pen(sub: Sub) -> void:
 ## GameFeel.floodlight.base_half_width_m(h) (a chord of a circle of radius R
 ## centered on the lamp). Drawn as several length-wise slices whose alpha
 ## follows a sigmoid falloff with distance — light decays the farther it
-## travels from the lamp, centered at decay_center_m with decay_width_m. Each
-## slice is further drawn as a few nested, wider, more-transparent trapezoids
-## (widest first) so the beam's lateral edges fade out softly instead of
-## cutting off sharply (2026-06-19).
+## travels from the lamp, centered at h/2 with width h/8, so the falloff
+## always scales with the beam's current reach (2026-06-2x). Each slice is
+## further drawn as a few nested, wider, more-transparent trapezoids (widest
+## first) so the beam's lateral edges fade out softly instead of cutting off
+## sharply (2026-06-19).
+##
+## The reach itself shrinks as the lamp aims away from straight-out
+## (h * cos(aim_angle)), so a beam swung toward the hull's own wall stays
+## short instead of overshooting through it (2026-06-2x).
 func _draw_floodlight_beam(f: FloodlightStation) -> void:
 	if not f.is_on:
 		return
@@ -192,8 +197,10 @@ func _draw_floodlight_beam(f: FloodlightStation) -> void:
 	var tip := f.tip_local
 	var dir := f.beam_dir()
 	var perp := Vector2(-dir.y, dir.x)
-	var h := f.height_m
+	var h := f.height_m * cos(f.aim_angle)
 	var half_width_m := feel.base_half_width_m(h)
+	var decay_center_m := h * 0.5
+	var decay_width_m := h / 8.0
 	var segments := 10
 	# Widest/faintest fringe first, narrowest/brightest core last (drawn on
 	# top), so the overlap reads as a soft glow toward the edges.
@@ -209,7 +216,7 @@ func _draw_floodlight_beam(f: FloodlightStation) -> void:
 		var p1 := tip + dir * (d1 * Sub.PPM)
 		var d_mid := (d0 + d1) * 0.5
 		var alpha := feel.max_alpha \
-			/ (1.0 + exp((d_mid - feel.decay_center_m) / feel.decay_width_m))
+			/ (1.0 + exp((d_mid - decay_center_m) / decay_width_m))
 		for fringe in fringes:
 			var scale: float = fringe["scale"]
 			var w0 := perp * (half_width_m * (d0 / h) * scale * Sub.PPM)

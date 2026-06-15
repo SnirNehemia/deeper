@@ -45,13 +45,13 @@ func is_ready_to_fire() -> bool:
 	return _cooldown <= 0.0
 
 func handle_input(input: PlayerInput) -> void:
-	# Continuous aim: W/S (move.y) nudge the barrel up/down; it holds its angle
-	# and clamps to the forward cone. A/D (move.x) is ignored — the tube is on
-	# the vertical bow wall.
+	# Continuous aim, face-relative (2026-06-2x): a side-mounted gun (left/
+	# right wall) aims with W/S; a top/bottom-mounted gun aims with A/D. Either
+	# way the barrel holds its angle and clamps to the forward cone.
 	var cone := deg_to_rad(GameFeel.turret.cone_half_angle_deg)
 	var delta := get_physics_process_delta_time()
 	aim_angle = clampf(
-		aim_angle + input.move.y * deg_to_rad(GameFeel.turret.aim_speed_deg) * delta,
+		aim_angle + Station.face_aim_input(facing_dir, input) * deg_to_rad(GameFeel.turret.aim_speed_deg) * delta,
 		-cone, cone)
 	if input.use_held and _cooldown <= 0.0:
 		_fire()

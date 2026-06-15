@@ -624,6 +624,20 @@ Snir's 7-part request, scoped via AskUserQuestion:
   blocking room placement there like a gun's firing face or the claw's drop
   cell.
 
+- **Face-relative aim controls (2026-06-20, M4-21)**: a weapon or floodlight
+  mounted on a side wall (left/right) aims with W/S; one mounted on top/bottom
+  aims with A/D — implemented as shared static helpers `Station.
+  face_aim_input()`/`face_cross_input()` so `TurretStation` and
+  `FloodlightStation` don't duplicate the sign logic. The floodlight's zoom
+  always uses whichever axis its aim isn't using.
+
+- **Beam falloff and range tied to current reach (2026-06-20, M4-21)**: the
+  floodlight's sigmoid light decay is now centered at `h/2` with width `h/8`
+  (h = current reach), so falloff always scales with the beam's length instead
+  of using fixed meter values. The drawn reach is also scaled by
+  `cos(aim_angle)`, so the beam shortens as it's aimed toward the wall it's
+  mounted on instead of visibly poking through it.
+
 ## Parked
 - **What station/ability lives in the conning tower?** It's a fixed, always-
   present single cell at the top of the sub (core, like the helm) — Snir is

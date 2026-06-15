@@ -1,6 +1,12 @@
 # STATUS — DEEPER
 
-_Read this at session start. Last updated: 2026-06-19 (Module 20: the
+_Read this at session start. Last updated: 2026-06-20 (Module 21: weapon and
+floodlight aim controls are now face-relative — side-mounted aims with W/S,
+top/bottom-mounted aims with A/D, whichever sweeps the aim toward the screen's
+right/down; the floodlight's light-falloff sigmoid now scales with the beam's
+current reach (centered at h/2, width h/8); and the beam's drawn range now
+shrinks as it's aimed toward the wall it's mounted on, so it doesn't overshoot
+through that wall. Module 20: the
 floodlight beam's lateral edges are now soft (layered fading fringes), the
 beam is drawn underneath the hull so it no longer shines through into the
 sub's interior, and the pod's exterior face is now reserved — blocking room
@@ -826,6 +832,28 @@ light cone's look/controls are reworked.
 - **Commit:** `M4-20: floodlight beam polish — soft edges, hull occlusion,
   reserved pod face`.
 
+### Milestone 4 — Module 21: face-relative aim controls + beam range/decay tied to reach (DONE, 2026-06-20)
+
+1. **Face-relative weapon/floodlight aim.** Added `Station.face_aim_input()`
+   and `Station.face_cross_input()`, shared by `TurretStation` and
+   `FloodlightStation`. A gun or lamp mounted on a **side wall** (left/right)
+   aims with W/S (up/down); one mounted on **top/bottom** aims with A/D
+   (left/right) — whichever way the hull face points, "right/down" input
+   always sweeps the aim toward the screen's right/down. The floodlight's
+   second control (zoom) uses whichever axis aim *isn't* using.
+2. **Light falloff scales with reach.** `SubVisual._draw_floodlight_beam`'s
+   sigmoid decay is no longer fixed constants — it's now centered at `h/2`
+   with a width of `h/8`, where `h` is the beam's current reach. A short beam
+   fades out quickly; a long beam fades out gradually over more of its length.
+3. **Beam range shrinks as it's aimed along the wall.** The drawn reach is now
+   `height_m * cos(aim_angle)` — at the cone's extreme angles (near parallel
+   to the hull the lamp is mounted on), the beam shortens so it doesn't visibly
+   overshoot through that wall.
+- Headless-verified: project loads clean with `--headless --path . --quit`,
+  plus `test_sub.tscn`, `test_turret.tscn`, `test_validate.tscn`,
+  `test_shop.tscn` — all PASSED.
+- **Commit:** `M4-21: face-relative aim controls + beam range/decay tied to reach`.
+
 ### M4 module order (corrected per `ROOM_SYSTEM.md` reconciliation, 2026-06-12)
 `MILESTONE_4_v2.md`'s eleven modules are still the backbone, but three things
 from `ROOM_SYSTEM.md` change the order and add a module. This list is the
@@ -1460,6 +1488,27 @@ test_lower_deck, test_sub, test_geometry).
 5. In any dropdown menu (a room's action menu, the rotate sub-dropdown,
    etc.), pressing Up/W should move the highlight up and Down/S should move
    it down (previously both moved it the same way).
+
+## Verify by playing — Module 21 (face-relative aim controls, beam range/decay tied to reach)
+
+1. Sit in the bow gun / Bullet Room (a **side-wall** weapon, left or right
+   facing). A/D should do nothing; W/S should sweep the barrel up/down as
+   before.
+2. In Assembly, place a Turret or Bullet Room on the **top or bottom** face of
+   the hull, then sit in it. Now A/D should sweep the barrel left/right, and
+   W/S should do nothing.
+3. Sit in the Floodlight Room. If it's mounted on a side wall, W/S aims the
+   beam up/down and A/D zooms (widens/narrows + shortens/lengthens) it. If
+   it's mounted on top/bottom (rotate it there via Assembly if needed), A/D
+   aims the beam left/right and W/S zooms it. "Right/down" input should always
+   sweep the beam toward the screen's right/down, on any wall.
+4. Zoom the floodlight to a short reach and a long reach — the dark fade-out
+   point should now sit proportionally closer in for a short beam and farther
+   out for a long beam (it always fades out around the middle of its current
+   length).
+5. Aim the floodlight toward the extreme edge of its swing (toward the wall
+   it's mounted on) — the beam should visibly shorten as it swings toward that
+   wall, so it doesn't poke through the hull.
 
 ## Verify by playing — Module 20 (floodlight beam polish: soft edges, hull occlusion, reserved pod face)
 1. Launch: `"D:\Godot_v4.4.1-stable_win64.exe\Godot_v4.4.1-stable_win64.exe" --path .`

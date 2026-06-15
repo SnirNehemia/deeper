@@ -32,9 +32,12 @@ func handle_input(input: PlayerInput) -> void:
 		is_on = not is_on
 	var delta := get_physics_process_delta_time()
 	var cone := deg_to_rad(GameFeel.floodlight.rotate_cone_half_angle_deg)
+	# Face-relative controls (2026-06-2x): a side-mounted lamp (left/right
+	# wall) aims with W/S and zooms with A/D; a top/bottom-mounted lamp aims
+	# with A/D and zooms with W/S.
 	aim_angle = clampf(
-		aim_angle + input.move.x * deg_to_rad(GameFeel.floodlight.rotate_speed_deg) * delta,
+		aim_angle + Station.face_aim_input(base_dir, input) * deg_to_rad(GameFeel.floodlight.rotate_speed_deg) * delta,
 		-cone, cone)
 	height_m = clampf(
-		height_m - input.move.y * GameFeel.floodlight.zoom_speed_m * delta,
+		height_m - Station.face_cross_input(base_dir, input) * GameFeel.floodlight.zoom_speed_m * delta,
 		GameFeel.floodlight.min_height_m, GameFeel.floodlight.max_height_m)

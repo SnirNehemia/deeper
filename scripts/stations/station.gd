@@ -59,3 +59,22 @@ func seat_global_position() -> Vector2:
 ## Consume the seated player's input for this frame. Override in subclasses.
 func handle_input(_input: PlayerInput) -> void:
 	pass
+
+## Face-relative aim control (2026-06-2x): for an element mounted on a hull
+## face pointing `facing_dir` (unit vector: right/left/top/bottom), maps the
+## player's move input to a signed aim-sweep value so that pushing
+## camera-right/down always sweeps the aim toward the screen's right/down,
+## whichever wall the element sits on. Side faces (left/right) aim with W/S
+## (move.y); top/bottom faces aim with A/D (move.x).
+static func face_aim_input(facing_dir: Vector2, input: PlayerInput) -> float:
+	var sign := signf(facing_dir.x - facing_dir.y)
+	if facing_dir.y != 0.0:
+		return input.move.x * sign
+	return input.move.y * sign
+
+## The move-input axis orthogonal to face_aim_input's, for elements (like the
+## floodlight) that use the other axis for a second control (e.g. zoom).
+static func face_cross_input(facing_dir: Vector2, input: PlayerInput) -> float:
+	if facing_dir.y != 0.0:
+		return input.move.y
+	return input.move.x
