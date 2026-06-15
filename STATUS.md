@@ -1617,6 +1617,134 @@ test_lower_deck, test_sub, test_geometry).
    the beam's reach should now range from about 3m (short, was 1m) up to 9m
    (long, unchanged) and should stay visible (not vanish) at full zoom.
 
+## Milestone 5 — Teeth & Consequences (damage = breaches, enemy HP, hunter fish)
+
+### Module A — Damage is breaches (the spine) (DONE, 2026-06-15)
+- `Sub.breach_from_hit(room, severity, world_point)` is now the single front
+  door for all combat/impact damage: spawns a breach in `room` with inflow
+  rate scaled by `severity` via `GameFeel.breach.severity_to_inflow()` (linear
+  ramp between `severity_min`/`severity_max` -> `inflow_at_min`/`inflow_at_max`).
+- Fish bites now route through it at `GameFeel.breach.bite_severity` (a small,
+  fast-patchable leak).
+- Terrain rams route through it too: `severity = (impact speed - breach
+  threshold) * GameFeel.breach.ram_severity_per_speed` — a full-speed ram makes
+  a gushing breach, gentle bumps below the threshold still produce nothing.
+- No integrity/HP field anywhere on the sub; flooding -> implosion (M2)
+  remains the only death path, unchanged.
+- Files: `autoload/game_feel.gd` (new `BreachFeel`), `scripts/sub/sub.gd`
+  (`breach_from_hit`, rewritten `register_impact`).
+- Test: `test_damage` (severity-scaled leak rate, bite vs. ram severities,
+  sub-threshold bump still free, patchable + implodes as before). All green.
+- Commit: "M5-A: damage = severity-scaled breaches (one front door, bites +
+  rams routed through it)".
+
+### Module B — Enemy & wreck HP (DONE, 2026-06-15)
+- `Fish` gains `hp`/`hp_max` (default 5) and `take_damage(amount, from_point)`:
+  non-lethal hits give a brief white-flash flinch + small knockback away from
+  the hit point (decaying via `move_toward`); HP <= 0 runs the unchanged M2
+  death (cartoon pop + carcass, gone until reset).
+- Weapon damage: torpedo = 5 (one-shots a 5-HP fish, M2 behaviour preserved),
+  bullet = 1 (needs a ~5-round burst) — `GameFeel.turret.damage` /
+  `GameFeel.bullet.damage`.
+- `Wreck` gains `hp`/`hp_max` (`GameFeel.wreck.hp_max = 5`) via the same
+  `take_damage` path — cracks open to either weapon, same M3 loot spill.
+- **Follow-up (same day):** wrecks also get a faint white-blend hit-flash on
+  non-lethal hits (no knockback, ticked in `_process`), matching the fish's
+  flash so a chip-away burst reads clearly on a wreck too.
+- Files: `autoload/game_feel.gd` (`FishFeel` hp/knockback/flash fields, new
+  `WreckFeel`), `scripts/fauna/fish.gd` (`take_damage`, flash/knockback in
+  `_physics_process` and `_draw`), `scripts/salvage/wreck.gd` (`take_damage`,
+  `_process` flash tick, `_draw` blend).
+- Test: `test_fish` (`_test_bullet_burst`: survives 4 bullets with HP loss,
+  dies on the 5th; one torpedo still one-shots), `test_wreck`
+  (`_test_bullet_burst_cracks_wreck`). All green.
+- Commit: "M5-B: enemy + wreck HP; weapons deal damage instead of instant-kill"
+  (+ wreck-flash follow-up).
+
+### Module C1 — Conning-tower Hull station (remote auto-patch) (DONE, 2026-06-15)
+- New `HullStation` (`scripts/stations/hull_station.gd`, `class_name
+  HullStation extends Station`) seated in the conning tower. Holding `use`
+  auto-patches the nearest active breach within `GameFeel.hull_station.
+  range_rooms` (= 4) rooms of the tower, found via BFS (`Sub.rooms_within()`
+  over the room-connection graph). Patches at `GameFeel.hull_station.
+  patch_time` (8s — slower than the hand-patch's `water.repair_time`, M2,
+  unchanged). When the current target seals, it retargets the next-nearest in
+  range; if none is in range it idles. Inherits `Station`'s flood-eject rule.
+- Resolves the long-open "what lives in the conning tower?" question
+  (DECISIONS.md) — the Hull station does.
+- Files: `autoload/game_feel.gd` (new `HullStationFeel`), `scripts/sub/sub.gd`
+  (`rooms_within()` BFS, `_hull_station_seat` anchor, `_build_hull_station()`),
+  `scripts/stations/hull_station.gd` (new).
+- Test: `tests/test_hull_station.tscn` (new, 4 sub-tests) — patch is slower
+  than a hand-patch; retargets after sealing one breach; a breach beyond 4
+  rooms is ignored; a flooded tower ejects the occupant and refuses re-entry
+  until drained. All green.
+- Commit: "M5-C1: conning-tower Hull station (slow remote breach auto-patch,
+  range 4)".
+
+### Module C2 — Hunter fish aggression path (DONE, 2026-06-15)
+- `Fish` gains `is_hunter: bool` (placement flag, default false = unchanged
+  territorial behaviour) and a new `State.HUNT`. A hunter detects the sub at
+  `GameFeel.fish.hunter_detect_m` (16m, larger than the territorial 10m leash)
+  from PATROL/CHASE/RETURN, then chases anywhere on the map at `hunt_speed`
+  (4.5 m/s, faster than the territorial chase speed). It only disengages after
+  the sub has been beyond `hunter_lose_m` (24m) for a sustained
+  `hunter_lose_time` (5s), then RETURNs home. Same bite (`breach_from_hit`),
+  flinch, and HP as a territorial fish — only the engagement rule differs. No
+  new fauna scene.
+- Converted the two basin-pillar fish in `scenes/world.gd` to hunters
+  (`_add_fish(pos, true)`); the cave-mouth, cave-treasure, and third-pillar
+  fish stay territorial, so the map teaches both reads. `is_hunter`'s
+  lose-timer resets in `reset_fish()`.
+- Files: `autoload/game_feel.gd` (`FishFeel` hunter fields), `scripts/fauna/
+  fish.gd` (`State.HUNT`, hunter-detect block, HUNT/RECOVER cases),
+  `scenes/world.gd` (`_add_fish` hunter flag, two pillar placements).
+- Test: `test_fish` — `_test_hunter_chases_and_gives_up` (locks on past the
+  territorial leash, sustains the chase, gives up after the lose-timer) and
+  `_test_territorial_unaffected_by_hunt_path` (a non-hunter at hunter-detect
+  range just keeps patrolling). All green.
+- Commit: "M5-C2: hunter fish aggression path (reuses existing fish, is_hunter
+  flag)".
+
+**This closes the build side of Milestone 5** (Modules A-C all done, full
+headless suite green). Awaiting Snir's playtest pass — see "Verify by
+playing — Milestone 5" below for the checklist before tuning `GameFeel.breach`
+/ `GameFeel.fish` / `GameFeel.hull_station`.
+
+## Verify by playing — Milestone 5 (damage = breaches, enemy HP, Hull station, hunter fish)
+Launch: `"D:\Godot_v4.4.1-stable_win64.exe\Godot_v4.4.1-stable_win64.exe" --path .`
+
+1. **Take damage on purpose.** Ram a rock at full speed — the struck room
+   should spring a *gushing* breach. Let a fish bite you — a *small* leak by
+   comparison. Both are patched the normal M2 way (hold `use` at the breach).
+2. **Lose to teeth, not terrain.** Let fish bites pile up without patching —
+   the rooms should flood and eventually implode you (clean reset at the
+   dock), same as a terrain death.
+3. **Two guns, two feels.** Torpedo a fish — one shot, dead, same as before.
+   Now kill one with the bullet gun only — it should take a burst (~5 hits),
+   flashing white and flinching with each non-lethal hit. Shoot a wreck with
+   the bullet gun too — it should show the same faint white flash on hits that
+   don't crack it yet, then crack open and spill loot as before.
+4. **The Hull station.** Get a breach going somewhere, then send a crew member
+   up to the conning tower (the top room) and have them hold `use` there
+   instead of hand-patching. It should slowly seal the breach from a distance
+   (clearly slower than hand-patching), then move on to the next breach if
+   there's more than one nearby. If the tower itself floods, the occupant
+   should get ejected.
+5. **Hunter fish.** Approach the two fish guarding the basin pillars — instead
+   of breaking off when you leave their immediate spot, they should lock on
+   from farther out and chase you across open water, only giving up after
+   you've been clear for a few seconds. The cave-mouth/cave-treasure/third-
+   pillar fish should still behave like before (guard their spot, break off
+   when you leave).
+6. Report back: does "damage = water" feel clear and distinct from terrain
+   breaches? Is the Hull station worth a seat (solo/short-handed lifeline) or
+   is it a non-event? Does the bullet-vs-torpedo difference feel good? Are the
+   hunters exciting or annoying, and is the hunter/territorial difference
+   readable in play even though they look identical? → PLAYTEST_LOG.md, then
+   tune `GameFeel.breach` / `GameFeel.fish` / `GameFeel.hull_station` from
+   there.
+
 ## Verify by playing — Module 20 (floodlight beam polish: soft edges, hull occlusion, reserved pod face)
 1. Launch: `"D:\Godot_v4.4.1-stable_win64.exe\Godot_v4.4.1-stable_win64.exe" --path .`
 2. With the floodlight on, look closely at the beam's left/right edges —

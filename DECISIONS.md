@@ -666,12 +666,38 @@ Snir's 7-part request, scoped via AskUserQuestion:
   vanish at full zoom since
   `base_half_width_m(h)` goes to 0 as h approaches the cone radius.
 
+## Milestone 5 — Teeth & Consequences (settled 2026-06-15)
+- **Direction:** "Teeth & Consequences" (combat depth) chosen over "The
+  Descent" (depth zones) — the latter is parked as its own future milestone.
+- **Damage-to-sub model (supersedes the earlier "hull HP" idea):** the sub has
+  **no integrity pool**. A hit spawns a breach in the struck room; bigger/
+  harder hit = bigger breach = faster water inflow. Flooding -> implosion
+  remains the only sub death path. Combat damage collapses onto the existing
+  M2 breach/water system rather than adding a parallel model.
+- **Repair:** crew hand-patching at the breach stays the fast path (M2). The
+  conning-tower **Hull station auto-patches the nearest breach within ~4
+  rooms, slower than a hand-patch.** Both coexist; hand-patch is always
+  faster. This resolves the conning-tower "what lives here?" question below —
+  **the Hull station does.**
+- **Enemy HP:** fish HP = 5, torpedo damage = 5, bullet damage = 1 — one
+  torpedo still one-shots a fish (M2 acceptance preserved), bullet gun needs a
+  ~5-round burst. Wrecks get HP too (one torpedo still cracks; bullet burst
+  also works).
+- **Aggression split (design doc §7):** small fauna stay territorial (attacks
+  only inside its territory, breaks off when the sub leaves — M2 behaviour,
+  unchanged); a subset are **hunters** that chase the sub across the map once
+  detected, giving up only after a sustained out-of-range timer. Same fish
+  art, toggled by `is_hunter`.
+
+## Re-parked for a future milestone
+- **Non-physical empty slots** and **dock-reachability warning** — the two M4
+  cleanups noted in MILESTONE_5.md's scope discipline; the M5 3-module slice
+  had no room for them. Revisit in M6+.
+
 ## Parked
-- **What station/ability lives in the conning tower?** It's a fixed, always-
-  present single cell at the top of the sub (core, like the helm) — Snir is
-  still thinking about what makes it a unique room rather than a copy of an
-  existing one. Revisit before/at M4-10 (first content room) if a decision is
-  needed by then; otherwise it can stay an empty tower through Checkpoint 2.
+- ~~**What station/ability lives in the conning tower?**~~ **Resolved (M5-C1,
+  2026-06-15): the Hull station** — remote auto-patch of the nearest breach
+  within 4 rooms, slower than a hand-patch.
 - Snappy Overcooked-style crew movement (kept as switchable preset; playtest against weighty)
 - Phone-as-controller via WebSocket (post-MVP, only if gamepads aren't enough)
 - Godot MCP for Claude Code (revisit only if visual-bug iteration becomes painful)

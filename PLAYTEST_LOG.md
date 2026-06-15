@@ -30,6 +30,36 @@
 
 ## Entries
 
+### 2026-06-15 — Milestone 5 build complete, awaiting playtest
+**Players:** (pending)
+**What was played:** (pending — Modules A/B/C built and headless-tested, not
+yet played)
+
+Build ready for Snir's checkpoint per MILESTONE_5.md's "Verify by playing"
+steps 1-7 / STATUS.md's M5 verify section: severity-scaled breaches from bites
+and rams, fish/wreck HP (torpedo one-shots a fish, bullet needs a ~5-burst,
+flinch/flash on non-lethal hits), conning-tower Hull station (slow remote
+auto-patch, range 4), and two hunter fish at the basin pillars that chase
+across open water vs. the territorial cave/third-pillar fish.
+
+**Feel notes (raw, in player words):**
+- (pending)
+
+**Top 3 problems (ranked):**
+1.
+2.
+3.
+
+**Surprises / fun moments:**
+-
+
+**Tuning changes made afterward (Claude Code fills in):**
+- (pending)
+
+**Verdict:** awaiting playtest
+
+---
+
 ### 2026-06-10 — Milestone 2 playtest
 **Players:** solo
 **What was played:** M2 - breaches, gun and first fish
