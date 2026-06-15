@@ -13,6 +13,7 @@ func _ready() -> void:
 	await _test_territory_states()
 	await _test_bite()
 	await _test_torpedo_kill_and_reset()
+	await _test_bullet_burst()
 
 	if _failures == 0:
 		print("FISH TESTS PASSED")
@@ -150,6 +151,43 @@ func _test_torpedo_kill_and_reset() -> void:
 		"revived fish is back at its home point (small patrol drift allowed)")
 	_check(fish.state == Fish.State.PATROL, "revived fish goes back to patrolling")
 
+	fish.queue_free()
+	sub.queue_free()
+	await _frames(2)
+
+func _test_bullet_burst() -> void:
+	print("[bullet burst]")
+	var sub := Sub.new()
+	sub.position = Vector2(-100.0 * _ppm(), 0)
+	add_child(sub)
+
+	var fish := Fish.new()
+	fish.sub = sub
+	fish.position = Vector2.ZERO
+	add_child(fish)
+	await _frames(5)
+
+	var shots := int(fish.hp_max / GameFeel.bullet.damage)
+	for i in shots - 1:
+		var bullet := Bullet.new()
+		bullet.velocity = Vector2.ZERO
+		bullet.global_position = fish.global_position
+		add_child(bullet)
+		await _frames(2)
+		_check(not fish.is_dead, "fish survives bullet %d/%d" % [i + 1, shots])
+
+	_check(fish.hp < fish.hp_max, "fish flinched (lost HP) without dying")
+
+	# The final shot kills it.
+	var killer := Bullet.new()
+	killer.velocity = Vector2.ZERO
+	killer.global_position = fish.global_position
+	add_child(killer)
+	await _frames(2)
+	_check(fish.is_dead, "fish dies on the %dth bullet" % shots)
+
+	get_tree().call_group("fish", "reset_fish")
+	await _frames(2)
 	fish.queue_free()
 	sub.queue_free()
 	await _frames(2)

@@ -20,11 +20,17 @@ var home: Vector2
 var state: State = State.PATROL
 var is_dead: bool = false
 
+## M5: HP. Torpedo damage == hp_max (one-shot); bullet needs a burst.
+var hp_max: float = GameFeel.fish.hp_max
+var hp: float = hp_max
+
 var _facing: float = 1.0
 var _patrol_target: Vector2
 var _bite_cooldown: float = 0.0
 var _recover_dir: Vector2 = Vector2.ZERO
 var _wobble: float = 0.0
+var _hit_flash: float = 0.0
+var _knockback: Vector2 = Vector2.ZERO
 
 func _ready() -> void:
 	add_to_group("fish")
@@ -48,6 +54,11 @@ func _physics_process(delta: float) -> void:
 	var ppm: float = GameFeel.PIXELS_PER_METER
 	_wobble += delta
 	_bite_cooldown = maxf(0.0, _bite_cooldown - delta)
+	_hit_flash = maxf(0.0, _hit_flash - delta)
+	if _knockback != Vector2.ZERO:
+		global_position += _knockback * delta
+		_knockback = _knockback.move_toward(Vector2.ZERO,
+			feel.hit_knockback_decay * ppm * delta)
 
 	var sub_in_territory := sub != null \
 		and home.distance_to(sub.global_position) <= feel.territory_radius_m * ppm
@@ -110,11 +121,28 @@ func _try_bite() -> void:
 	state = State.RECOVER
 
 func _on_area_entered(area: Area2D) -> void:
-	# One torpedo hit kills (the turret should feel powerful).
 	if is_dead or not (area is Torpedo):
 		return
+	var dmg: float = GameFeel.bullet.damage if area is Bullet else GameFeel.turret.damage
+	var hit_point := area.global_position
 	area.queue_free()
-	die()
+	take_damage(dmg, hit_point)
+
+## M5: apply weapon damage. Lethal -> die() (unchanged cartoon pop). Non-lethal
+## -> a brief white flash + small knockback away from the hit point, so a
+## bullet burst reads as "chipping away" rather than nothing happening.
+func take_damage(amount: float, from_point: Vector2) -> void:
+	if is_dead:
+		return
+	hp -= amount
+	if hp <= 0.0:
+		die()
+		return
+	_hit_flash = GameFeel.fish.hit_flash_time
+	var away := from_point.direction_to(global_position)
+	if away == Vector2.ZERO:
+		away = Vector2(_facing, 0)
+	_knockback = away * GameFeel.fish.hit_knockback_mps * GameFeel.PIXELS_PER_METER
 
 ## Cartoon pop + bubbles; the fish stays gone until reset_fish(). Leaves
 ## behind a sinking carcass (Module B: a "fish" salvage currency) at the kill
@@ -139,12 +167,15 @@ func reset_fish() -> void:
 	_patrol_target = home
 	_bite_cooldown = 0.0
 	state = State.PATROL
+	hp = hp_max
+	_hit_flash = 0.0
+	_knockback = Vector2.ZERO
 
 func _draw() -> void:
 	var ppm: float = GameFeel.PIXELS_PER_METER
 	var len_px := PlaceholderArt.FISH_LENGTH_M * ppm
 	var half := len_px * 0.5
-	var c := PlaceholderArt.FISH_COLOR
+	var c := Color.WHITE if _hit_flash > 0.0 else PlaceholderArt.FISH_COLOR
 	# All drawn facing right, mirrored by _facing.
 	draw_set_transform(Vector2.ZERO, 0.0,
 		Vector2(_facing, 1.0 + 0.06 * sin(_wobble * 6.0)))

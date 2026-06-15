@@ -12,6 +12,7 @@ func _ready() -> void:
 	await _test_crack_spills_loot()
 	await _test_reset_reseals_and_clears()
 	_test_no_double_crack()
+	await _test_bullet_burst_cracks_wreck()
 
 	if _failures == 0:
 		print("WRECK TESTS PASSED")
@@ -95,6 +96,36 @@ func _test_no_double_crack() -> void:
 	await _frames(2)
 	_check(wreck._spilled.size() == spilled_after_first,
 		"a second hit on an already-open wreck spills nothing more")
+
+	wreck.queue_free()
+	await _frames(2)
+
+func _fire_bullet_at(wreck: Wreck) -> void:
+	var bullet := Bullet.new()
+	bullet.velocity = Vector2.ZERO
+	bullet.global_position = wreck.global_position
+	add_child(bullet)
+
+func _test_bullet_burst_cracks_wreck() -> void:
+	print("[bullet burst cracks a wreck open]")
+	var wreck := Wreck.new()
+	wreck.position = Vector2(2000.0, 0.0)  # clear of leftover torpedoes from earlier tests
+	add_child(wreck)
+	await _frames(2)
+
+	var shots := int(wreck.hp_max / GameFeel.bullet.damage)
+	for i in shots - 1:
+		_fire_bullet_at(wreck)
+		await _frames(2)
+		_check(not wreck.cracked, "wreck survives bullet %d/%d" % [i + 1, shots])
+
+	var before := get_tree().get_nodes_in_group("salvage").size()
+	_fire_bullet_at(wreck)
+	await _frames(2)
+	var after := get_tree().get_nodes_in_group("salvage").size()
+
+	_check(wreck.cracked, "wreck cracks open on the %dth bullet" % shots)
+	_check(after - before >= 2, "cracking via bullets still spills loot")
 
 	wreck.queue_free()
 	await _frames(2)

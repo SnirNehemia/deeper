@@ -179,6 +179,9 @@ class TurretFeel:
 	## its angle, clamped to the cone (playtest #6).
 	var aim_speed_deg: float = 75.0
 	var torpedo_lifetime: float = 8.0   ## s before a miss fizzles out
+	## M5: HP damage dealt to a Fish/Wreck on hit. Equal to fish.hp so one
+	## torpedo still one-shots a fish (M2 acceptance, preserved).
+	var damage: float = 5.0
 
 var turret: TurretFeel = TurretFeel.new()
 
@@ -190,6 +193,9 @@ class BulletFeel:
 	var bullet_speed: float = 6.0    ## m/s
 	var fire_cooldown: float = 1.0 / 3.0  ## s between shots (rate 3/s)
 	var bullet_lifetime: float = 4.0  ## s before an unspent shot fizzles out
+	## M5: HP damage dealt to a Fish/Wreck on hit — a ~5-round burst kills a
+	## fish, making the bullet gun a chip-stream vs. the torpedo's heavy single.
+	var damage: float = 1.0
 
 var bullet: BulletFeel = BulletFeel.new()
 
@@ -228,8 +234,24 @@ class FishFeel:
 	var chase_speed: float = 3.5          ## m/s chasing the sub
 	var return_speed: float = 2.0         ## m/s swimming home after breaking off
 	var bite_interval: float = 3.0        ## s between bites per fish
+	## M5: HP. Torpedo damage equals this, so one torpedo still one-shots a
+	## fish; the bullet gun (1 dmg) needs a ~5-round burst.
+	var hp_max: float = 5.0
+	## Knockback speed (m/s) applied away from a non-lethal hit, decaying
+	## quickly — a flinch, not a launch.
+	var hit_knockback_mps: float = 4.0
+	var hit_knockback_decay: float = 8.0
+	## Brief white flash duration (s) on a non-lethal hit.
+	var hit_flash_time: float = 0.15
 
 var fish: FishFeel = FishFeel.new()
+
+## Wreck feel (Milestone 3 rework, M5: HP). One torpedo still cracks a wreck;
+## a bullet burst also works.
+class WreckFeel:
+	var hp_max: float = 5.0
+
+var wreck: WreckFeel = WreckFeel.new()
 
 ## Salvage claw feel (Milestone 3 rework). A two-joint articulated arm hung
 ## from the keel under the claw room, driven excavator-style: one stick axis

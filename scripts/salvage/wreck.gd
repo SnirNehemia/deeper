@@ -13,6 +13,10 @@ const HALF_HEIGHT_PX := HALF_LEN_PX * 0.45
 var cracked: bool = false
 var _spilled: Array[SalvageItem] = []
 
+## M5: HP. One torpedo (= hp_max) still cracks it open; a bullet burst also works.
+var hp_max: float = GameFeel.wreck.hp_max
+var hp: float = hp_max
+
 func _ready() -> void:
 	add_to_group("wreck")
 	collision_layer = Layers.WRECK
@@ -29,9 +33,12 @@ func _ready() -> void:
 func _on_area_entered(area: Area2D) -> void:
 	if cracked or not (area is Torpedo):
 		return
-	cracked = true  # guard re-entry now; the rest of _crack() runs deferred
+	var dmg: float = GameFeel.bullet.damage if area is Bullet else GameFeel.turret.damage
 	area.call_deferred("queue_free")
-	call_deferred("_crack")
+	hp -= dmg
+	if hp <= 0.0:
+		cracked = true  # guard re-entry now; the rest of _crack() runs deferred
+		call_deferred("_crack")
 
 ## Cracked open: pop, swap to the open look, and spill 2-3 scrap crates that
 ## settle near the hull. Runs deferred (see _on_area_entered) so it doesn't
@@ -56,6 +63,7 @@ func _crack() -> void:
 ## the "salvage" group via the claw, same as carcasses/pickups elsewhere).
 func reset_wreck() -> void:
 	cracked = false
+	hp = hp_max
 	for item in _spilled:
 		if is_instance_valid(item):
 			item.queue_free()
