@@ -172,13 +172,13 @@ var breach: BreachFeel = BreachFeel.new()
 ## Turret / torpedo feel (Milestone 2). Torpedoes are slow and weighty like
 ## the sub — leading a moving fish is the skill.
 class TurretFeel:
-	var torpedo_speed: float = 10.0     ## m/s, travels straight
+	var torpedo_speed: float = 7.5     ## m/s, travels straight
 	var fire_cooldown: float = 1.0      ## s between shots (playtest #7: +20% rate)
 	var cone_half_angle_deg: float = 60.0  ## aim cone around the bow's forward (playtest #6)
 	## Continuous-aim sweep speed (deg/s): W/S nudge the barrel and it holds
 	## its angle, clamped to the cone (playtest #6).
 	var aim_speed_deg: float = 75.0
-	var torpedo_lifetime: float = 8.0   ## s before a miss fizzles out
+	var torpedo_lifetime: float = 15.0   ## s before a miss fizzles out
 	## M5: HP damage dealt to a Fish/Wreck on hit. Equal to fish.hp so one
 	## torpedo still one-shots a fish (M2 acceptance, preserved).
 	var damage: float = 5.0
@@ -190,9 +190,9 @@ var turret: TurretFeel = TurretFeel.new()
 ## weighty torpedoes — same seat/aim/cone via TurretStation, different
 ## projectile (Bullet).
 class BulletFeel:
-	var bullet_speed: float = 6.0    ## m/s
+	var bullet_speed: float = 10.0    ## m/s
 	var fire_cooldown: float = 1.0 / 3.0  ## s between shots (rate 3/s)
-	var bullet_lifetime: float = 4.0  ## s before an unspent shot fizzles out
+	var bullet_lifetime: float = 6.0  ## s before an unspent shot fizzles out
 	## M5: HP damage dealt to a Fish/Wreck on hit — a ~5-round burst kills a
 	## fish, making the bullet gun a chip-stream vs. the torpedo's heavy single.
 	var damage: float = 1.0

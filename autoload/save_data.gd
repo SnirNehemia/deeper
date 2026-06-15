@@ -348,7 +348,10 @@ func return_pod_to_inventory(host_cell: Vector2i, face: String) -> bool:
 		return true
 	return false
 
-## Wipe the in-memory and on-disk save (used by tests).
+## Wipe the in-memory and on-disk save: banked salvage, loadout, and layout
+## all return to a fresh start. Used by tests, and by the world on every run
+## reset (M5: nothing persists between rounds yet — Snir will decide later
+## what, if anything, should).
 func reset_for_test() -> void:
 	banked_scrap = 0
 	banked_fish = 0

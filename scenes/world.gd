@@ -145,7 +145,11 @@ func _on_imploded() -> void:
 ## at the dock (dry, breach-free), crew aboard and alive, fish back home.
 ## Future death penalties hook in here.
 func reset_run() -> void:
-	_sub.reset_state()
+	# M5: nothing persists between rounds yet (Snir will decide later what
+	# should) — wipe banked salvage, loadout, and layout back to the starting
+	# Minnow+ before rebuilding the sub.
+	SaveData.reset_for_test()
+	_rebuild_sub()
 	_sub.global_position = SUB_SPAWN
 	_crew[0].reset_at(_sub.tower_seat_local(0))
 	_crew[1].reset_at(_sub.tower_seat_local(1))
