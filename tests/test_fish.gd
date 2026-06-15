@@ -103,7 +103,7 @@ func _test_bite() -> void:
 	_check(not sub.breaches.is_empty(), "hull contact produces a bite breach")
 	if not sub.breaches.is_empty():
 		var breach: Breach = sub.breaches[0]
-		_check(absf(breach.leak_rate - GameFeel.water.bite_leak_rate) < 0.0001,
+		_check(absf(breach.leak_rate - GameFeel.breach.severity_to_inflow(GameFeel.breach.bite_severity)) < 0.0001,
 			"bite breach is drip-tier")
 		_check(breach.room == 2, "bow bite breaches the helm (bow) room")
 	var bites_after_first: int = sub.breaches.size()

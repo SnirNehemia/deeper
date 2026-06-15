@@ -78,10 +78,14 @@ func _test_leak_rate_scaling() -> void:
 		"small/medium/big breaches are different sizes")
 	var r_soft: float = soft.leak_rate
 	var r_hard: float = hard.leak_rate
-	_check(absf(r_hard - GameFeel.water.leak_rate_max) < 0.001,
-		"full-speed ram gives the worst leak rate")
-	_check(r_soft >= GameFeel.water.leak_rate_min - 0.001,
-		"softest breach stays within the leak-rate range")
+	var b: GameFeel.BreachFeel = GameFeel.breach
+	# M5: rate = severity_to_inflow(speed - breach_speed_threshold).
+	_check(absf(r_soft - b.severity_to_inflow(2.5 - GameFeel.water.breach_speed_threshold)) < 0.0001,
+		"soft impact rate matches severity-to-inflow mapping")
+	_check(absf(r_hard - b.severity_to_inflow(6.0 - GameFeel.water.breach_speed_threshold)) < 0.0001,
+		"hard impact rate matches severity-to-inflow mapping")
+	_check(r_hard <= b.inflow_at_max + 0.0001,
+		"hardest breach stays within the inflow range")
 
 	sub.queue_free()
 	await _frames(2)

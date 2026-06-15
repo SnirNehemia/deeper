@@ -16,14 +16,18 @@ func _ready() -> void:
 	_flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_flash)
 
-## Watch a sub: flash whenever it spawns a breach.
+## Watch a sub: flash whenever it spawns a breach, scaled by how bad the leak is.
 func watch(sub: Sub) -> void:
-	sub.breach_spawned.connect(func(_b: Breach) -> void: flash())
+	sub.breach_spawned.connect(func(b: Breach) -> void: flash(b.leak_rate))
 
-## One edge flash: snap to visible, fade out fast.
-func flash() -> void:
+## One edge flash: snap to visible, fade out fast. Alpha scales with leak_rate
+## so a bite is a flinch and a ram is a slam (M5: severity-scaled feedback).
+func flash(leak_rate: float = GameFeel.water.leak_rate_max) -> void:
 	if _tween != null and _tween.is_valid():
 		_tween.kill()
-	_flash.color = Color(PlaceholderArt.BREACH_COLOR, 0.35)
+	var w := GameFeel.water
+	var t := clampf(leak_rate / w.leak_rate_max, 0.0, 1.0)
+	var alpha: float = lerpf(0.1, GameFeel.breach.flash_alpha_max, t)
+	_flash.color = Color(PlaceholderArt.BREACH_COLOR, alpha)
 	_tween = create_tween()
 	_tween.tween_property(_flash, "color:a", 0.0, 0.8)

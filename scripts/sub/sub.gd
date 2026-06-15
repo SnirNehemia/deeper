@@ -512,14 +512,18 @@ func register_impact(speed_mps: float, global_point: Vector2) -> bool:
 	var w: GameFeel.WaterFeel = GameFeel.water
 	if speed_mps < w.breach_speed_threshold:
 		return false
-	var rate := w.leak_rate_min
-	if speed_mps >= w.breach_speed_high:
-		rate = w.leak_rate_max
-	elif speed_mps >= w.breach_speed_mid:
-		rate = w.leak_rate_mid
+	var severity: float = (speed_mps - w.breach_speed_threshold) * GameFeel.breach.ram_severity_per_speed
 	var local := to_local(global_point)
-	spawn_breach(nearest_room(local), rate, local)
+	breach_from_hit(nearest_room(local), severity, local)
 	return true
+
+## Milestone 5 spine: the single entry point for all combat/impact damage to
+## the sub. Spawns one M2 breach in `room` whose inflow rate scales with
+## `severity` (GameFeel.breach.severity_to_inflow) — bigger hit, bigger leak.
+## No integrity pool; flooding into this breach is the only consequence.
+func breach_from_hit(room: int, severity: float, world_point: Vector2) -> Breach:
+	var rate := GameFeel.breach.severity_to_inflow(severity)
+	return spawn_breach(room, rate, world_point)
 
 ## Open a breach leaking into `room` at `rate`. Also used by fish bites.
 func spawn_breach(room: int, rate: float, local_pos := Vector2.INF) -> Breach:

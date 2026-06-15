@@ -142,6 +142,33 @@ class WaterFeel:
 
 var water: WaterFeel = WaterFeel.new()
 
+## Milestone 5: "damage = breaches" spine. Every hit on the sub (bite, ram,
+## future projectile) goes through Sub.breach_from_hit(room, severity, point),
+## which spawns one M2 breach whose inflow rate scales with severity.
+class BreachFeel:
+	## Severity at/below this maps to the lightest leak.
+	var severity_min: float = 1.0
+	## Severity at/above this maps to the heaviest gush.
+	var severity_max: float = 5.0
+	## Inflow rate (level-fraction/s) at severity_min — a small, slow-patchable leak.
+	var inflow_at_min: float = 1.0 / 120.0
+	## Inflow rate (level-fraction/s) at severity_max — a gushing breach.
+	var inflow_at_max: float = 1.0 / 20.0
+	## Severity of a fish bite (small but real leak).
+	var bite_severity: float = 1.0
+	## Severity added per m/s of impact speed above breach_speed_threshold,
+	## so a full-speed ram lands near severity_max while a graze stays near severity_min.
+	var ram_severity_per_speed: float = 1.0
+	## Max alpha of the struck-room flash at severity_max (scales down toward 0 at severity_min).
+	var flash_alpha_max: float = 0.5
+
+	## Linear map from severity to inflow rate, clamped to [severity_min, severity_max].
+	func severity_to_inflow(severity: float) -> float:
+		var t := clampf((severity - severity_min) / (severity_max - severity_min), 0.0, 1.0)
+		return lerpf(inflow_at_min, inflow_at_max, t)
+
+var breach: BreachFeel = BreachFeel.new()
+
 ## Turret / torpedo feel (Milestone 2). Torpedoes are slow and weighty like
 ## the sub — leading a moving fish is the skill.
 class TurretFeel:

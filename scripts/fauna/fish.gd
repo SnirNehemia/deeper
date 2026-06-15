@@ -102,7 +102,7 @@ func _try_bite() -> void:
 	if not touching:
 		return
 	var local := sub.to_local(global_position)
-	sub.spawn_breach(sub.nearest_room(local), GameFeel.water.bite_leak_rate, local)
+	sub.breach_from_hit(sub.nearest_room(local), GameFeel.breach.bite_severity, local)
 	_bite_cooldown = GameFeel.fish.bite_interval
 	# Circle away: mostly back the way it came, with some sideways drift.
 	var away := sub.global_position.direction_to(global_position)
