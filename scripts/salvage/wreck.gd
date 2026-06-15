@@ -16,6 +16,7 @@ var _spilled: Array[SalvageItem] = []
 ## M5: HP. One torpedo (= hp_max) still cracks it open; a bullet burst also works.
 var hp_max: float = GameFeel.wreck.hp_max
 var hp: float = hp_max
+var _hit_flash: float = 0.0
 
 func _ready() -> void:
 	add_to_group("wreck")
@@ -30,6 +31,11 @@ func _ready() -> void:
 	add_child(shape)
 	area_entered.connect(_on_area_entered)
 
+func _process(delta: float) -> void:
+	if _hit_flash > 0.0:
+		_hit_flash = maxf(0.0, _hit_flash - delta)
+		queue_redraw()
+
 func _on_area_entered(area: Area2D) -> void:
 	if cracked or not (area is Torpedo):
 		return
@@ -39,6 +45,9 @@ func _on_area_entered(area: Area2D) -> void:
 	if hp <= 0.0:
 		cracked = true  # guard re-entry now; the rest of _crack() runs deferred
 		call_deferred("_crack")
+	else:
+		_hit_flash = GameFeel.fish.hit_flash_time
+		queue_redraw()
 
 ## Cracked open: pop, swap to the open look, and spill 2-3 scrap crates that
 ## settle near the hull. Runs deferred (see _on_area_entered) so it doesn't
@@ -64,6 +73,7 @@ func _crack() -> void:
 func reset_wreck() -> void:
 	cracked = false
 	hp = hp_max
+	_hit_flash = 0.0
 	for item in _spilled:
 		if is_instance_valid(item):
 			item.queue_free()
@@ -72,6 +82,8 @@ func reset_wreck() -> void:
 
 func _draw() -> void:
 	var color := PlaceholderArt.WRECK_OPEN_COLOR if cracked else PlaceholderArt.WRECK_COLOR
+	if _hit_flash > 0.0:
+		color = color.lerp(Color.WHITE, 0.6)
 	var rect := Rect2(Vector2(-HALF_LEN_PX, -HALF_HEIGHT_PX), Vector2(HALF_LEN_PX, HALF_HEIGHT_PX) * 2.0)
 	draw_rect(rect, color)
 	draw_rect(rect, color.darkened(0.3), false, 2.0)
