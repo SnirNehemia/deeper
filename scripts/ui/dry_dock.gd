@@ -22,7 +22,6 @@ enum Mode { SHOP, ASSEMBLY }
 var _mode: Mode = Mode.SHOP
 var _shop_index: int = 0
 var _assembly_cursor: Vector2i = Vector2i.ZERO
-var _place_mirrored: bool = false
 var _changed: bool = false
 var _note: String = ""
 var _shop_entries: Array = []
@@ -128,8 +127,7 @@ func _assembly_key(code: int) -> void:
 			_close()
 
 ## While a cell's action menu is open: "use" (P1=Q, P2=Enter, or arrows) cycles
-## the highlighted item, M toggles mirroring for a highlighted "place_room"
-## item with a firing face, "interact" confirms the highlighted item, and Esc
+## the highlighted item, "interact" confirms the highlighted item, and Esc
 ## closes the menu without acting.
 func _menu_key(code: int) -> void:
 	var action: Dictionary = _assembly_actions.get(_assembly_cursor, {})
@@ -140,13 +138,6 @@ func _menu_key(code: int) -> void:
 	match code:
 		KEY_Q, KEY_ENTER, KEY_UP, KEY_W, KEY_DOWN, KEY_S:
 			_menu_index = wrapi(_menu_index + 1, 0, menu.size())
-			_place_mirrored = false
-		KEY_M:
-			var item: Dictionary = menu[_menu_index]
-			if item["type"] == "place_room":
-				var def := ModuleCatalog.by_id(item["id"])
-				if def != null and def.has_firing_face:
-					_place_mirrored = not _place_mirrored
 		KEY_E, KEY_SHIFT, KEY_KP_ENTER, KEY_SPACE:
 			_confirm_menu_item(menu[_menu_index])
 		KEY_ESCAPE:
@@ -197,7 +188,7 @@ func _try_assembly_action() -> void:
 func _confirm_menu_item(item: Dictionary) -> void:
 	match item["type"]:
 		"place_room":
-			_try_place_room(_assembly_cursor, item["id"], _place_mirrored)
+			_try_place_room(_assembly_cursor, item["id"])
 			if not _face_select:
 				_close_menu()
 		"return_room":
@@ -237,7 +228,6 @@ func _confirm_face_select() -> void:
 func _close_menu() -> void:
 	_menu_open = false
 	_menu_index = 0
-	_place_mirrored = false
 	_face_select = false
 	_faces = []
 	_face_index = 0
@@ -267,15 +257,11 @@ func _menu_item_label(item: Dictionary) -> String:
 	var name: String = def.display_name if def != null else item["id"]
 	match item["type"]:
 		"place_room":
-			var label := "Place: %s" % name
-			if def != null and def.has_firing_face:
-				label += "  (firing stern-ward, M to flip to bow)" if _place_mirrored \
-					else "  (firing bow-ward, M to flip to stern)"
-			return label
+			return "Place: %s" % name
 		"return_room":
 			return "Return %s to inventory" % name
 		"rotate_room":
-			return "Rotate %s (flip firing direction)" % name
+			return "Rotate %s (next facing)" % name
 		"place_pod":
 			return "Attach pod: %s" % name
 		"return_pod":
@@ -359,7 +345,9 @@ func _build_cell_menu(cell: Vector2i) -> Array:
 		return menu
 	if SaveData._is_relocatable(placed_def):
 		menu.append({"type": "return_room", "id": placed_id})
-	if placed_def.has_firing_face and SaveData.rotate_room_violations(cell).is_empty():
+	var rotatable := placed_def.has_firing_face or placed_id == "claw_room" \
+		or placed_id == "floodlight_room"
+	if rotatable and SaveData.rotate_room_violations(cell).is_empty():
 		menu.append({"type": "rotate_room", "id": placed_id})
 	if placed_def.can_host_pod and placed_id != "floodlight_room":
 		for id in SaveData.layout.inventory:
@@ -404,25 +392,16 @@ func _try_buy_slot(pos: Vector2i) -> void:
 		_note = "Slot bought at (%d, %d)!" % [pos.x, pos.y]
 		_rebuild_assembly_entries()
 
-## Places `id` at `pos`. For a firing-face room (turret/bullet), `mirrored` is
-## only the player's *explicit* choice (set by pressing M in the menu) — if
-## the player hasn't toggled it and the default bow-ward (unmirrored) facing
-## is blocked, this falls back to stern-ward (mirrored) automatically
-## (2026-06-19, "more intuitive weapon placement"). An explicit choice that's
-## illegal is reported as-is, with no silent fallback.
-func _try_place_room(pos: Vector2i, id: String, mirrored: bool) -> void:
-	var violations := SaveData.place_room_violations(id, pos, mirrored)
-	if not violations.is_empty() and not mirrored:
-		var def := ModuleCatalog.by_id(id)
-		if def != null and def.has_firing_face:
-			var flipped := SaveData.place_room_violations(id, pos, true)
-			if flipped.is_empty():
-				mirrored = true
-				violations = flipped
+## Places `id` at `pos`. For a room with a special face (a turret/bullet's
+## gun, the claw's arm), `SaveData` auto-picks the first facing (in
+## `SubLayout.FACINGS` order) that validates (2026-06-19 "any outer face"
+## rework) — the player adjusts it afterward with the "Rotate" menu item.
+func _try_place_room(pos: Vector2i, id: String) -> void:
+	var violations := SaveData.place_room_violations(id, pos)
 	if not violations.is_empty():
 		_note = violations[0]
 		return
-	if SaveData.place_room(id, pos, mirrored):
+	if SaveData.place_room(id, pos):
 		_changed = true
 		var def := ModuleCatalog.by_id(id)
 		_note = "%s placed!" % (def.display_name if def != null else id)
@@ -551,7 +530,7 @@ class _View extends Control:
 				if dock._face_select:
 					hint = "Use/Arrows pick face   Interact attach   Esc cancel"
 				elif dock._menu_open:
-					hint = "Use cycle option   Interact confirm   M mirror (turret)   Esc cancel"
+					hint = "Use cycle option   Interact confirm   Esc cancel"
 				else:
 					hint = "Arrows move   Interact buy slot / open menu   Tab: shop   Esc leave"
 		f.draw_string(get_canvas_item(), Vector2(80, size.y - 60), hint,

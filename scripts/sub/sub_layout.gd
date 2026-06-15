@@ -6,32 +6,46 @@ extends RefCounted
 ## unplaced modules. Plain data + serialization only — generation lives in
 ## the pipeline (M4 Module 3+), legality lives in validate() (M4 Module 2).
 
-## One placed room module. `grid_pos` is its top-left cell; `mirrored` flips
-## a module with a special face (e.g. a turret's firing_face) horizontally.
+## One placed room module. `grid_pos` is its top-left cell; `facing` ("right"/
+## "left"/"top"/"bottom") is which outer wall a module with a special face
+## (a turret/bullet room's gun, the claw's arm, a floodlight's lamp) points
+## out of (2026-06-19 "any outer face" rework — replaces the old binary
+## `mirrored` left/right flip).
 class Placement:
 	var module_id: String = ""
 	var grid_pos: Vector2i = Vector2i.ZERO
-	var mirrored: bool = false
+	var facing: String = "right"
 
 	func _init(p_module_id: String = "", p_grid_pos: Vector2i = Vector2i.ZERO,
-			p_mirrored: bool = false) -> void:
+			p_facing: String = "right") -> void:
 		module_id = p_module_id
 		grid_pos = p_grid_pos
-		mirrored = p_mirrored
+		facing = p_facing
 
 	func to_dict() -> Dictionary:
 		return {
 			"module_id": module_id,
 			"grid_pos": [grid_pos.x, grid_pos.y],
-			"mirrored": mirrored,
+			"facing": facing,
 		}
 
 	static func from_dict(data: Dictionary) -> Placement:
 		var pos: Array = data.get("grid_pos", [0, 0])
+		var module_id: String = str(data.get("module_id", ""))
+		var facing: String = str(data.get("facing", ""))
+		if facing == "":
+			if module_id == "claw_room":
+				# Pre-M4-17 saves had no facing concept for the claw; it always
+				# pointed down.
+				facing = "bottom"
+			else:
+				# Pre-M4-17 saves stored a "mirrored" bool: false = bow-ward
+				# (right), true = stern-ward (left).
+				facing = "left" if bool(data.get("mirrored", false)) else "right"
 		return Placement.new(
-			str(data.get("module_id", "")),
+			module_id,
 			Vector2i(int(pos[0]), int(pos[1])),
-			bool(data.get("mirrored", false)))
+			facing)
 
 ## One exterior pod, clipped to a face of an occupied cell. `face` is one of
 ## "top", "bottom", "left", "right".
@@ -59,6 +73,10 @@ class PodPlacement:
 			str(data.get("pod_id", "")),
 			Vector2i(int(cell[0]), int(cell[1])),
 			str(data.get("face", "")))
+
+## Cyclic order tried when auto-picking or rotating a placement's `facing`
+## (2026-06-19 "any outer face" rework).
+const FACINGS := ["right", "left", "top", "bottom"]
 
 var placements: Array[Placement] = []
 var pods: Array[PodPlacement] = []
@@ -138,8 +156,8 @@ static func starting_layout() -> SubLayout:
 		Placement.new("helm", Vector2i(1, 0)),
 		Placement.new("turret_room", Vector2i(2, 0)),
 		Placement.new("tower", Vector2i(1, -1)),
-		Placement.new("bullet_room", Vector2i(0, 1), true),
-		Placement.new("claw_room", Vector2i(1, 1)),
+		Placement.new("bullet_room", Vector2i(0, 1), "left"),
+		Placement.new("claw_room", Vector2i(1, 1), "bottom"),
 		Placement.new("storage", Vector2i(2, 1)),
 	]
 	return layout
@@ -201,9 +219,9 @@ func reserved_cells() -> Array:
 	for p in placements:
 		var def := ModuleCatalog.by_id(p.module_id)
 		if def != null and def.has_firing_face:
-			reserved.append(p.grid_pos + SubValidator._firing_face_offset(p.mirrored))
+			reserved.append(p.grid_pos + SubValidator._firing_face_offset(p.facing))
 		if p.module_id == "claw_room":
-			reserved.append(p.grid_pos + Vector2i(0, 1))
+			reserved.append(p.grid_pos + SubValidator._firing_face_offset(p.facing))
 	return reserved
 
 func buyable_slot_positions() -> Array:

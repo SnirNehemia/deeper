@@ -41,10 +41,13 @@ func _build_debug_controls() -> void:
 	toggle.toggled.connect(_on_debug_toggled)
 	add_child(toggle)
 
-	_debug_buttons.append(_make_debug_button("+1 scrap", -340, SalvageItem.Kind.SCRAP))
-	_debug_buttons.append(_make_debug_button("+1 carcass", -236, SalvageItem.Kind.FISH))
+	_debug_buttons.append(_make_debug_button("+100 scrap", -340, SalvageItem.Kind.SCRAP))
+	_debug_buttons.append(_make_debug_button("+100 carcass", -236, SalvageItem.Kind.FISH))
 	_apply_debug_visibility()
 
+## Debug shortcut: banks 100 scrap or 100 carcasses directly (so a single
+## click affords a room/slot purchase in the dry dock), instead of the normal
+## one-at-a-time storage-pen deposit.
 func _make_debug_button(text: String, left: float, kind: int) -> Button:
 	var btn := Button.new()
 	btn.focus_mode = Control.FOCUS_NONE  # don't eat Tab (opens the dry dock)
@@ -55,8 +58,10 @@ func _make_debug_button(text: String, left: float, kind: int) -> Button:
 	btn.offset_top = 110.0
 	btn.offset_bottom = 136.0
 	btn.pressed.connect(func() -> void:
-		if sub != null:
-			sub.deposit_salvage(kind))
+		if kind == SalvageItem.Kind.SCRAP:
+			SaveData.bank(100, 0)
+		else:
+			SaveData.bank(0, 100))
 	add_child(btn)
 	return btn
 

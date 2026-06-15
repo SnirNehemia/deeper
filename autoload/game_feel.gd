@@ -166,17 +166,29 @@ class BulletFeel:
 
 var bullet: BulletFeel = BulletFeel.new()
 
-## Floodlight Room feel (M4-9c rework): the seated crew steers the beam left/
-## right (like a weapon's aim) and widens/narrows its cone with the same
-## up/down input, scaling both the cone's base width and its length together.
+## Floodlight Room feel (M4-17 rework): the seated crew steers the beam left/
+## right (like a weapon's aim) and trades length for spread with up/down. The
+## cone is a chord of a circle of radius `cone_radius_m` centered on the lamp:
+## at "height" h (the cone's reach), its base half-width is
+## sqrt(R^2 - h^2) — so a longer beam is narrower and vice versa, both
+## derived from the single h value the player controls.
 class FloodlightFeel:
 	var rotate_speed_deg: float = 60.0   ## left/right aim sweep (deg/s)
 	var rotate_cone_half_angle_deg: float = 75.0  ## clamp around the room's facing
-	var zoom_speed: float = 0.8          ## up/down change in spread_factor per second
-	var min_spread: float = 0.5
-	var max_spread: float = 2.0
-	var base_length_m: float = 9.0       ## cone length at spread_factor 1.0 (3x the old 3m)
-	var base_half_width_m: float = 1.5   ## cone half-width at the hull, at spread_factor 1.0
+	var zoom_speed_m: float = 2.0        ## up/down change to h (m/s)
+	var cone_radius_m: float = 10.0      ## R, the circle h and the base half-width are drawn from
+	var min_height_m: float = 1.0
+	var max_height_m: float = 9.0
+	var initial_height_m: float = 5.0
+	## Light intensity decays with distance from the lamp in a sigmoid falloff:
+	## centered at half the radius, falling off over this many meters.
+	var decay_center_m: float = 5.0      ## R / 2
+	var decay_width_m: float = 5.0
+	var max_alpha: float = 0.35
+
+	## The cone's base half-width at reach `h` (m): sqrt(R^2 - h^2).
+	func base_half_width_m(h: float) -> float:
+		return sqrt(max(0.0, cone_radius_m * cone_radius_m - h * h))
 
 var floodlight: FloodlightFeel = FloodlightFeel.new()
 

@@ -12,13 +12,15 @@ extends Station
 ## barrel, but `use_bullet = true` and `fire_cooldown`/`projectile_speed`
 ## reconfigured for fast, low-damage bullets instead of torpedoes.
 
-## This gun's tube position (sub-local) and which way it faces: +1 = aims off
-## the bow (right), -1 = aims off the stern (left). Always set by Sub at build
-## time from the generated geometry (the helm room's bow wall).
+## This gun's tube position (sub-local) and which way it faces: a unit vector
+## pointing out of the hull (e.g. (1,0) = bow/right, (-1,0) = stern/left,
+## (0,-1) = top, (0,1) = bottom). Always set by Sub at build time from the
+## generated geometry, based on the room's `facing` (2026-06-19 "any outer
+## face" rework — replaces the old +1/-1 scalar `facing`).
 var tube_local: Vector2 = Vector2.ZERO
-var facing: float = 1.0
+var facing_dir: Vector2 = Vector2.RIGHT
 
-## Current aim angle in radians (0 = straight along the gun's facing, + = down).
+## Current aim angle in radians (0 = straight along facing_dir, + = clockwise).
 var aim_angle: float = 0.0
 
 ## Time between shots (s) and projectile speed (m/s). Default to the base
@@ -32,9 +34,9 @@ var use_bullet: bool = false
 
 var _cooldown: float = 0.0
 
-## The barrel's local direction: forward along `facing`, tilted by aim_angle.
+## The barrel's local direction: facing_dir, tilted by aim_angle.
 func barrel_dir() -> Vector2:
-	return Vector2(facing * cos(aim_angle), sin(aim_angle))
+	return facing_dir.rotated(aim_angle)
 
 func _physics_process(delta: float) -> void:
 	_cooldown = maxf(0.0, _cooldown - delta)

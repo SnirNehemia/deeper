@@ -12,11 +12,6 @@ extends RefCounted
 ## Every violation is a player-readable message; no other code re-implements
 ## any of these rules.
 
-## Offset of a turret room's firing face, given its mirrored flag (§5 rule 5).
-## Unmirrored fires toward the bow (+x); mirrored flips toward the stern (-x).
-static func _firing_face_offset(mirrored: bool) -> Vector2i:
-	return Vector2i(-1, 0) if mirrored else Vector2i(1, 0)
-
 ## Offset from a pod's host cell to the exterior cell its face points at
 ## (§5 rule 6).
 static func _pod_face_offset(face: String) -> Vector2i:
@@ -31,6 +26,12 @@ static func _pod_face_offset(face: String) -> Vector2i:
 			return Vector2i(1, 0)
 		_:
 			return Vector2i.ZERO
+
+## Offset of a placement's special face (a gun's firing face, the claw's drop
+## cell), given its `facing` ("right"/"left"/"top"/"bottom") (§5 rule 5,
+## 2026-06-19 "any outer face" rework). Same direction mapping as pod faces.
+static func _firing_face_offset(facing: String) -> Vector2i:
+	return _pod_face_offset(facing)
 
 static func validate(layout: SubLayout) -> Dictionary:
 	var violations: Array[String] = []
@@ -124,36 +125,50 @@ static func validate(layout: SubLayout) -> Dictionary:
 	for p in layout.placements:
 		var def := ModuleCatalog.by_id(p.module_id)
 		if def != null and def.has_firing_face:
-			var firing_cell := p.grid_pos + _firing_face_offset(p.mirrored)
+			var firing_cell := p.grid_pos + _firing_face_offset(p.facing)
 			if cell_owners.has(firing_cell):
 				violations.append("The %s's gun is blocked by another room." % p.module_id)
 
 	# Rule 8: firing-face rooms sit at the far edge of their level — a
 	# turret's gun faces open water, so the room itself must be the
-	# leftmost or rightmost placed cell in its grid row (2026-06-14). Like
-	# rule 5, this only considers placed rooms, not empty bought slots.
+	# extreme placed cell along its facing axis: leftmost/rightmost in its
+	# grid row for a left/right facing, topmost/bottommost in its grid
+	# column for a top/bottom facing (2026-06-14; generalized 2026-06-19 for
+	# "any outer face"). Like rule 5, this only considers placed rooms, not
+	# empty bought slots.
 	for p in layout.placements:
 		var fdef := ModuleCatalog.by_id(p.module_id)
 		if fdef == null or not fdef.has_firing_face:
 			continue
-		var row_min_x := p.grid_pos.x
-		var row_max_x := p.grid_pos.x
-		for cell in cell_owners:
-			if cell.y == p.grid_pos.y:
-				row_min_x = min(row_min_x, cell.x)
-				row_max_x = max(row_max_x, cell.x)
-		if p.grid_pos.x != row_min_x and p.grid_pos.x != row_max_x:
-			violations.append("The %s must sit at the far left or right edge of its level." % p.module_id)
+		if p.facing == "left" or p.facing == "right":
+			var row_min_x := p.grid_pos.x
+			var row_max_x := p.grid_pos.x
+			for cell in cell_owners:
+				if cell.y == p.grid_pos.y:
+					row_min_x = min(row_min_x, cell.x)
+					row_max_x = max(row_max_x, cell.x)
+			if p.grid_pos.x != row_min_x and p.grid_pos.x != row_max_x:
+				violations.append("The %s must sit at the far left or right edge of its level." % p.module_id)
+		else:
+			var col_min_y := p.grid_pos.y
+			var col_max_y := p.grid_pos.y
+			for cell in cell_owners:
+				if cell.x == p.grid_pos.x:
+					col_min_y = min(col_min_y, cell.y)
+					col_max_y = max(col_max_y, cell.y)
+			if p.grid_pos.y != col_min_y and p.grid_pos.y != col_max_y:
+				violations.append("The %s must sit at the top or bottom edge of its column." % p.module_id)
 
-	# Rule 9: clear claw drop — the cell directly below a placed claw_room must
-	# stay empty (`occupied`, so an owned slot blocks it too) so the salvage
-	# claw has a clear path to drop through the hull (2026-06-19, "weapon-like
-	# claw placement"). Like rules 5/8, this only considers placed rooms.
+	# Rule 9: clear claw drop — the cell the claw's arm reaches toward (in its
+	# `facing` direction) must stay empty (`occupied`, so an owned slot blocks
+	# it too) so the salvage claw has a clear path to drop through the hull
+	# (2026-06-19, "weapon-like claw placement", generalized for "any outer
+	# face"). Like rules 5/8, this only considers placed rooms.
 	for p in layout.placements:
 		if p.module_id == "claw_room":
-			var below := p.grid_pos + Vector2i(0, 1)
-			if below in occupied:
-				violations.append("The claw's drop path below the Claw Room is blocked.")
+			var reach := p.grid_pos + _firing_face_offset(p.facing)
+			if reach in occupied:
+				violations.append("The claw's drop path is blocked.")
 
 	# Rule 6: pod faces — a pod attaches only to an exterior face of an
 	# occupied cell that's built to host pods (ModuleDef.can_host_pod, e.g. the

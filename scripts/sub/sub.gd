@@ -96,6 +96,7 @@ const _IMPACT_COOLDOWN_TIME := 0.6
 var _helm_seat: Vector2 = Vector2.ZERO
 var _claw_seat: Vector2 = Vector2.ZERO
 var _claw_anchor: Vector2 = Vector2.ZERO
+var _claw_down_dir: Vector2 = Vector2.DOWN
 var _claw_drop_floor_y: float = 0.0
 var _claw_hatch: Vector2 = Vector2.ZERO
 var _storage_pen: Vector2 = Vector2.ZERO
@@ -247,8 +248,21 @@ func _compute_anchors() -> void:
 	if claw_room != null:
 		var floor_y := claw_room.rect.position.y + claw_room.rect.size.y
 		_claw_seat = Vector2(_section_x(claw_room, 3), floor_y - crew_half)
-		# Keel anchor (claw base, b3): bottom of s3, below the floor slab.
-		_claw_anchor = Vector2(_section_x(claw_room, 3), floor_y + WALL_T)
+		# Arm anchor + reach direction: on the wall the room's `facing` points
+		# through (2026-06-19 "any outer face" rework — was always the keel/
+		# bottom wall). The drop hatch and floor stay tied to the room's own
+		# s2/floor regardless of facing.
+		_claw_down_dir = _facing_dir(claw_room.facing)
+		var r := claw_room.rect
+		match claw_room.facing:
+			"top":
+				_claw_anchor = Vector2(r.get_center().x, r.position.y - WALL_T)
+			"left":
+				_claw_anchor = Vector2(r.position.x - WALL_T, r.get_center().y)
+			"right":
+				_claw_anchor = Vector2(r.position.x + r.size.x + WALL_T, r.get_center().y)
+			"bottom", _:
+				_claw_anchor = Vector2(_section_x(claw_room, 3), floor_y + WALL_T)
 		_claw_drop_floor_y = floor_y
 		# Dropping hatch in s2 — where the arm delivers catches into the hold.
 		_claw_hatch = Vector2(_section_x(claw_room, 2), floor_y)
@@ -287,10 +301,6 @@ func _compute_anchors() -> void:
 	# (the FloodlightStation), and the lamp's hull-surface point + default beam
 	# direction taken from the room's attached pod face.
 	_floodlight_rooms = []
-	var face_dirs := {
-		"top": Vector2(0.0, -1.0), "bottom": Vector2(0.0, 1.0),
-		"left": Vector2(-1.0, 0.0), "right": Vector2(1.0, 0.0),
-	}
 	for room in geometry.rooms:
 		if room.module_id != "floodlight_room":
 			continue
@@ -303,7 +313,7 @@ func _compute_anchors() -> void:
 				break
 		if face == "":
 			continue
-		var dir: Vector2 = face_dirs.get(face, Vector2.RIGHT)
+		var dir: Vector2 = _facing_dir(face)
 		var r := room.rect
 		var tip: Vector2
 		match face:
@@ -317,10 +327,25 @@ func _compute_anchors() -> void:
 				tip = Vector2(r.position.x + r.size.x, r.get_center().y)
 		_floodlight_rooms.append({"room": room, "seat": seat, "tip": tip, "base_dir": dir})
 
-## One {"room", "seat", "tube", "facing"} entry per placed room of `module_id`
-## with a firing-face gun: gunner seat in s3, tube just outside the firing-face
-## wall (mirrored -> stern/-x, unmirrored -> bow/+x), same convention as
-## SubValidator._firing_face_offset.
+## Unit vector pointing out of the hull for a `facing`/pod-face string
+## ("right"/"left"/"top"/"bottom") — shared by gun tubes, the claw's reach
+## direction, and floodlight beams (2026-06-19 "any outer face" rework).
+static func _facing_dir(facing: String) -> Vector2:
+	match facing:
+		"top":
+			return Vector2(0.0, -1.0)
+		"bottom":
+			return Vector2(0.0, 1.0)
+		"left":
+			return Vector2(-1.0, 0.0)
+		"right", _:
+			return Vector2(1.0, 0.0)
+
+## One {"room", "seat", "tube", "facing_dir"} entry per placed room of
+## `module_id` with a firing-face gun: gunner seat in s3, tube just outside
+## the firing-face wall, in the direction given by the room's `facing`
+## (2026-06-19 "any outer face" rework — replaces the old mirrored bow/stern
+## convention), same convention as SubValidator._firing_face_offset.
 func _gun_room_anchors(module_id: String, crew_half: float) -> Array:
 	var anchors: Array = []
 	for room in geometry.rooms:
@@ -328,15 +353,19 @@ func _gun_room_anchors(module_id: String, crew_half: float) -> Array:
 			continue
 		var floor_y := room.rect.position.y + room.rect.size.y
 		var seat := Vector2(_section_x(room, 3), floor_y - crew_half)
+		var facing_dir := _facing_dir(room.facing)
+		var r := room.rect
 		var tube: Vector2
-		var facing: float
-		if room.mirrored:
-			tube = Vector2(room.rect.position.x - 36.0, room.rect.get_center().y)
-			facing = -1.0
-		else:
-			tube = Vector2(room.rect.position.x + room.rect.size.x + 36.0, room.rect.get_center().y)
-			facing = 1.0
-		anchors.append({"room": room, "seat": seat, "tube": tube, "facing": facing})
+		match room.facing:
+			"top":
+				tube = Vector2(r.get_center().x, r.position.y - 36.0)
+			"bottom":
+				tube = Vector2(r.get_center().x, r.position.y + r.size.y + 36.0)
+			"left":
+				tube = Vector2(r.position.x - 36.0, r.get_center().y)
+			"right", _:
+				tube = Vector2(r.position.x + r.size.x + 36.0, r.get_center().y)
+		anchors.append({"room": room, "seat": seat, "tube": tube, "facing_dir": facing_dir})
 	return anchors
 
 func helm_seat_local() -> Vector2:
@@ -739,7 +768,7 @@ func _build_turret_room(tr: Dictionary) -> void:
 	turret.room_index = tr["room"].water_index
 	turret.position = tr["seat"]
 	turret.tube_local = tr["tube"]
-	turret.facing = tr["facing"]
+	turret.facing_dir = tr["facing_dir"]
 	add_child(turret)
 	_visual.turrets.append(turret)
 
@@ -752,7 +781,7 @@ func _build_bullet_room(br: Dictionary) -> void:
 	turret.room_index = br["room"].water_index
 	turret.position = br["seat"]
 	turret.tube_local = br["tube"]
-	turret.facing = br["facing"]
+	turret.facing_dir = br["facing_dir"]
 	turret.fire_cooldown = GameFeel.bullet.fire_cooldown
 	turret.projectile_speed = GameFeel.bullet.bullet_speed
 	turret.use_bullet = true
@@ -778,6 +807,7 @@ func _build_claw() -> void:
 	claw.room_index = _room_by_id("claw_room").water_index
 	claw.position = _claw_seat
 	claw.anchor_local = _claw_anchor
+	claw.down_dir = _claw_down_dir
 	claw.drop_floor_y = _claw_drop_floor_y
 	claw.hatch_x = _claw_hatch.x
 	add_child(claw)

@@ -14,8 +14,10 @@ var base_dir: Vector2 = Vector2.RIGHT
 
 ## Current aim offset in radians from base_dir, + = clockwise.
 var aim_angle: float = 0.0
-## Current width/length multiplier on top of GameFeel.floodlight base sizes.
-var spread_factor: float = 1.0
+## The cone's current reach (m) — its base half-width is derived from this via
+## GameFeel.floodlight.base_half_width_m(height_m), so a longer beam is
+## narrower and a shorter beam is wider.
+var height_m: float = GameFeel.floodlight.initial_height_m
 
 ## The beam's live direction: base_dir rotated by aim_angle.
 func beam_dir() -> Vector2:
@@ -27,6 +29,6 @@ func handle_input(input: PlayerInput) -> void:
 	aim_angle = clampf(
 		aim_angle + input.move.x * deg_to_rad(GameFeel.floodlight.rotate_speed_deg) * delta,
 		-cone, cone)
-	spread_factor = clampf(
-		spread_factor - input.move.y * GameFeel.floodlight.zoom_speed * delta,
-		GameFeel.floodlight.min_spread, GameFeel.floodlight.max_spread)
+	height_m = clampf(
+		height_m - input.move.y * GameFeel.floodlight.zoom_speed_m * delta,
+		GameFeel.floodlight.min_height_m, GameFeel.floodlight.max_height_m)

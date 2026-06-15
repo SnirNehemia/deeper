@@ -103,7 +103,7 @@ func _draw_claw() -> void:
 ## A basket cage at the arm tip, opening outward, with a hinged hatch that
 ## closes (clamp_amount -> 1) when holding salvage.
 func _draw_cage(joint: Vector2, tip: Vector2) -> void:
-	var fwd := (tip - joint).normalized() if tip.distance_to(joint) > 0.1 else Vector2.DOWN
+	var fwd := (tip - joint).normalized() if tip.distance_to(joint) > 0.1 else claw.down_dir
 	var side := fwd.orthogonal()
 	var c := PlaceholderArt.LADDER_COLOR
 	var hw := 22.0
@@ -169,27 +169,34 @@ func _draw_storage_pen(sub: Sub) -> void:
 		else:
 			draw_circle(p, 5.0, PlaceholderArt.CARCASS_COLOR)
 
-## A floodlight's beam (M4-9c rework): a cone with its tip at the hull and its
+## A floodlight's beam (M4-17 rework): a cone with its tip at the hull and its
 ## base flaring outward into open water, in the station's live aim direction.
-## Drawn as several nested, increasingly-transparent polygons for soft edges.
+## Reach `h` and base half-width are linked via
+## GameFeel.floodlight.base_half_width_m(h) (a chord of a circle of radius R
+## centered on the lamp). Drawn as several length-wise slices whose alpha
+## follows a sigmoid falloff with distance — light decays the farther it
+## travels from the lamp, centered at decay_center_m with decay_width_m.
 func _draw_floodlight_beam(f: FloodlightStation) -> void:
 	var beam := PlaceholderArt.FLOODLIGHT_COLOR
+	var feel := GameFeel.floodlight
 	var tip := f.tip_local
 	var dir := f.beam_dir()
 	var perp := Vector2(-dir.y, dir.x)
-	var length := GameFeel.floodlight.base_length_m * Sub.PPM * f.spread_factor
-	var half_width := GameFeel.floodlight.base_half_width_m * Sub.PPM * f.spread_factor
-	var base_center := tip + dir * length
-	# Layer several shrinking cones at decreasing opacity so the edges look soft.
-	var layers := 4
-	for i in range(layers, 0, -1):
-		var t := float(i) / float(layers)
-		var spread := perp * (half_width * t)
-		var alpha := 0.30 * (1.0 - t) + 0.05
+	var h := f.height_m
+	var half_width_m := feel.base_half_width_m(h)
+	var segments := 10
+	for i in range(segments):
+		var d0 := h * float(i) / segments
+		var d1 := h * float(i + 1) / segments
+		var p0 := tip + dir * (d0 * Sub.PPM)
+		var p1 := tip + dir * (d1 * Sub.PPM)
+		var w0 := perp * (half_width_m * (d0 / h) * Sub.PPM)
+		var w1 := perp * (half_width_m * (d1 / h) * Sub.PPM)
+		var d_mid := (d0 + d1) * 0.5
+		var alpha := feel.max_alpha \
+			/ (1.0 + exp((d_mid - feel.decay_center_m) / feel.decay_width_m))
 		draw_colored_polygon(PackedVector2Array([
-			tip,
-			base_center - spread,
-			base_center + spread,
+			p0 - w0, p0 + w0, p1 + w1, p1 - w1,
 		]), Color(beam.r, beam.g, beam.b, alpha))
 
 ## Flooding water: a flat rect rising from each room's floor. Drawn last.

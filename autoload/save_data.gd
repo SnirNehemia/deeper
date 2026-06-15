@@ -168,22 +168,24 @@ func buy_room(id: String) -> bool:
 
 ## Place an inventory room into an owned empty slot (M4-8: the second half of
 ## the ROOM_SYSTEM.md §4.1 room economy — a bought room from `buy_room` lands
-## here). `mirrored` only matters for modules with a special face (e.g. a
-## turret room's firing face) — it picks which side that face points to.
+## here). `facing` ("right"/"left"/"top"/"bottom") only matters for modules
+## with a special face (a turret/bullet room's gun, the claw's arm) — it picks
+## which outer wall that face points to. Leave empty ("") to auto-pick the
+## first facing (in `SubLayout.FACINGS` order) that validates.
 ## Fails (false), with no state change, if `pos` isn't an owned empty slot,
 ## `id` isn't in inventory, `id` is core/pod/unknown, or placing it there
 ## would make the layout fail `SubValidator.validate` (e.g. a turret's firing
 ## face would be bricked in). On success: move the slot to a placement, take
 ## one off inventory, persist.
-func place_room(id: String, pos: Vector2i, mirrored: bool = false) -> bool:
-	return _place_room_candidate(id, pos, mirrored)["violations"].is_empty() \
-		and _commit_place_room(id, pos, mirrored)
+func place_room(id: String, pos: Vector2i, facing: String = "") -> bool:
+	return _place_room_candidate(id, pos, facing)["violations"].is_empty() \
+		and _commit_place_room(id, pos, facing)
 
-## The validation violations that placing `id` at `pos` (with `mirrored`)
-## would cause, without committing anything — empty means the placement is
-## legal. Used by the assembly UI to explain a refused placement.
-func place_room_violations(id: String, pos: Vector2i, mirrored: bool = false) -> Array:
-	return _place_room_candidate(id, pos, mirrored)["violations"]
+## The validation violations that placing `id` at `pos` (with `facing`) would
+## cause, without committing anything — empty means the placement is legal.
+## Used by the assembly UI to explain a refused placement.
+func place_room_violations(id: String, pos: Vector2i, facing: String = "") -> Array:
+	return _place_room_candidate(id, pos, facing)["violations"]
 
 ## A module can be picked up off the hull (back to inventory) and placed back
 ## into a slot like an ordinary room if it isn't the tower or a pod. The helm
@@ -192,7 +194,26 @@ func place_room_violations(id: String, pos: Vector2i, mirrored: bool = false) ->
 static func _is_relocatable(def: ModuleDef) -> bool:
 	return def != null and not def.is_pod and (not def.is_core or def.id == "helm")
 
-func _place_room_candidate(id: String, pos: Vector2i, mirrored: bool) -> Dictionary:
+## Resolve an explicit or auto-picked `facing` for placing `id` at `pos`. If
+## `facing` is given, use it as-is. Otherwise, for modules whose facing
+## matters (a firing-face gun or the claw), try `SubLayout.FACINGS` in order
+## and return the first that validates (falling back to "right" if none do,
+## so the caller's validation reports the real reason). Other modules default
+## to "right" (their facing has no gameplay effect).
+func _resolve_placement_facing(id: String, pos: Vector2i) -> String:
+	var def := ModuleCatalog.by_id(id)
+	if def == null or not (def.has_firing_face or id == "claw_room"):
+		return "right"
+	for facing in SubLayout.FACINGS:
+		var candidate := SubLayout.from_dict(layout.to_dict())
+		if pos in candidate.slots:
+			candidate.slots.erase(pos)
+		candidate.placements.append(SubLayout.Placement.new(id, pos, facing))
+		if SubValidator.validate(candidate)["violations"].is_empty():
+			return facing
+	return "right"
+
+func _place_room_candidate(id: String, pos: Vector2i, facing: String) -> Dictionary:
 	if pos not in layout.slots:
 		return {"violations": ["There's no empty slot at %s." % pos]}
 	if int(layout.inventory.get(id, 0)) <= 0:
@@ -200,14 +221,18 @@ func _place_room_candidate(id: String, pos: Vector2i, mirrored: bool) -> Diction
 	var def := ModuleCatalog.by_id(id)
 	if not _is_relocatable(def):
 		return {"violations": ["The %s can't be placed as a room." % id]}
+	if facing == "":
+		facing = _resolve_placement_facing(id, pos)
 	var candidate := SubLayout.from_dict(layout.to_dict())
 	candidate.slots.erase(pos)
-	candidate.placements.append(SubLayout.Placement.new(id, pos, mirrored))
+	candidate.placements.append(SubLayout.Placement.new(id, pos, facing))
 	return SubValidator.validate(candidate)
 
-func _commit_place_room(id: String, pos: Vector2i, mirrored: bool) -> bool:
+func _commit_place_room(id: String, pos: Vector2i, facing: String) -> bool:
+	if facing == "":
+		facing = _resolve_placement_facing(id, pos)
 	layout.slots.erase(pos)
-	layout.placements.append(SubLayout.Placement.new(id, pos, mirrored))
+	layout.placements.append(SubLayout.Placement.new(id, pos, facing))
 	layout.inventory[id] = int(layout.inventory.get(id, 0)) - 1
 	if layout.inventory[id] <= 0:
 		layout.inventory.erase(id)
@@ -334,29 +359,98 @@ func reset_for_test() -> void:
 	if FileAccess.file_exists(SAVE_PATH):
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(SAVE_PATH))
 
-## Flip a placed room's `mirrored` flag in place (2026-06-19, weapon-rotation
-## UX) -- e.g. a turret room firing bow-ward turns to fire stern-ward, or back.
-## Fails (false), with no state change, if there's no placement at `pos` or
-## flipping it would make the layout fail `SubValidator.validate` (most often
-## rule 5/8 -- the new firing face would be blocked or not at the row's end).
+## Cycle a placed room's `facing` to the next direction in `SubLayout.FACINGS`
+## that validates (2026-06-19 "any outer face" rework, replaces the old
+## binary mirrored flip) -- e.g. a turret room firing bow-ward turns to fire
+## stern-ward, then up, then down, then back to bow-ward. A `floodlight_room`
+## instead cycles its attached pod's face (the lamp, not the room, has a
+## "facing"). Fails (false), with no state change, if there's no placement at
+## `pos`, or no other facing/face validates.
 func rotate_room(pos: Vector2i) -> bool:
-	return rotate_room_violations(pos).is_empty() and _commit_rotate_room(pos)
-
-## The validation violations that flipping the placement at `pos` would cause,
-## without committing anything -- empty means the rotation is legal. Also
-## empty (a no-op "legal") if there's no placement at `pos`.
-func rotate_room_violations(pos: Vector2i) -> Array:
-	var candidate := SubLayout.from_dict(layout.to_dict())
-	for p in candidate.placements:
-		if p.grid_pos == pos:
-			p.mirrored = not p.mirrored
-			return SubValidator.validate(candidate)["violations"]
-	return []
-
-func _commit_rotate_room(pos: Vector2i) -> bool:
 	for p in layout.placements:
-		if p.grid_pos == pos:
-			p.mirrored = not p.mirrored
+		if p.grid_pos != pos:
+			continue
+		if p.module_id == "floodlight_room":
+			return _rotate_floodlight_pod(pos)
+		return _rotate_facing(p)
+	return false
+
+## Try each other facing in `SubLayout.FACINGS` order (starting after the
+## current one) and commit the first that validates.
+func _rotate_facing(p: SubLayout.Placement) -> bool:
+	var start := SubLayout.FACINGS.find(p.facing)
+	for i in range(1, SubLayout.FACINGS.size()):
+		var facing: String = SubLayout.FACINGS[(start + i) % SubLayout.FACINGS.size()]
+		var candidate := SubLayout.from_dict(layout.to_dict())
+		for cp in candidate.placements:
+			if cp.grid_pos == p.grid_pos:
+				cp.facing = facing
+		if SubValidator.validate(candidate)["violations"].is_empty():
+			p.facing = facing
 			save_data()
 			return true
 	return false
+
+## Whether moving the floodlight pod at `pos` from `current_face` to `face`
+## would validate, checked against a candidate layout (no mutation).
+func _floodlight_pod_face_ok(pos: Vector2i, current_face: String, face: String) -> bool:
+	var candidate := SubLayout.from_dict(layout.to_dict())
+	for i in range(candidate.pods.size() - 1, -1, -1):
+		var pod: SubLayout.PodPlacement = candidate.pods[i]
+		if pod.pod_id == "floodlight_pod" and pod.host_cell == pos and pod.face == current_face:
+			candidate.pods.remove_at(i)
+			break
+	candidate.pods.append(SubLayout.PodPlacement.new("floodlight_pod", pos, face))
+	return SubValidator.validate(candidate)["violations"].is_empty()
+
+## Cycle the floodlight pod attached at `pos` to the next exterior face in
+## `SubLayout.FACINGS` order that validates.
+func _rotate_floodlight_pod(pos: Vector2i) -> bool:
+	var target := _floodlight_rotate_target(pos)
+	if target == "":
+		return false
+	for pod in layout.pods:
+		if pod.pod_id == "floodlight_pod" and pod.host_cell == pos:
+			pod.face = target
+			save_data()
+			return true
+	return false
+
+## The validation violations that rotating the placement at `pos` would cause,
+## without committing anything -- empty means the rotation is legal (or
+## there's no placement at `pos`, a no-op). Used by the assembly UI to decide
+## whether to show a "Rotate" option.
+func rotate_room_violations(pos: Vector2i) -> Array:
+	for p in layout.placements:
+		if p.grid_pos != pos:
+			continue
+		if p.module_id == "floodlight_room":
+			return [] if _floodlight_rotate_target(pos) != "" else ["No other exterior face is available."]
+		var start := SubLayout.FACINGS.find(p.facing)
+		for i in range(1, SubLayout.FACINGS.size()):
+			var facing: String = SubLayout.FACINGS[(start + i) % SubLayout.FACINGS.size()]
+			var candidate := SubLayout.from_dict(layout.to_dict())
+			for cp in candidate.placements:
+				if cp.grid_pos == p.grid_pos:
+					cp.facing = facing
+			if SubValidator.validate(candidate)["violations"].is_empty():
+				return []
+		return ["No other facing is available."]
+	return []
+
+## The next exterior face the floodlight pod at `pos` would rotate to, or ""
+## if none validates.
+func _floodlight_rotate_target(pos: Vector2i) -> String:
+	var current_face := ""
+	for pod in layout.pods:
+		if pod.pod_id == "floodlight_pod" and pod.host_cell == pos:
+			current_face = pod.face
+			break
+	var start := SubLayout.FACINGS.find(current_face)
+	for i in range(1, SubLayout.FACINGS.size()):
+		var face: String = SubLayout.FACINGS[(start + i) % SubLayout.FACINGS.size()]
+		if face == current_face:
+			continue
+		if _floodlight_pod_face_ok(pos, current_face, face):
+			return face
+	return ""

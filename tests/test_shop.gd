@@ -160,8 +160,8 @@ func _test_place_room_happy_path() -> void:
 	var pos := Vector2i(3, 1)  # adjacent to storage at (2,1); +x neighbor (4,1) is exterior
 	SaveData.buy_slot(pos)
 	SaveData.buy_room("turret_room")
-	var ok := SaveData.place_room("turret_room", pos, false)
-	_check(ok, "placing the turret room unmirrored (firing face clear) succeeds")
+	var ok := SaveData.place_room("turret_room", pos, "right")
+	_check(ok, "placing the turret room facing right (firing face clear) succeeds")
 	_check(pos not in SaveData.layout.slots, "the slot is consumed by the placement")
 	var found := false
 	for p in SaveData.layout.placements:
@@ -179,13 +179,13 @@ func _test_place_room_refused_when_firing_face_blocked() -> void:
 	var pos := Vector2i(3, 1)
 	SaveData.buy_slot(pos)
 	SaveData.buy_room("turret_room")
-	# Mirrored fires -x into (2,1) = storage, which is occupied.
-	var ok := SaveData.place_room("turret_room", pos, true)
-	_check(not ok, "placing the turret room mirrored (firing face blocked) is refused")
+	# Facing left fires -x into (2,1) = storage, which is occupied.
+	var ok := SaveData.place_room("turret_room", pos, "left")
+	_check(not ok, "placing the turret room facing left (firing face blocked) is refused")
 	_check(pos in SaveData.layout.slots, "the slot is still empty")
 	_check(SaveData.layout.inventory.get("turret_room", 0) == 1,
 		"the room is still in inventory")
-	_check(not SaveData.place_room_violations("turret_room", pos, true).is_empty(),
+	_check(not SaveData.place_room_violations("turret_room", pos, "left").is_empty(),
 		"the violation list explains why")
 
 func _test_place_room_refused_without_slot() -> void:
@@ -193,11 +193,11 @@ func _test_place_room_refused_without_slot() -> void:
 	SaveData.reset_for_test()
 	SaveData.banked_scrap = 1000
 	SaveData.buy_room("turret_room")
-	var ok := SaveData.place_room("turret_room", Vector2i(3, 0), false)
+	var ok := SaveData.place_room("turret_room", Vector2i(3, 0))
 	_check(not ok, "placing a room at a position with no owned slot is refused")
 	_check(SaveData.layout.inventory.get("turret_room", 0) == 1,
 		"the room remains in inventory")
-	_check(not SaveData.place_room_violations("turret_room", Vector2i(3, 0), false).is_empty(),
+	_check(not SaveData.place_room_violations("turret_room", Vector2i(3, 0)).is_empty(),
 		"the violation list explains there's no slot there")
 
 func _test_return_room_to_inventory() -> void:
@@ -207,7 +207,7 @@ func _test_return_room_to_inventory() -> void:
 	var pos := Vector2i(3, 1)
 	SaveData.buy_slot(pos)
 	SaveData.buy_room("turret_room")
-	SaveData.place_room("turret_room", pos, false)
+	SaveData.place_room("turret_room", pos)
 	var ok := SaveData.return_room_to_inventory(pos)
 	_check(ok, "returning a placed room to inventory succeeds")
 	_check(pos in SaveData.layout.slots, "the cell becomes an owned empty slot again")
@@ -247,7 +247,7 @@ func _test_place_helm_back() -> void:
 	print("[place the helm back]")
 	SaveData.reset_for_test()
 	SaveData.return_room_to_inventory(Vector2i(1, 0))
-	var ok := SaveData.place_room("helm", Vector2i(1, 0), false)
+	var ok := SaveData.place_room("helm", Vector2i(1, 0))
 	_check(ok, "the helm can be placed back into an owned slot")
 	var found := false
 	for p in SaveData.layout.placements:
@@ -272,7 +272,7 @@ func _test_slot_price_stable_across_place_and_return() -> void:
 	var other: Vector2i = SaveData.layout.buyable_slot_positions()[0]
 	var price_before := SaveData.next_slot_price(other)
 
-	SaveData.place_room("turret_room", pos, false)
+	SaveData.place_room("turret_room", pos)
 	_check(SaveData.next_slot_price(other) == price_before,
 		"placing a room into a slot doesn't change the price of other slots")
 
@@ -321,7 +321,7 @@ func _test_buy_pod_refused_for_non_pod() -> void:
 func _setup_floodlight_room() -> void:
 	SaveData.buy_slot(Vector2i(3, 1))
 	SaveData.buy_room("floodlight_room")
-	SaveData.place_room("floodlight_room", Vector2i(3, 1), false)
+	SaveData.place_room("floodlight_room", Vector2i(3, 1))
 	# Placing the room auto-attaches its lamp (2026-06-19 rework) — undo that
 	# here so these tests can exercise place_pod/return_pod directly against a
 	# clean "room placed, pod in inventory, nothing attached" state.
@@ -401,8 +401,8 @@ func _test_place_room_refused_without_inventory() -> void:
 	SaveData.banked_scrap = 1000
 	var pos := Vector2i(3, 1)
 	SaveData.buy_slot(pos)
-	var ok := SaveData.place_room("turret_room", pos, false)
+	var ok := SaveData.place_room("turret_room", pos)
 	_check(not ok, "placing a room not owned in inventory is refused")
 	_check(pos in SaveData.layout.slots, "the slot remains empty")
-	_check(not SaveData.place_room_violations("turret_room", pos, false).is_empty(),
+	_check(not SaveData.place_room_violations("turret_room", pos).is_empty(),
 		"the violation list explains the room isn't in inventory")

@@ -186,7 +186,7 @@ func _test_placed_turret_room() -> void:
 	# Stern-mounted, mirrored: its firing face (-2, 0) is exterior, and (-1, 0)
 	# is the new leftmost cell on its row (the starting bow gun already
 	# occupies the row's rightmost cell, (2, 0)).
-	layout.placements.append(SubLayout.Placement.new("turret_room", Vector2i(-1, 0), true))
+	layout.placements.append(SubLayout.Placement.new("turret_room", Vector2i(-1, 0), "left"))
 	_check(SubValidator.validate(layout)["ok"], "the layout with a second placed turret room is valid")
 
 	var sub := Sub.new()
@@ -210,7 +210,7 @@ func _test_placed_turret_room() -> void:
 				placed = t
 		_check(placed != null, "one turret station seats in the placed turret room")
 		if placed != null:
-			_check(placed.facing < 0.0, "a mirrored turret room fires toward the stern (-x)")
+			_check(placed.facing_dir.x < 0.0, "a left-facing turret room fires toward the stern (-x)")
 			_check(placed.tube_local.x < room.rect.position.x,
 				"its tube sits outside the room's footprint, on the firing-face wall")
 
@@ -222,7 +222,7 @@ func _test_placed_bullet_room() -> void:
 	# Bow-mounted on the lower deck, unmirrored: its firing face (4, 1) is
 	# exterior, and (3, 1) is the new rightmost cell on its row (the starting
 	# Bullet Room already occupies the row's leftmost cell, (0, 1)).
-	layout.placements.append(SubLayout.Placement.new("bullet_room", Vector2i(3, 1), false))
+	layout.placements.append(SubLayout.Placement.new("bullet_room", Vector2i(3, 1), "right"))
 	_check(SubValidator.validate(layout)["ok"], "the layout with a second placed bullet room is valid")
 
 	var sub := Sub.new()
@@ -247,7 +247,7 @@ func _test_placed_bullet_room() -> void:
 		_check(placed != null, "one turret station seats in the placed bullet room")
 		if placed != null:
 			_check(placed.use_bullet, "the Bullet Room's station fires bullets")
-			_check(placed.facing > 0.0, "an unmirrored bullet room fires toward the bow (+x)")
+			_check(placed.facing_dir.x > 0.0, "a right-facing bullet room fires toward the bow (+x)")
 			_check(placed.tube_local.x > room.rect.position.x + room.rect.size.x,
 				"its tube sits outside the room's footprint, on the firing-face wall")
 			_check(absf(placed.fire_cooldown - GameFeel.bullet.fire_cooldown) < 0.001,

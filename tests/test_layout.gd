@@ -126,7 +126,7 @@ func _test_serialization_round_trip() -> void:
 	for i in layout.placements.size():
 		var a := layout.placements[i]
 		var b := restored.placements[i]
-		if a.module_id != b.module_id or a.grid_pos != b.grid_pos or a.mirrored != b.mirrored:
+		if a.module_id != b.module_id or a.grid_pos != b.grid_pos or a.facing != b.facing:
 			same_placements = false
 	_check(same_placements, "placements round-trip (contents)")
 

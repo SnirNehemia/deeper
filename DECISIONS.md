@@ -583,6 +583,21 @@ Snir's 7-part request, scoped via AskUserQuestion:
   softened (layered translucent triangles), and the cone is 3x longer
   (`base_length_m` 3m -> 9m).
 
+- **Any-outer-face placement (2026-06-19, M4-18)**: turret/bullet rooms, the
+  claw, and the floodlight's lamp can now face/rotate to **any of the four
+  hull sides** (right/left/top/bottom), not just left/right. Placement
+  auto-picks the first legal facing; a "Rotate" menu option cycles through
+  the rest. This also settles M4-16's open question — the claw can drop in
+  any direction, not just straight down.
+- **Floodlight beam realism (2026-06-19, M4-18)**: the beam's cone radius is
+  fixed at 10m and its base width follows `b = 2*sqrt(R^2 - h^2)` as the
+  lamp's effective height (h, starting at 5m) changes with zoom. Brightness
+  fades along the beam's length via a sigmoid centered at 5m (half the
+  radius) with a 5m transition width.
+- **Debug top-ups bumped to +100 (2026-06-19, M4-18)**: the dry dock's debug
+  "+1 Scrap"/"+1 Carcass" buttons now grant +100 each, for faster
+  playtesting.
+
 ## Parked
 - **What station/ability lives in the conning tower?** It's a fixed, always-
   present single cell at the top of the sub (core, like the helm) — Snir is

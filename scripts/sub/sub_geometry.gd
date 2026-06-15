@@ -44,7 +44,7 @@ class Room:
 	var cell: Vector2i
 	var rect: Rect2
 	var water_index: int
-	var mirrored: bool
+	var facing: String = "right"
 
 ## An auto-doorway between two horizontally adjacent rooms (a shared vertical
 ## wall). `wall_x` is the sub-local x of the shared wall; the opening is DOOR_H
@@ -137,7 +137,7 @@ func _build(layout: SubLayout) -> void:
 		var room := Room.new()
 		room.module_id = p.module_id
 		room.cell = p.grid_pos
-		room.mirrored = p.mirrored
+		room.facing = p.facing
 		room.water_index = i
 		room.rect = cell_rect(p.grid_pos)
 		rooms.append(room)

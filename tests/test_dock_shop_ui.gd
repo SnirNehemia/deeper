@@ -193,7 +193,7 @@ func _ready() -> void:
 	# Place the helm back — now closing is allowed again. (Other rooms may
 	# also be in inventory by now, so go straight to SaveData rather than
 	# relying on the UI's menu order for this slot.)
-	_check(SaveData.place_room("helm", helm_pos, false), "the helm can be placed back")
+	_check(SaveData.place_room("helm", helm_pos), "the helm can be placed back")
 	_check(SaveData.layout.inventory.get("helm", 0) == 0, "the helm is placed back")
 	dock._rebuild_assembly_entries()
 
@@ -207,7 +207,7 @@ func _ready() -> void:
 	_check(SaveData.buy_room("floodlight_room"), "buy a Floodlight Room into inventory")
 	_check(int(SaveData.layout.inventory.get("floodlight_pod", 0)) == 1,
 		"buying the Floodlight Room also grants its pod into inventory")
-	_check(SaveData.place_room("floodlight_room", fl_pos, false), "place the Floodlight Room")
+	_check(SaveData.place_room("floodlight_room", fl_pos), "place the Floodlight Room")
 	_check(SaveData.layout.pods.size() == 1, "placing the room auto-attaches its lamp")
 	_check(SaveData.layout.inventory.get("floodlight_pod", 0) == 0,
 		"the lamp is no longer in inventory")

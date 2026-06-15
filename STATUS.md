@@ -1,18 +1,23 @@
 # STATUS — DEEPER
 
-_Read this at session start. Last updated: 2026-06-19 (Module 17: the
-Floodlight Room and its lamp are now one inseparable unit with a working
-rotate/zoom station and a redesigned light cone — tip at the hull, base
-flaring outward, softened edges, 3x longer. Module 16 bundled the Floodlight
-Room + pod into one purchase, made turret/bullet room placement auto-flip to
-the open side and added a "Rotate" menu option for placed guns, and added a
-validator rule keeping the cell below the Claw Room clear for its drop. Open
-question for Snir: whether the claw itself should also get a directional
-placement choice — see Module 16's "Open design question.")_
+_Read this at session start. Last updated: 2026-06-19 (Module 18: turret,
+bullet, claw, and floodlight rooms can now be placed/rotated facing **any of
+the four outer faces** (right/left/top/bottom), not just left/right — this
+also answers Module 16's open question (the claw can now point any
+direction, not just down). The floodlight beam now has real-world geometry
+(R=10m cone radius, base width follows the chord formula as height changes)
+and brightness falls off with distance via a sigmoid centered at half the
+radius. Debug "+1" buttons now grant +100 scrap/carcass for faster
+playtesting. Module 17: the Floodlight Room and its lamp are one inseparable
+unit with a working rotate/zoom station and a redesigned light cone. Module
+16 bundled the Floodlight Room + pod into one purchase and added auto-flip
+placement + a "Rotate" menu option for placed guns.)_
 
 ## Where we are
 **Milestone 3 is closed (Modules A-E).** Milestone 4 ("The Dry Dock & The
-Growing Sub") is well underway — **all 26 headless suites green.**
+Growing Sub") is well underway — **all headless suites green** (except a
+pre-existing, unrelated `test_station_flood` failure — see "Known issues"
+below).
 
 **The submarine is now fully layout-driven** (built from a `SubLayout` via the
 `SubGeometry` pipeline; no hand-authored geometry). Snir **played Checkpoint 1**
@@ -708,6 +713,47 @@ light cone's look/controls are reworked.
 - **Commit:** `M4-17: floodlight room+lamp as one unit, working station, cone
   redesign`.
 
+### Milestone 4 — Module 18: any-outer-face placement + floodlight beam geometry/decay + faster debug top-ups (DONE, 2026-06-19)
+
+1. **"Any outer face" placement/rotation rework.** The old binary
+   `mirrored: bool` (left/right only) is replaced everywhere by a
+   `facing: String` (`"right"/"left"/"top"/"bottom"`, `SubLayout.FACINGS`),
+   used uniformly for the Turret/Bullet Rooms' firing face, the Claw Room's
+   drop direction, and the Floodlight Room's lamp face.
+   - Placing one of these rooms auto-picks the **first facing (in
+     right/left/top/bottom order) that's legal** for that cell
+     (`SaveData._resolve_placement_facing`) — no more pre-placement
+     direction toggle.
+   - A placed room's menu now offers **"Rotate (next facing)"**, which
+     cycles through the remaining facings and commits to the first legal
+     one (`SaveData.rotate_room`/`_rotate_facing`). For the Floodlight Room,
+     "Rotate" instead cycles its lamp's exterior face
+     (`_rotate_floodlight_pod`).
+   - `SubValidator` rule 8 (firing-face room must sit at a level's edge) now
+     checks the row edge for left/right facings and the **column edge** for
+     top/bottom facings. Rule 9 (claw drop path clear) now uses the claw's
+     actual `facing` instead of always assuming straight down.
+   - This also resolves Module 16's open question: the Claw Room can now be
+     placed/rotated to drop in any of the four directions, not just down.
+2. **Floodlight beam geometry now follows real-world numbers.** With the
+   cone radius fixed at **R = 10m** and the lamp's height above the hull
+   starting at **h = 5m**, the beam's base half-width is computed as
+   `sqrt(R^2 - h^2)` (a circle-chord relationship) — zooming in/out (which
+   changes effective height) reshapes the cone to match
+   (`GameFeel.FloodlightFeel.base_half_width_m`).
+3. **Light fades out with distance.** The beam's brightness now decays along
+   its length via a sigmoid curve centered at **half the cone radius (5m)**
+   with a **5m transition width** — bright near the lamp, fading smoothly to
+   dark by the edge of the cone, rather than a flat-brightness triangle.
+4. **Faster debug top-ups.** The dry dock's debug "+1 Scrap"/"+1 Carcass"
+   buttons now grant **+100** of each per press, for quicker playtesting.
+- Headless-verified: project loads clean with `--headless --path . --quit`,
+  plus `test_dock_shop_ui.tscn`, `test_shop.tscn`, `test_validate.tscn`,
+  `test_save_layout.tscn`, `test_layout.tscn`, `test_sub.tscn`,
+  `test_turret.tscn`, `test_lower_deck.tscn`, `test_claw.tscn` — all PASSED.
+- **Commit:** `M4-18: any-outer-face placement/rotation + floodlight beam
+  geometry/decay + debug top-up bump`.
+
 ### M4 module order (corrected per `ROOM_SYSTEM.md` reconciliation, 2026-06-12)
 `MILESTONE_4_v2.md`'s eleven modules are still the backbone, but three things
 from `ROOM_SYSTEM.md` change the order and add a module. This list is the
@@ -1011,6 +1057,11 @@ beat. All placeholder art.
   In practice territories keep them in open water; revisit if it reads badly.
 - Dead-crew countdown label is parented to the (invisible) crew, so it rides
   the sub at the spot of death until respawn.
+- `test_station_flood.tscn`'s "[flooded helm ejects]" section has 2 failing
+  checks ("occupant ejected once the helm room floods" and "drained helm
+  accepts entry again") — confirmed via `git stash` to be **pre-existing**,
+  not caused by M4-18's "any outer face" rework. Not yet investigated; all
+  other sections of this test pass.
 - `test_turret.tscn`'s `_ready()` never prints PASS/FAIL under `--quit` —
   pre-existing (confirmed via `git stash`, not caused by M4-10), likely
   because its long `await get_tree().physics_frame` loops (90-120 frames)
@@ -1300,3 +1351,23 @@ test_lower_deck, test_sub, test_geometry).
    option; picking it flips which side the gun points.
 8. In Assembly, the cell directly below the Claw Room should now be marked
    reserved (dim red), and can't be bought as a slot.
+
+## Verify by playing — Module 18 (any-outer-face placement, floodlight beam geometry/decay, faster debug top-ups)
+1. Launch: `"D:\Godot_v4.4.1-stable_win64.exe\Godot_v4.4.1-stable_win64.exe" --path .`
+2. In the dry dock's debug controls, press the "+1 Scrap" and "+1 Carcass"
+   buttons — each press should now add **100** to the wallet (check the
+   number on screen jumps by 100, not 1).
+3. In Assembly, buy a slot and place a Turret Room, Bullet Room, or the Claw
+   Room somewhere it has more than one open exterior side (e.g. a corner
+   cell). It should place facing whichever side is open.
+4. Open that room's menu and pick "Rotate (next facing)" repeatedly — the
+   gun's barrel (or the claw's reach direction) should swing to point out a
+   different side of the hull each time, skipping any direction that would be
+   illegal (blocked, or not on the hull's edge).
+5. Place/rotate the Floodlight Room's lamp the same way — its menu's "Rotate"
+   should move the lamp to a different face of the hull.
+6. Look at the floodlight's beam: it should be a wide-based cone (about as
+   wide as it is long) that's brightest near the lamp and **fades out toward
+   its far edge** rather than staying a flat color all the way out. Zooming
+   the beam in/out (the lamp station's up/down controls) should reshape the
+   cone — wider/shorter when zoomed in, narrower/longer when zoomed out.

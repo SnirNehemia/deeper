@@ -22,8 +22,13 @@ var drop_floor_y: float = 0.0
 ## Sub-local x of the dropping hatch (section s2) where catches enter the hold.
 var hatch_x: float = 0.0
 
-## Joint angles (radians). shoulder = 0 points the upper arm straight DOWN and
-## swings to either side; elbow bends the forearm relative to the upper arm.
+## The direction the arm reaches out toward at rest (sub-local unit vector),
+## set by Sub from the claw room's `facing` (2026-06-19 "any outer face"
+## rework). shoulder_angle = 0 points the upper arm along this direction.
+var down_dir: Vector2 = Vector2.DOWN
+
+## Joint angles (radians). shoulder = 0 points the upper arm along `down_dir`
+## and swings to either side; elbow bends the forearm relative to the upper arm.
 ## Start folded up at home (tip near the anchor).
 var shoulder_angle: float = 0.0
 var elbow_angle: float = deg_to_rad(160.0)
@@ -74,11 +79,11 @@ func fore_len() -> float:
 
 ## Elbow joint position: down the upper arm from the anchor.
 func joint_local() -> Vector2:
-	return anchor_local + Vector2.DOWN.rotated(shoulder_angle) * upper_len()
+	return anchor_local + down_dir.rotated(shoulder_angle) * upper_len()
 
 ## Cage (tip) position: down the forearm from the elbow.
 func tip_local() -> Vector2:
-	var upper_dir := Vector2.DOWN.rotated(shoulder_angle)
+	var upper_dir := down_dir.rotated(shoulder_angle)
 	var fore_dir := upper_dir.rotated(elbow_angle)
 	return joint_local() + fore_dir * fore_len()
 
