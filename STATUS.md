@@ -1,6 +1,14 @@
 # STATUS — DEEPER
 
-_Read this at session start. Last updated: 2026-06-20 (Module 21: weapon and
+_Read this at session start. Last updated: 2026-06-20 (Module 22: fixed
+Module 21's beam-range tweak, which had the opposite of the intended effect —
+the cone got wider as it swung toward the hull. Now `aim_angle` is clamped to
+the cone's own half-angle (`atan(half_width_m / height_m)`), so the beam's
+near edge can swing at most flush with the lamp's mounted wall and never
+shines into the sub; this tightens automatically as the beam lengthens. Also
+fixed the floodlight's zoom direction: pushing outward (away from the hull,
+into open water) always lengthens the beam, pushing toward the hull always
+shortens it. Module 21: weapon and
 floodlight aim controls are now face-relative — side-mounted aims with W/S,
 top/bottom-mounted aims with A/D, whichever sweeps the aim toward the screen's
 right/down; the floodlight's light-falloff sigmoid now scales with the beam's
@@ -854,6 +862,28 @@ light cone's look/controls are reworked.
   `test_shop.tscn` — all PASSED.
 - **Commit:** `M4-21: face-relative aim controls + beam range/decay tied to reach`.
 
+### Milestone 4 — Module 22: floodlight rotation capped at the hull, outward-zoom fix (DONE, 2026-06-20)
+
+1. **Rotation no longer lets the beam shine into the hull.** Module 21's
+   `cos(aim_angle)` range shrink had the opposite effect (the cone got
+   *wider* as it swung toward the hull). Replaced it: `FloodlightStation.
+   handle_input` now clamps `aim_angle` to `atan(half_width_m / height_m)` —
+   the cone's own half-angle — so its near edge can swing at most flush with
+   the lamp's mounted wall, never past it. This tightens automatically as the
+   beam lengthens (a longer, narrower beam can swing less before its edge
+   would clip the wall). `GameFeel.floodlight.rotate_cone_half_angle_deg`
+   (the old fixed 75° clamp) is removed — superseded by this dynamic limit.
+   `SubVisual._draw_floodlight_beam` no longer shortens the drawn reach by
+   `cos(aim_angle)` (Module 21's range tweak is reverted; the rotation cap
+   alone keeps the beam off the hull).
+2. **Zoom direction fixed.** New shared helper `Station.face_zoom_input()`:
+   pushing the zoom axis *outward* (away from the hull, into open water)
+   always lengthens the beam; pushing it back toward the hull shortens it —
+   regardless of which wall the lamp is mounted on.
+- Headless-verified: project loads clean with `--headless --path . --quit`,
+  plus `test_sub.tscn`, `test_turret.tscn` — all PASSED.
+- **Commit:** `M4-22: floodlight rotation capped at the hull, outward-zoom fix`.
+
 ### M4 module order (corrected per `ROOM_SYSTEM.md` reconciliation, 2026-06-12)
 `MILESTONE_4_v2.md`'s eleven modules are still the backbone, but three things
 from `ROOM_SYSTEM.md` change the order and add a module. This list is the
@@ -1509,6 +1539,19 @@ test_lower_deck, test_sub, test_geometry).
 5. Aim the floodlight toward the extreme edge of its swing (toward the wall
    it's mounted on) — the beam should visibly shorten as it swings toward that
    wall, so it doesn't poke through the hull.
+
+## Verify by playing — Module 22 (floodlight rotation capped at the hull, outward-zoom fix)
+
+1. Sit in the Floodlight Room and swing the beam all the way to one side —
+   the cone's near edge should stop right at the lamp's own wall and never
+   swing past it into the hull (no widening or shining into the sub as it
+   rotates).
+2. Try this at both a short and a long zoom — the beam should be allowed to
+   swing less (clamp tighter) when it's zoomed in long/narrow than when it's
+   short/wide.
+3. Zoom the lamp: pushing the zoom control outward (toward open water, away
+   from the sub's hull) should lengthen the beam; pushing it the other way
+   (toward the hull) should shorten it.
 
 ## Verify by playing — Module 20 (floodlight beam polish: soft edges, hull occlusion, reserved pod face)
 1. Launch: `"D:\Godot_v4.4.1-stable_win64.exe\Godot_v4.4.1-stable_win64.exe" --path .`

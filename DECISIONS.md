@@ -637,6 +637,19 @@ Snir's 7-part request, scoped via AskUserQuestion:
   of using fixed meter values. The drawn reach is also scaled by
   `cos(aim_angle)`, so the beam shortens as it's aimed toward the wall it's
   mounted on instead of visibly poking through it.
+  **Superseded by M4-22 below** — the `cos(aim_angle)` range scaling had the
+  opposite of the intended effect (cone widened toward the hull) and was
+  removed.
+
+- **Floodlight rotation capped at the hull, outward-zoom fix (2026-06-20,
+  M4-22)**: `aim_angle` is now clamped to `atan(half_width_m / height_m)` —
+  the cone's own half-angle — so the beam's near edge can swing at most flush
+  with the lamp's mounted wall, never past it into the hull; this tightens as
+  the beam lengthens. Removed `GameFeel.floodlight.rotate_cone_half_angle_deg`
+  (the old fixed 75° clamp) and the M4-21 `cos(aim_angle)` range shrink — the
+  rotation cap alone is sufficient. New shared helper `Station.
+  face_zoom_input()`: zooming outward (away from the hull) always lengthens
+  the beam, zooming toward the hull always shortens it, on any wall.
 
 ## Parked
 - **What station/ability lives in the conning tower?** It's a fixed, always-

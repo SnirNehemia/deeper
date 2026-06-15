@@ -78,3 +78,11 @@ static func face_cross_input(facing_dir: Vector2, input: PlayerInput) -> float:
 	if facing_dir.y != 0.0:
 		return input.move.y
 	return input.move.x
+
+## Face-relative zoom control (2026-06-2x): like face_cross_input, but signed
+## so that pushing toward open water (away from the hull, in `facing_dir`'s
+## own direction) is always positive — used by the floodlight to grow its
+## reach when pushed outward and shrink it when pushed back toward the hull.
+static func face_zoom_input(facing_dir: Vector2, input: PlayerInput) -> float:
+	var sign := facing_dir.x + facing_dir.y
+	return face_cross_input(facing_dir, input) * sign

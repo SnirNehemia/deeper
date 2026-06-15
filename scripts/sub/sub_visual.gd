@@ -185,10 +185,6 @@ func _draw_storage_pen(sub: Sub) -> void:
 ## further drawn as a few nested, wider, more-transparent trapezoids (widest
 ## first) so the beam's lateral edges fade out softly instead of cutting off
 ## sharply (2026-06-19).
-##
-## The reach itself shrinks as the lamp aims away from straight-out
-## (h * cos(aim_angle)), so a beam swung toward the hull's own wall stays
-## short instead of overshooting through it (2026-06-2x).
 func _draw_floodlight_beam(f: FloodlightStation) -> void:
 	if not f.is_on:
 		return
@@ -197,7 +193,7 @@ func _draw_floodlight_beam(f: FloodlightStation) -> void:
 	var tip := f.tip_local
 	var dir := f.beam_dir()
 	var perp := Vector2(-dir.y, dir.x)
-	var h := f.height_m * cos(f.aim_angle)
+	var h := f.height_m
 	var half_width_m := feel.base_half_width_m(h)
 	var decay_center_m := h * 0.5
 	var decay_width_m := h / 8.0

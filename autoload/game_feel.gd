@@ -174,7 +174,6 @@ var bullet: BulletFeel = BulletFeel.new()
 ## derived from the single h value the player controls.
 class FloodlightFeel:
 	var rotate_speed_deg: float = 60.0   ## left/right aim sweep (deg/s)
-	var rotate_cone_half_angle_deg: float = 75.0  ## clamp around the room's facing
 	var zoom_speed_m: float = 2.0        ## up/down change to h (m/s)
 	var cone_radius_m: float = 10.0      ## R, the circle h and the base half-width are drawn from
 	var min_height_m: float = 1.0
