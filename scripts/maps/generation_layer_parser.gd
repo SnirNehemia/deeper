@@ -5,13 +5,13 @@ extends RefCounted
 ## where to spawn the player sub and fauna/wreck entities, in world
 ## coordinates (scaled per MapConfig.pixel_scale()).
 
-const PLAYER_SPAWN := Color(1, 1, 1)                              # #FFFFFF
-const TERRITORIAL_FISH := Color(0.5, 0, 0.5)                      # #800080
-const HUNTER_FISH := Color(0, 1, 0)                               # #00FF00
-const WRECKAGE := Color(0.5, 0.5, 0.5)                            # #808080
-const DOCK_ZONE := Color(0x6E / 255.0, 0x47 / 255.0, 0x3B / 255.0)  # #6E473B
+const PLAYER_SPAWN := Color(1, 1, 1)                                          # #FFFFFF
+const TERRITORIAL_FISH := Color(0x80 / 255.0, 0, 0x80 / 255.0)               # #800080
+const HUNTER_FISH := Color(0, 1, 0)                                           # #00FF00
+const WRECKAGE := Color(0x80 / 255.0, 0x80 / 255.0, 0x80 / 255.0)            # #808080
+const DOCK_ZONE := Color(0x6E / 255.0, 0x47 / 255.0, 0x3B / 255.0)           # #6E473B
 
-const COLOR_EPS := 0.5 / 255.0
+const COLOR_EPS := 2.0 / 255.0  # tolerant of 8-bit PNG round-trip rounding
 
 ## Result dictionary keys.
 const KEY_PLAYER_SPAWN := "player_spawn"

@@ -86,6 +86,10 @@ signal salvage_collected(kind: int)
 signal breach_spawned(breach: Breach)
 signal imploded
 
+## The conning-tower hull station node, set in _build_hull_station(). Null
+## when the layout has no tower room.
+var hull_station: HullStation = null
+
 var _implosion_fired: bool = false
 
 var _visual: SubVisual
@@ -377,6 +381,8 @@ func _gun_room_anchors(module_id: String, crew_half: float) -> Array:
 
 func helm_seat_local() -> Vector2:
 	return _helm_seat
+func hull_station_seat_local() -> Vector2:
+	return _hull_station_seat
 ## The bow gun's gunner seat (the starting layout's placed Turret Room, the
 ## sub's first/only `_turret_rooms` entry in the Minnow+).
 func turret_seat_local() -> Vector2:
@@ -812,7 +818,7 @@ func _build_stations() -> void:
 
 ## Conning-tower Hull station (M5-C1): remote, slow auto-patch.
 func _build_hull_station() -> void:
-	var hull_station := HullStation.new()
+	hull_station = HullStation.new()
 	hull_station.sub = self
 	hull_station.room_index = _room_by_id("tower").water_index
 	hull_station.position = _hull_station_seat

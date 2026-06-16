@@ -26,8 +26,6 @@ static func from_color(color: Color) -> Type:
 		return Type.SAND
 	if _matches(color, DOCK_COLOR):
 		return Type.DOCK
-	if _matches(color, SKY_COLOR):
-		return Type.DOCK  # sky: solid ceiling but non-damaging (like dock)
 	return Type.NORMAL_ROCK
 
 static func _matches(a: Color, b: Color) -> bool:

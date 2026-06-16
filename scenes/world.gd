@@ -111,12 +111,13 @@ func _spawn_sub_and_crew() -> void:
 	_sub = Sub.new()
 	_sub.loadout = SaveData.loadout
 	_sub.layout = SaveData.layout
-	# Buoyancy only makes sense for the open-ocean ShoreShelf map; in the
-	# underground cavern the terrain constrains the sub instead.
-	_sub.buoyancy_enabled = (_map_loader == null)
+	_sub.buoyancy_enabled = true
+	_sub.water_surface_y = _map_loader.water_surface_y if _map_loader != null else 0.0
 	_sub.position = _sub_spawn
 	add_child(_sub)
 	_sub.imploded.connect(_on_imploded)
+	if _sub.hull_station != null:
+		_sub.hull_station.dock_requested.connect(_on_hull_station_dock_requested)
 
 	var p1 := Crew.new()
 	p1.player_index = 0
@@ -225,6 +226,10 @@ func _is_docked() -> bool:
 	if _sub == null:
 		return false
 	return _sub.global_position.distance_to(_dock_center) <= _dock_radius
+
+func _on_hull_station_dock_requested() -> void:
+	if _is_docked():
+		_open_dry_dock()
 
 func _open_dry_dock() -> void:
 	if _dry_dock != null or _resetting:

@@ -8,10 +8,17 @@ extends Station
 ## (GameFeel.water.repair_time). When the current target seals, it retargets
 ## the next-nearest breach in range automatically. Out of range -> idle.
 ## Flood-eject is inherited from Station (is_flooded()/exit()).
+##
+## A single tap (use_pressed) while docked emits dock_requested so the world
+## can open the dry-dock screen.
+
+signal dock_requested
 
 var _target: Breach = null
 
 func handle_input(input: PlayerInput) -> void:
+	if input.use_pressed:
+		dock_requested.emit()
 	if sub == null or not input.use_held:
 		_target = null
 		return
