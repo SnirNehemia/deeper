@@ -10,7 +10,8 @@ extends Node2D
 ##   4. visual_foreground  (in front of everything)
 
 const Z_BACKGROUND := -100
-const Z_SHIMMER := 50
+const Z_SHIMMER := -50   # between background and gameplay (z=0), so only the
+                         # background art wobbles — not the sub, crew, or fish
 const Z_FOREGROUND := 100
 
 var background: Sprite2D

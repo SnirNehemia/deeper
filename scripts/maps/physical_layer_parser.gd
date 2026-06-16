@@ -9,10 +9,12 @@ extends RefCounted
 ##
 ## Passable colors (water, sky) are skipped and produce no collision geometry.
 
-## Pixels of these colors represent navigable space, not solid terrain.
+## Pixels of these colors represent open water — navigable, no collision.
+## Sky (#4d9bc7) is intentionally NOT in this list: sky pixels create solid
+## non-damaging collision (TerrainType.DOCK) so the sub can't fly into cave
+## ceiling openings, mirroring the buoyancy ceiling from the Shore Shelf map.
 const PASSABLE_COLORS: Array = [
 	Color(0x1d / 255.0, 0x4a / 255.0, 0x70 / 255.0),  # #1d4a70 water
-	Color(0x4d / 255.0, 0x9b / 255.0, 0xc7 / 255.0),  # #4d9bc7 sky
 ]
 
 ## One merged block: world-space Rect2 + TerrainType.Type.

@@ -11,6 +11,7 @@ const NORMAL_ROCK_COLOR := Color(0.5, 0.5, 0.5)       # #808080
 const SAND_HEX_COLOR := Color(0xD2 / 255.0, 0xB4 / 255.0, 0x8C / 255.0)  # #D2B48C
 const SHARP_ROCK_COLOR := Color(0, 0, 0)               # #000000
 const DOCK_COLOR := Color(0x6E / 255.0, 0x47 / 255.0, 0x3B / 255.0)  # #6E473B
+const SKY_COLOR := Color(0x4D / 255.0, 0x9B / 255.0, 0xC7 / 255.0)  # #4d9bc7
 
 const COLOR_EPS := 0.5 / 255.0
 
@@ -25,6 +26,8 @@ static func from_color(color: Color) -> Type:
 		return Type.SAND
 	if _matches(color, DOCK_COLOR):
 		return Type.DOCK
+	if _matches(color, SKY_COLOR):
+		return Type.DOCK  # sky: solid ceiling but non-damaging (like dock)
 	return Type.NORMAL_ROCK
 
 static func _matches(a: Color, b: Color) -> bool:

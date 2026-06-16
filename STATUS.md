@@ -1,6 +1,27 @@
 # STATUS — DEEPER
 
-_Read this at session start. Last updated: 2026-06-16 — **Milestone 6 fully
+_Read this at session start. Last updated: 2026-06-16 — **Six post-wiring
+fixes**: (1) water shimmer z_index moved from +50 to −50 so it sits between
+background and gameplay — the sub, crew, and fish no longer wobble, only the
+background art does. (2) Sky pixels (`#4d9bc7`) in the physical layer are now
+solid non-damaging collision (TerrainType.DOCK) instead of passable — the sub
+can't fly into cave ceiling openings. (3) `pixels_per_meter` in
+`world_01.json` raised to 4.0 (1 PNG pixel = 0.25 m). (4/5) Sub size in PNG
+pixels at 4 px/m — base sub ≈ 60 × 36 px, max sub ≈ 180 × 60 px (see note
+below). (6) Green gen-layer pixels now spawn as `is_chaser=true` fish (green,
+elongated) instead of `is_hunter=true` (which looked identical to purple
+territorial fish). 28/28 suites green.
+
+**Sub pixel sizes at 4 px/m (1 pixel = 0.25 m):**  The sub's screen-pixel
+size is fixed (meters × 48); only the map-pixel footprint changes.
+- Base sub (Minnow+, 3 cells × 3 rows incl. tower): 15 m × 9 m →
+  **60 × 36 map pixels**.
+- Max sub (9 cols × 5 rows): 45 m × 15 m → **180 × 60 map pixels**.
+- The 200 × 200 px map = 50 m × 50 m at this ratio. The max sub is 90 % of
+  the map width — very tight. Consider a larger source image for the next map
+  revision (e.g. 400 × 400 px = 100 m × 100 m).
+
+_Previous update: 2026-06-16 — **Milestone 6 fully
 wired: cavern_depths_01 is now the live map**. `MapLoader`
 (`scripts/maps/map_loader.gd`) assembles the full map pipeline — physical
 terrain (`PhysicalLayerBuilder`), gen-layer entity spawns

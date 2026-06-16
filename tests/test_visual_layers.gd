@@ -63,8 +63,8 @@ func _test_stack_assembly() -> void:
 	_check(layers.shimmer != null, "shimmer overlay built")
 
 	_check(layers.background.z_index < 0, "background renders behind gameplay (z < 0)")
-	_check(layers.shimmer.z_index > 0 and layers.shimmer.z_index < layers.foreground.z_index,
-		"shimmer sits between gameplay and the foreground")
+	_check(layers.shimmer.z_index > layers.background.z_index and layers.shimmer.z_index < 0,
+		"shimmer sits between background and gameplay (only wobbles the background art)")
 	_check(layers.foreground.z_index > layers.shimmer.z_index,
 		"foreground renders in front of everything")
 

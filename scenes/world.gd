@@ -94,7 +94,7 @@ func _spawn_entities() -> void:
 		for pos in _map_loader.territorial_fish_spawns:
 			_add_fish(pos)
 		for pos in _map_loader.hunter_fish_spawns:
-			_add_fish(pos, true)
+			_add_fish(pos, false, true)  # green gen-layer pixels → green chasers
 		for pos in _map_loader.wreck_spawns:
 			_add_wreck(pos)
 	else:
