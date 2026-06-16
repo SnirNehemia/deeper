@@ -64,6 +64,11 @@ var pitch: float = 0.0
 ## Buoyancy: neutrally buoyant underwater, heavier as it rises out of the water.
 var buoyancy_enabled: bool = false
 var water_surface_y: float = 0.0
+## Sky zones from the map (main surface + cave air pockets). Each entry is a
+## Dictionary {"rect": Rect2, "surface_y": float}. Buoyancy uses the local
+## surface_y of whichever zone the sub is currently inside, falling back to
+## water_surface_y when the sub is not inside any zone.
+var sky_zones: Array = []
 
 ## Per-room water level (0-1), indexed by room water index (placement order).
 var water_levels: Array[float] = []
@@ -435,7 +440,8 @@ func _physics_process(delta: float) -> void:
 	else:
 		velocity.y = move_toward(velocity.y, 0.0, feel.decel_v() * ppm * delta)
 	if buoyancy_enabled:
-		var above := (water_surface_y + SURFACE_FLOAT_DEPTH) - global_position.y
+		var surface_y := _local_surface_y()
+		var above := (surface_y + SURFACE_FLOAT_DEPTH) - global_position.y
 		var emergence := clampf(above / _EMERGE_RANGE, 0.0, 1.0)
 		velocity.y += feel.surface_gravity * ppm * emergence * delta
 
@@ -459,9 +465,17 @@ func _physics_process(delta: float) -> void:
 	_set_hull_rotation(pitch)
 	_visual.queue_redraw()
 
+## Returns the effective water surface y for buoyancy: the surface_y of
+## whichever sky zone the sub is currently inside, or global water_surface_y.
+func _local_surface_y() -> float:
+	for zone in sky_zones:
+		if (zone["rect"] as Rect2).has_point(global_position):
+			return zone["surface_y"]
+	return water_surface_y
+
 ## Depth shown to the player: metres below the surface.
 func depth_m() -> float:
-	var below := global_position.y - water_surface_y - SURFACE_FLOAT_DEPTH
+	var below := global_position.y - _local_surface_y() - SURFACE_FLOAT_DEPTH
 	return maxf(0.0, below / GameFeel.PIXELS_PER_METER)
 
 ## The water-cell connections (door + ladder pairs) the flow model consumes,

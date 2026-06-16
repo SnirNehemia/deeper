@@ -8,9 +8,14 @@ extends Node2D
 
 ## World position where the player sub should spawn (from gen-layer white pixel).
 var sub_spawn: Vector2 = Vector2.ZERO
-## The water surface y in world coordinates, derived from the bottommost sky
-## row in the physical layer. Fed to Sub.water_surface_y for buoyancy.
+## The water surface y in world coordinates (top of the first water row).
+## Fed to Sub.water_surface_y as the global fallback for buoyancy.
 var water_surface_y: float = 0.0
+## All connected sky regions found in the physical layer, including the top
+## open-air zone and any enclosed cave air pockets. Each entry is a Dictionary
+## {"rect": Rect2, "surface_y": float}. Copied to Sub.sky_zones so the sub
+## can apply local buoyancy inside each pocket.
+var sky_zones: Array = []
 ## Center and radius of the docking area (derived from gen-layer dock pixels),
 ## fed to Sub.try_bank() and the _is_docked() proximity check.
 var dock_center: Vector2 = Vector2.ZERO
@@ -32,6 +37,7 @@ static func build(config: MapConfig) -> MapLoader:
 
 	# --- Physical terrain ---
 	loader.water_surface_y = PhysicalLayerParser.find_water_surface_y(config)
+	loader.sky_zones = PhysicalLayerParser.find_sky_zones(config)
 	var terrain := PhysicalLayerBuilder.build(config)
 	loader.add_child(terrain)
 

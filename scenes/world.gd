@@ -113,6 +113,7 @@ func _spawn_sub_and_crew() -> void:
 	_sub.layout = SaveData.layout
 	_sub.buoyancy_enabled = true
 	_sub.water_surface_y = _map_loader.water_surface_y if _map_loader != null else 0.0
+	_sub.sky_zones = _map_loader.sky_zones if _map_loader != null else []
 	_sub.position = _sub_spawn
 	add_child(_sub)
 	_sub.imploded.connect(_on_imploded)
