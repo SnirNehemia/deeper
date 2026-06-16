@@ -11,6 +11,9 @@ extends Area2D
 ## Flight velocity in px/s, set by the turret at launch.
 var velocity: Vector2 = Vector2.ZERO
 
+## Sky zones from the map — projectiles arc downward in air (gravity), not water.
+var sky_zones: Array = []
+
 ## Seconds before an unspent shot fizzles out. Overridden by Bullet (M4-12).
 var lifetime: float = GameFeel.turret.torpedo_lifetime
 
@@ -33,11 +36,31 @@ func _ready() -> void:
 	rotation = velocity.angle()
 
 func _physics_process(delta: float) -> void:
+	_apply_sky_gravity(delta)
 	position += velocity * delta
 	_life += delta
 	if _life > lifetime:
 		queue_free()
 	queue_redraw()
+
+## Projectiles are neutrally buoyant underwater. In sky zones (or approaching
+## a pocket mouth) gravity pulls them down, curving the trajectory.
+func _apply_sky_gravity(delta: float) -> void:
+	var ppm := GameFeel.PIXELS_PER_METER
+	for zone in sky_zones:
+		var rect: Rect2 = zone["rect"]
+		var sz: float = zone["surface_y"]
+		var in_zone: bool = rect.has_point(global_position)
+		var in_approach: bool = not in_zone and zone.get("is_pocket", false) \
+			and global_position.y > sz \
+			and global_position.y <= sz + Sub.SURFACE_FLOAT_DEPTH \
+			and global_position.x >= rect.position.x \
+			and global_position.x <= rect.position.x + rect.size.x
+		if in_zone or in_approach:
+			var above := (sz + Sub.SURFACE_FLOAT_DEPTH) - global_position.y
+			var emergence := clampf(above / Sub.EMERGE_RANGE, 0.0, 1.0)
+			velocity.y += GameFeel.sub.surface_gravity * ppm * emergence * delta
+			return
 
 func _draw() -> void:
 	# Body: a chunky little dart (local +x is the flight direction).

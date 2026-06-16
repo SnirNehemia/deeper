@@ -67,3 +67,4 @@ func _fire() -> void:
 	var world := sub.get_parent()
 	world.add_child(projectile)
 	projectile.global_position = sub.to_global(tube_local.rotated(sub.pitch)) + dir * 30.0
+	projectile.sky_zones = sub.sky_zones

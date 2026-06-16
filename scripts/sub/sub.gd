@@ -43,7 +43,7 @@ const LADDER_SILL_FRACTION := 0.95
 ## The sub floats here (px below the surface). Above this line, weight fades in
 ## over EMERGE_RANGE so the rise gets heavier as it emerges (can't fly out).
 const SURFACE_FLOAT_DEPTH := 150.0
-const _EMERGE_RANGE := 220.0
+const EMERGE_RANGE := 220.0
 
 ## The layout this sub is generated from. Defaults to the Minnow+ starting
 ## layout; the world/tests can assign a different one before _ready.
@@ -442,7 +442,7 @@ func _physics_process(delta: float) -> void:
 	if buoyancy_enabled:
 		var surface_y := _local_surface_y()
 		var above := (surface_y + SURFACE_FLOAT_DEPTH) - global_position.y
-		var emergence := clampf(above / _EMERGE_RANGE, 0.0, 1.0)
+		var emergence := clampf(above / EMERGE_RANGE, 0.0, 1.0)
 		velocity.y += feel.surface_gravity * ppm * emergence * delta
 
 	_update_water(delta)
@@ -466,16 +466,24 @@ func _physics_process(delta: float) -> void:
 	_visual.queue_redraw()
 
 ## Returns the effective water surface y for buoyancy: the surface_y of
-## whichever sky zone the sub is currently inside, or global water_surface_y.
-## For enclosed cave pockets the equilibrium is set to the pocket's opening
-## (surface_y itself, no SURFACE_FLOAT_DEPTH offset) so every pocket feels
-## the same as the open-ocean surface regardless of how tall it is.
+## whichever sky zone the sub is in or approaching, or global water_surface_y.
+## Pockets get an approach zone: resistance starts SURFACE_FLOAT_DEPTH below
+## the pocket opening, identical to how the open ocean surface works.
 func _local_surface_y() -> float:
 	for zone in sky_zones:
-		if (zone["rect"] as Rect2).has_point(global_position):
-			if zone.get("is_pocket", false):
-				return zone["surface_y"] - SURFACE_FLOAT_DEPTH  # cancel offset → float at entry
-			return zone["surface_y"]
+		var rect: Rect2 = zone["rect"]
+		var sz: float = zone["surface_y"]
+		# Inside the zone (sub has risen into the air/pocket).
+		if rect.has_point(global_position):
+			return sz
+		# Approach zone for pockets: resistance builds within SURFACE_FLOAT_DEPTH
+		# below the pocket mouth, so entering a pocket feels like the ocean surface.
+		if zone.get("is_pocket", false) \
+				and global_position.y > sz \
+				and global_position.y <= sz + SURFACE_FLOAT_DEPTH \
+				and global_position.x >= rect.position.x \
+				and global_position.x <= rect.position.x + rect.size.x:
+			return sz
 	return water_surface_y
 
 ## Depth shown to the player: metres below the surface.

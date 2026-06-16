@@ -185,6 +185,7 @@ func _add_fish(pos: Vector2, is_hunter := false, is_chaser := false) -> void:
 	fish.position = pos
 	fish.is_hunter = is_hunter
 	fish.is_chaser = is_chaser
+	fish.sky_zones = _map_loader.sky_zones if _map_loader != null else []
 	add_child(fish)
 
 func _add_wreck(pos: Vector2) -> void:

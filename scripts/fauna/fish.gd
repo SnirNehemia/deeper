@@ -30,6 +30,9 @@ var is_hunter: bool = false
 ## ordinary fish.
 var is_chaser: bool = false
 
+## Sky zones from the map — fish won't swim into air pockets or open sky.
+var sky_zones: Array = []
+
 var state: State = State.PATROL
 var is_dead: bool = false
 var _hunter_lose_timer: float = 0.0
@@ -47,6 +50,9 @@ var _wobble: float = 0.0
 var _hit_flash: float = 0.0
 var _knockback: Vector2 = Vector2.ZERO
 var _stun_timer: float = 0.0
+## True once a chaser has locked on — keeps the detection ring hidden even
+## during RECOVER (when state briefly leaves HUNT between attacks).
+var _has_spotted: bool = false
 
 func _ready() -> void:
 	add_to_group("fish")
@@ -94,12 +100,14 @@ func _physics_process(delta: float) -> void:
 	if is_hunter and state != State.HUNT and state != State.RECOVER \
 			and dist_to_sub <= feel.hunter_detect_m * ppm:
 		state = State.HUNT
+		_has_spotted = true
 		_hunter_lose_timer = 0.0
 
 	# Basic chasers lock on from chaser_detect_m and never let go.
 	if is_chaser and state != State.HUNT and state != State.RECOVER \
 			and dist_to_sub <= feel.chaser_detect_m * ppm:
 		state = State.HUNT
+		_has_spotted = true
 
 	match state:
 		State.PATROL:
@@ -127,10 +135,19 @@ func _physics_process(delta: float) -> void:
 			_try_bite()
 		State.RECOVER:
 			# Circle off after a bite, then come back for another pass.
-			global_position += _recover_dir * feel.return_speed * ppm * delta
+			var recover_step := _recover_dir * feel.return_speed * ppm * delta
+			var recover_new := global_position + recover_step
+			var recover_blocked := false
+			for zone in sky_zones:
+				if (zone["rect"] as Rect2).has_point(recover_new):
+					recover_blocked = true
+					break
+			if not recover_blocked:
+				global_position = recover_new
 			if _bite_cooldown <= 0.0:
 				if is_hunter or is_chaser:
 					state = State.HUNT
+					_has_spotted = true
 				else:
 					state = State.CHASE if sub_in_territory else State.RETURN
 		State.RETURN:
@@ -150,7 +167,11 @@ func _patrol(feel: GameFeel.FishFeel, ppm: float, delta: float) -> void:
 
 func _swim_toward(target: Vector2, speed: float, delta: float) -> void:
 	var dir := global_position.direction_to(target)
-	global_position += dir * speed * delta
+	var new_pos := global_position + dir * speed * delta
+	for zone in sky_zones:
+		if (zone["rect"] as Rect2).has_point(new_pos):
+			return  # blocked — fish don't swim into air
+	global_position = new_pos
 	if absf(dir.x) > 0.1:
 		_facing = signf(dir.x)
 
@@ -229,6 +250,7 @@ func reset_fish() -> void:
 	_knockback = Vector2.ZERO
 	_stun_timer = 0.0
 	_hunter_lose_timer = 0.0
+	_has_spotted = false
 
 ## Radius (px) of the detection zone shown as the attention circle.
 func _detect_radius_px() -> float:
@@ -252,9 +274,9 @@ func _draw() -> void:
 	# stays round (not affected by the wobble/stretch scale).
 	# Territorial fish: always visible (they can lose you, so it's useful).
 	# Chasers: visible until they've locked on, then it disappears.
-	var show_range := not is_dead and not (is_chaser and state == State.HUNT)
+	var show_range := not is_dead and not (is_chaser and _has_spotted)
 	if show_range:
-		var ring := Color(base_color.r, base_color.g, base_color.b, 0.25)
+		var ring := Color(base_color.r, base_color.g, base_color.b, 0.05)
 		draw_circle(Vector2.ZERO, _detect_radius_px(), ring)
 
 	# All drawn facing right, mirrored by _facing. Chasers are stretched
