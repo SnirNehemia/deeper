@@ -5,10 +5,11 @@ extends RefCounted
 ## where to spawn the player sub and fauna/wreck entities, in world
 ## coordinates (scaled per MapConfig.pixel_scale()).
 
-const PLAYER_SPAWN := Color(1, 1, 1)        # #FFFFFF
-const TERRITORIAL_FISH := Color(0.5, 0, 0.5)  # #800080
-const HUNTER_FISH := Color(0, 1, 0)         # #00FF00
-const WRECKAGE := Color(0.5, 0.5, 0.5)      # #808080
+const PLAYER_SPAWN := Color(1, 1, 1)                              # #FFFFFF
+const TERRITORIAL_FISH := Color(0.5, 0, 0.5)                      # #800080
+const HUNTER_FISH := Color(0, 1, 0)                               # #00FF00
+const WRECKAGE := Color(0.5, 0.5, 0.5)                            # #808080
+const DOCK_ZONE := Color(0x6E / 255.0, 0x47 / 255.0, 0x3B / 255.0)  # #6E473B
 
 const COLOR_EPS := 0.5 / 255.0
 
@@ -17,12 +18,15 @@ const KEY_PLAYER_SPAWN := "player_spawn"
 const KEY_TERRITORIAL_FISH := "territorial_fish"
 const KEY_HUNTER_FISH := "hunter_fish"
 const KEY_WRECKAGE := "wreckage"
+const KEY_DOCK_ZONES := "dock_zones"
 
 ## Parses `config.generation_layer`. Returns a Dictionary:
 ## - "player_spawn": Vector2 (world px), or Vector2.ZERO if no white pixel found
 ## - "territorial_fish": Array[Vector2]
 ## - "hunter_fish": Array[Vector2]
 ## - "wreckage": Array[Vector2]
+## - "dock_zones": Array[Vector2] — all dock-zone pixel positions (build the
+##   bbox/center from these in the caller to drive dry-dock interaction)
 ## Returns an empty dictionary (with empty defaults) if the image can't load.
 static func parse(config: MapConfig) -> Dictionary:
 	var result := {
@@ -30,6 +34,7 @@ static func parse(config: MapConfig) -> Dictionary:
 		KEY_TERRITORIAL_FISH: [] as Array[Vector2],
 		KEY_HUNTER_FISH: [] as Array[Vector2],
 		KEY_WRECKAGE: [] as Array[Vector2],
+		KEY_DOCK_ZONES: [] as Array[Vector2],
 	}
 
 	var image := Image.new()
@@ -54,6 +59,8 @@ static func parse(config: MapConfig) -> Dictionary:
 				(result[KEY_HUNTER_FISH] as Array[Vector2]).append(world_pos)
 			elif _color_matches(pixel, WRECKAGE):
 				(result[KEY_WRECKAGE] as Array[Vector2]).append(world_pos)
+			elif _color_matches(pixel, DOCK_ZONE):
+				(result[KEY_DOCK_ZONES] as Array[Vector2]).append(world_pos)
 
 	return result
 

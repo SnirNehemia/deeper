@@ -1,18 +1,15 @@
 extends Node2D
 
-## Milestone 1 world: the Shore Shelf map with the crewed sub. Drive from the
-## dock, across the shallows, over the shelf edge, and down into the basin while
-## the depth meter tracks you. A smooth follow-camera frames ~60 m of world.
+## World scene: loads a hand-drawn map from MapConfig when available (M6),
+## otherwise falls back to the ShoreShelf test map. Sub, crew, HUD, and
+## dry-dock UI are set up the same way regardless of which map is active.
 
 const M := 48.0
+const MAP_CONFIG_PATH := "res://maps/cavern_depths_01/world_01.json"
 
-# Fresh-run spawn points: the sub floats at the dock; crew start in the
-# engine and middle rooms (local to the sub).
-const SUB_SPAWN := Vector2(45.0 * M, Sub.SURFACE_FLOAT_DEPTH)
-
-## Module B: how close to the dock spawn point the sub must be to bank
-## on-board salvage into the persistent save.
-const DOCK_BANK_RADIUS := 15.0 * M
+## Fallback values used with ShoreShelf (overridden by MapLoader when a map loads).
+const SHORE_SHELF_SPAWN := Vector2(45.0 * M, Sub.SURFACE_FLOAT_DEPTH)
+const SHORE_SHELF_DOCK_RADIUS := 15.0 * M
 
 var _sub: Sub
 var _cam: Camera2D
@@ -26,30 +23,16 @@ var _alerts: AlertHud
 var _dock_prompt: Label
 var _dry_dock: DryDock = null
 
+## Set by _load_map(); world uses these for spawning and dock checks.
+var _sub_spawn: Vector2 = SHORE_SHELF_SPAWN
+var _dock_center: Vector2 = SHORE_SHELF_SPAWN
+var _dock_radius: float = SHORE_SHELF_DOCK_RADIUS
+var _map_loader: MapLoader = null  # non-null when a map config was found
+
 func _ready() -> void:
-	add_child(ShoreShelf.new())
-
-	# Sub (built from the saved loadout) + crew, floating at the dock.
+	_load_map()
 	_spawn_sub_and_crew()
-
-	# Territorial fish: guarding the cave mouth, the cave treasure cluster,
-	# and the basin pillars/wreck. The shallows wreck stays unguarded. They
-	# reset home via the "fish" group on implosion.
-	# M5 follow-up: the basin-pillar fish are back to plain territorial (all
-	# purple fish now behave the same — guard their spot, break off when the
-	# sub leaves). The relentless-chase role is now exclusively the green
-	# basic_chasers below, so the two aggression reads don't look identical.
-	_add_fish(Vector2(70.0 * M, 64.0 * M))    # cave mouth
-	_add_fish(Vector2(54.0 * M, 70.0 * M))    # cave treasure cluster
-	_add_fish(Vector2(85.0 * M, 47.0 * M))    # first pillar
-	_add_fish(Vector2(115.0 * M, 100.0 * M))  # second pillar / basin wreck
-	_add_fish(Vector2(148.0 * M, 54.0 * M))   # third pillar
-
-	# M5 follow-up: two "basic_chasers" patrolling the open-water gaps between
-	# the (now wider-spaced) pillars — green, elongated, relentless once they
-	# spot the sub.
-	_add_fish(Vector2(99.0 * M, 50.0 * M), false, true)
-	_add_fish(Vector2(132.0 * M, 48.0 * M), false, true)
+	_spawn_entities()
 
 	# Fixed-zoom follow camera: ~60 m visible width, smoothed.
 	_cam = Camera2D.new()
@@ -86,49 +69,82 @@ func _ready() -> void:
 	_add_hint_label()
 	_add_dock_prompt()
 
+## Loads the hand-drawn map config if the JSON exists; otherwise falls back to
+## the ShoreShelf procedural map. Populates _sub_spawn / _dock_center / _dock_radius.
+func _load_map() -> void:
+	if FileAccess.file_exists(MAP_CONFIG_PATH):
+		var config := MapConfig.load_from_json(MAP_CONFIG_PATH)
+		if config != null:
+			_map_loader = MapLoader.build(config)
+			add_child(_map_loader)
+			_sub_spawn = _map_loader.sub_spawn
+			_dock_center = _map_loader.dock_center
+			_dock_radius = _map_loader.dock_radius
+			return
+	# Fallback: ShoreShelf placeholder map.
+	add_child(ShoreShelf.new())
+	_sub_spawn = SHORE_SHELF_SPAWN
+	_dock_center = SHORE_SHELF_SPAWN
+	_dock_radius = SHORE_SHELF_DOCK_RADIUS
+
+## Spawn fish and wrecks: from the gen layer when a map is loaded, otherwise
+## the hardcoded ShoreShelf placements used since Milestone 1.
+func _spawn_entities() -> void:
+	if _map_loader != null:
+		for pos in _map_loader.territorial_fish_spawns:
+			_add_fish(pos)
+		for pos in _map_loader.hunter_fish_spawns:
+			_add_fish(pos, true)
+		for pos in _map_loader.wreck_spawns:
+			_add_wreck(pos)
+	else:
+		_add_fish(Vector2(70.0 * M, 64.0 * M))
+		_add_fish(Vector2(54.0 * M, 70.0 * M))
+		_add_fish(Vector2(85.0 * M, 47.0 * M))
+		_add_fish(Vector2(115.0 * M, 100.0 * M))
+		_add_fish(Vector2(148.0 * M, 54.0 * M))
+		_add_fish(Vector2(99.0 * M, 50.0 * M), false, true)
+		_add_fish(Vector2(132.0 * M, 48.0 * M), false, true)
+
 ## Build the sub from the saved loadout and seat the two crew inside it.
 func _spawn_sub_and_crew() -> void:
 	_sub = Sub.new()
 	_sub.loadout = SaveData.loadout
-	_sub.layout = SaveData.layout  # the persisted sub shape (M4)
-	_sub.buoyancy_enabled = true  # floats at the surface, can't fly out of the water
-	_sub.position = SUB_SPAWN
+	_sub.layout = SaveData.layout
+	# Buoyancy only makes sense for the open-ocean ShoreShelf map; in the
+	# underground cavern the terrain constrains the sub instead.
+	_sub.buoyancy_enabled = (_map_loader == null)
+	_sub.position = _sub_spawn
 	add_child(_sub)
 	_sub.imploded.connect(_on_imploded)
 
 	var p1 := Crew.new()
 	p1.player_index = 0
 	p1.body_color = PlaceholderArt.CREW_P1_COLOR
-	p1.position = _sub.tower_seat_local(0)  # conning tower, seat 1
+	p1.position = _sub.tower_seat_local(0)
 	_sub.add_child(p1)
 
 	var p2 := Crew.new()
 	p2.player_index = 1
 	p2.body_color = PlaceholderArt.CREW_P2_COLOR
-	p2.position = _sub.tower_seat_local(1)  # conning tower, seat 2
+	p2.position = _sub.tower_seat_local(1)
 	_sub.add_child(p2)
 	_crew = [p1, p2]
 
 func _physics_process(delta: float) -> void:
 	if _sub != null and _cam != null:
 		_cam.global_position = _sub.global_position
-		# Implosion crunch: brief camera shake.
 		if _shake_time > 0.0:
 			_shake_time -= delta
 			_cam.offset = Vector2(randf_range(-1, 1), randf_range(-1, 1)) * 14.0
 		else:
 			_cam.offset = Vector2.ZERO
 
-	# Module B: returning to the dock banks whatever's on board.
-	# Module D: while docked, the dry dock can be opened to spend it.
 	if _sub != null:
-		_sub.try_bank(SUB_SPAWN, DOCK_BANK_RADIUS)
+		_sub.try_bank(_dock_center, _dock_radius)
 		if _dock_prompt != null:
 			_dock_prompt.visible = _is_docked() and _dry_dock == null
 
-## Lose condition: too much water. Crunch (~1.5s of shake + hull crumple +
-## fade to dark), then a clean reset back at the dock. One guard flag keeps
-## re-triggers out while the sequence plays.
 func _on_imploded() -> void:
 	if _resetting:
 		return
@@ -138,9 +154,9 @@ func _on_imploded() -> void:
 	_shake_time = 0.9
 
 	var tween := create_tween()
-	tween.tween_property(_fade, "color:a", 1.0, 1.0)  # fade to dark over the crunch
+	tween.tween_property(_fade, "color:a", 1.0, 1.0)
 	await tween.finished
-	await get_tree().create_timer(0.5).timeout  # a beat of darkness
+	await get_tree().create_timer(0.5).timeout
 
 	reset_run()
 
@@ -148,22 +164,17 @@ func _on_imploded() -> void:
 	fade_in.tween_property(_fade, "color:a", 0.0, 0.6)
 	_resetting = false
 
-## One world-level routine that puts the run back at its start: sub floating
-## at the dock (dry, breach-free), crew aboard and alive, fish back home.
-## Future death penalties hook in here.
+## Resets the run back to the start: sub at dock, crew aboard, fish home.
 func reset_run() -> void:
-	# M5: nothing persists between rounds yet (Snir will decide later what
-	# should) — wipe banked salvage, loadout, and layout back to the starting
-	# Minnow+ before rebuilding the sub.
 	SaveData.reset_for_test()
 	_rebuild_sub()
-	_sub.global_position = SUB_SPAWN
+	_sub.global_position = _sub_spawn
 	_crew[0].reset_at(_sub.tower_seat_local(0))
 	_crew[1].reset_at(_sub.tower_seat_local(1))
 	get_tree().call_group("fish", "reset_fish")
 	get_tree().call_group("wreck", "reset_wreck")
 	get_tree().call_group("salvage_carcass", "queue_free")
-	get_tree().call_group("carryable", "queue_free")  # loose/caged catches in the hold
+	get_tree().call_group("carryable", "queue_free")
 	_cam.reset_smoothing()
 
 func _add_fish(pos: Vector2, is_hunter := false, is_chaser := false) -> void:
@@ -173,6 +184,11 @@ func _add_fish(pos: Vector2, is_hunter := false, is_chaser := false) -> void:
 	fish.is_hunter = is_hunter
 	fish.is_chaser = is_chaser
 	add_child(fish)
+
+func _add_wreck(pos: Vector2) -> void:
+	var wreck := Wreck.new()
+	wreck.position = pos
+	add_child(wreck)
 
 func _add_hint_label() -> void:
 	var layer := CanvasLayer.new()
@@ -187,7 +203,7 @@ func _add_hint_label() -> void:
 	label.add_theme_constant_override("outline_size", 5)
 	layer.add_child(label)
 
-## "Press Tab: Dry Dock" prompt, shown only while floating at the dock.
+## "Press Tab: Dry Dock" prompt, shown only while near the dock.
 func _add_dock_prompt() -> void:
 	var layer := CanvasLayer.new()
 	add_child(layer)
@@ -206,11 +222,10 @@ func _add_dock_prompt() -> void:
 	layer.add_child(_dock_prompt)
 
 func _is_docked() -> bool:
-	return _sub != null \
-		and _sub.global_position.distance_to(SUB_SPAWN) <= DOCK_BANK_RADIUS
+	if _sub == null:
+		return false
+	return _sub.global_position.distance_to(_dock_center) <= _dock_radius
 
-## Open the dry dock (pauses the run). On close, if anything was bought, the
-## sub is rebuilt so the new room/upgrades take effect immediately.
 func _open_dry_dock() -> void:
 	if _dry_dock != null or _resetting:
 		return
@@ -223,10 +238,8 @@ func _on_dry_dock_closed(changed: bool) -> void:
 	if changed:
 		_rebuild_sub()
 
-## Rebuild the sub from the (possibly upgraded) loadout, at the dock, with a
-## fresh crew aboard. Used after a dry-dock purchase so changes show up now.
 func _rebuild_sub() -> void:
-	_sub.queue_free()  # frees its crew + stations too
+	_sub.queue_free()
 	_spawn_sub_and_crew()
 	_depth_hud.sub = _sub
 	_salvage_hud.sub = _sub
@@ -234,12 +247,10 @@ func _rebuild_sub() -> void:
 	_cam.reset_smoothing()
 
 func _unhandled_input(event: InputEvent) -> void:
-	# Dev convenience only (not gameplay input): quit on Esc, dry dock on Tab.
 	if not (event is InputEventKey) or not event.pressed:
 		return
 	if event.keycode == KEY_ESCAPE:
 		get_tree().quit()
 	elif event.keycode == KEY_TAB and _is_docked():
 		_open_dry_dock()
-		# Consume so this same press doesn't reach the dock as a "close".
 		get_viewport().set_input_as_handled()

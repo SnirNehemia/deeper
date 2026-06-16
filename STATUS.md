@@ -1,6 +1,21 @@
 # STATUS — DEEPER
 
-_Read this at session start. Last updated: 2026-06-16 — **Milestone 6, Module 4
+_Read this at session start. Last updated: 2026-06-16 — **Milestone 6 fully
+wired: cavern_depths_01 is now the live map**. `MapLoader`
+(`scripts/maps/map_loader.gd`) assembles the full map pipeline — physical
+terrain (`PhysicalLayerBuilder`), gen-layer entity spawns
+(`GenerationLayerParser`), visual layers (`MapVisualLayers`) — in one node the
+world adds as a child. `scenes/world.gd` now looks for
+`maps/cavern_depths_01/world_01.json`; if found it uses MapLoader (buoyancy
+disabled, sub spawns at the white gen-layer pixel, fish/wrecks from their
+respective marker colors, dock zone from the brown gen-layer cluster); if the
+file is missing it falls back to ShoreShelf so the dev loop isn't broken.
+Parser fixes landed alongside: `GenerationLayerParser` now returns dock-zone
+pixel positions (`KEY_DOCK_ZONES`); `PhysicalLayerParser` now skips water
+(`#1d4a70`) and sky (`#4d9bc7`) pixels instead of turning them into solid
+blocks. 28/28 suites green.
+
+_Previous update: 2026-06-16 — **Milestone 6, Module 4
 (Ambient Aesthetics & Visual Layering) done**: new `VisualLayerBuilder`
 (`scripts/maps/visual_layer_builder.gd`) loads a map's `visual_background`/
 `visual_foreground` PNGs as nearest-neighbor-filtered Sprite2Ds scaled exactly

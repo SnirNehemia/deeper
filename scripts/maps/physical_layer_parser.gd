@@ -6,6 +6,14 @@ extends RefCounted
 ## tagged with their TerrainType. Adjacent horizontal pixels of the same
 ## terrain are merged into one rectangle per row, to cut down the resulting
 ## collision shape count.
+##
+## Passable colors (water, sky) are skipped and produce no collision geometry.
+
+## Pixels of these colors represent navigable space, not solid terrain.
+const PASSABLE_COLORS: Array = [
+	Color(0x1d / 255.0, 0x4a / 255.0, 0x70 / 255.0),  # #1d4a70 water
+	Color(0x4d / 255.0, 0x9b / 255.0, 0xc7 / 255.0),  # #4d9bc7 sky
+]
 
 ## One merged block: world-space Rect2 + TerrainType.Type.
 class Block:
@@ -35,7 +43,7 @@ static func parse(config: MapConfig) -> Array[Block]:
 		var run_terrain := -1
 		for x in size.x:
 			var pixel := image.get_pixel(x, y)
-			var solid := pixel.a >= TerrainType.COLOR_EPS
+			var solid := pixel.a >= TerrainType.COLOR_EPS and not _is_passable(pixel)
 			var terrain := int(TerrainType.from_color(pixel)) if solid else -1
 			if solid and run_start >= 0 and terrain == run_terrain:
 				continue  # extend the current run
@@ -49,6 +57,14 @@ static func parse(config: MapConfig) -> Array[Block]:
 			blocks.append(_make_block(run_start, size.x, y, scale, run_terrain as TerrainType.Type))
 
 	return blocks
+
+static func _is_passable(pixel: Color) -> bool:
+	for c in PASSABLE_COLORS:
+		if absf(pixel.r - c.r) < TerrainType.COLOR_EPS \
+				and absf(pixel.g - c.g) < TerrainType.COLOR_EPS \
+				and absf(pixel.b - c.b) < TerrainType.COLOR_EPS:
+			return true
+	return false
 
 static func _make_block(x0: int, x1: int, y: int, scale: float, terrain: TerrainType.Type) -> Block:
 	var rect := Rect2(Vector2(x0, y) * scale, Vector2(x1 - x0, 1) * scale)

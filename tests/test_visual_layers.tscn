@@ -1,4 +1,4 @@
-[gd_scene load_steps=2 format=3 uid="uid://dvisuallayertest6"]
+[gd_scene load_steps=2 format=3 uid="uid://c8a8du41ojbm0"]
 
 [ext_resource type="Script" path="res://tests/test_visual_layers.gd" id="1_visuallayertest"]
 
