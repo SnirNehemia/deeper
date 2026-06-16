@@ -17,8 +17,6 @@ const PASSABLE_COLORS: Array = [
 	Color(0x4D / 255.0, 0x9B / 255.0, 0xC7 / 255.0),  # #4d9bc7 sky — open air above surface
 ]
 
-const _SKY_COLOR := Color(0x4D / 255.0, 0x9B / 255.0, 0xC7 / 255.0)
-
 ## One merged block: world-space Rect2 + TerrainType.Type.
 class Block:
 	var rect: Rect2
@@ -62,11 +60,13 @@ static func parse(config: MapConfig) -> Array[Block]:
 
 	return blocks
 
+const _PASSABLE_EPS := 2.0 / 255.0  # wider than TerrainType.COLOR_EPS for PNG round-trip safety
+
 static func _is_passable(pixel: Color) -> bool:
 	for c in PASSABLE_COLORS:
-		if absf(pixel.r - c.r) < TerrainType.COLOR_EPS \
-				and absf(pixel.g - c.g) < TerrainType.COLOR_EPS \
-				and absf(pixel.b - c.b) < TerrainType.COLOR_EPS:
+		if absf(pixel.r - c.r) < _PASSABLE_EPS \
+				and absf(pixel.g - c.g) < _PASSABLE_EPS \
+				and absf(pixel.b - c.b) < _PASSABLE_EPS:
 			return true
 	return false
 
@@ -74,28 +74,25 @@ static func _make_block(x0: int, x1: int, y: int, scale: float, terrain: Terrain
 	var rect := Rect2(Vector2(x0, y) * scale, Vector2(x1 - x0, 1) * scale)
 	return Block.new(rect, terrain)
 
-## Scans the physical layer for the bottommost sky row and returns its bottom
-## edge in world coordinates. This is the water surface y that buoyancy uses —
-## the sub will float at water_surface_y + Sub.SURFACE_FLOAT_DEPTH.
-## Returns 0.0 if the image is missing or contains no sky pixels.
+## Returns the water surface y in world coordinates — the top edge of the
+## first row that contains a water pixel (#1d4a70). Scanning from y=0 downward
+## finds the exact sky/water boundary regardless of whether the map has sky.
+## The sub's buoyancy float line sits SURFACE_FLOAT_DEPTH below this y, so the
+## sub naturally hangs in the water and gets pushed back if it rises into sky.
+## Returns 0.0 if the image is missing or contains no water pixels.
 static func find_water_surface_y(config: MapConfig) -> float:
 	var image := Image.new()
 	if image.load(config.physical_layer) != OK:
 		return 0.0
 	var scale := config.pixel_scale()
-	var max_sky_y := -1
+	var water := PASSABLE_COLORS[0]  # #1d4a70
 	for y in image.get_height():
 		for x in image.get_width():
 			var p := image.get_pixel(x, y)
-			if p.a >= TerrainType.COLOR_EPS and _is_sky(p):
-				if y > max_sky_y:
-					max_sky_y = y
-				break  # only need one sky pixel per row
-	if max_sky_y < 0:
-		return 0.0
-	return (max_sky_y + 1) * scale  # bottom edge of the last sky row
-
-static func _is_sky(pixel: Color) -> bool:
-	return absf(pixel.r - _SKY_COLOR.r) < TerrainType.COLOR_EPS \
-		and absf(pixel.g - _SKY_COLOR.g) < TerrainType.COLOR_EPS \
-		and absf(pixel.b - _SKY_COLOR.b) < TerrainType.COLOR_EPS
+			if p.a < _PASSABLE_EPS:
+				continue
+			if absf(p.r - water.r) < _PASSABLE_EPS \
+					and absf(p.g - water.g) < _PASSABLE_EPS \
+					and absf(p.b - water.b) < _PASSABLE_EPS:
+				return y * scale  # top edge of the first water row = the surface
+	return 0.0
