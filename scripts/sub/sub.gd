@@ -467,9 +467,14 @@ func _physics_process(delta: float) -> void:
 
 ## Returns the effective water surface y for buoyancy: the surface_y of
 ## whichever sky zone the sub is currently inside, or global water_surface_y.
+## For enclosed cave pockets the equilibrium is set to the pocket's opening
+## (surface_y itself, no SURFACE_FLOAT_DEPTH offset) so every pocket feels
+## the same as the open-ocean surface regardless of how tall it is.
 func _local_surface_y() -> float:
 	for zone in sky_zones:
 		if (zone["rect"] as Rect2).has_point(global_position):
+			if zone.get("is_pocket", false):
+				return zone["surface_y"] - SURFACE_FLOAT_DEPTH  # cancel offset → float at entry
 			return zone["surface_y"]
 	return water_surface_y
 

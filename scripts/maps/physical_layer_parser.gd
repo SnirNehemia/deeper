@@ -167,5 +167,8 @@ static func find_sky_zones(config: MapConfig) -> Array:
 					Vector2(min_x, min_y) * scale,
 					Vector2(max_x - min_x + 1, max_y - min_y + 1) * scale),
 				"surface_y": (max_y + 1) * scale,  # world-y of the bottom edge
+				# Pocket = enclosed air inside the cave (doesn't touch y=0).
+				# The main open-sky zone at the top has min_y==0.
+				"is_pocket": min_y > 0,
 			})
 	return zones

@@ -46,6 +46,7 @@ var _recover_dir: Vector2 = Vector2.ZERO
 var _wobble: float = 0.0
 var _hit_flash: float = 0.0
 var _knockback: Vector2 = Vector2.ZERO
+var _stun_timer: float = 0.0
 
 func _ready() -> void:
 	add_to_group("fish")
@@ -78,6 +79,11 @@ func _physics_process(delta: float) -> void:
 		global_position += _knockback * delta
 		_knockback = _knockback.move_toward(Vector2.ZERO,
 			feel.hit_knockback_decay * ppm * delta)
+
+	if _stun_timer > 0.0:
+		_stun_timer -= delta
+		queue_redraw()
+		return
 
 	var sub_in_territory := sub != null \
 		and home.distance_to(sub.global_position) <= feel.territory_radius_m * ppm
@@ -187,6 +193,7 @@ func take_damage(amount: float, from_point: Vector2) -> void:
 		die()
 		return
 	_hit_flash = GameFeel.fish.hit_flash_time
+	_stun_timer = minf(1.0, amount * amount / 100.0)
 	var away := from_point.direction_to(global_position)
 	if away == Vector2.ZERO:
 		away = Vector2(_facing, 0)
@@ -220,7 +227,18 @@ func reset_fish() -> void:
 	hp = hp_max
 	_hit_flash = 0.0
 	_knockback = Vector2.ZERO
+	_stun_timer = 0.0
 	_hunter_lose_timer = 0.0
+
+## Radius (px) of the detection zone shown as the attention circle.
+func _detect_radius_px() -> float:
+	var ppm := GameFeel.PIXELS_PER_METER
+	var feel := GameFeel.fish
+	if is_chaser:
+		return feel.chaser_detect_m * ppm
+	if is_hunter:
+		return feel.hunter_detect_m * ppm
+	return feel.territory_radius_m * ppm
 
 func _draw() -> void:
 	var ppm: float = GameFeel.PIXELS_PER_METER
@@ -229,6 +247,16 @@ func _draw() -> void:
 	var half := len_px * 0.5
 	var base_color := PlaceholderArt.CHASER_COLOR if is_chaser else PlaceholderArt.FISH_COLOR
 	var c := Color.WHITE if _hit_flash > 0.0 else base_color
+
+	# Detection range circle — drawn before the fish-body transform so it
+	# stays round (not affected by the wobble/stretch scale).
+	# Territorial fish: always visible (they can lose you, so it's useful).
+	# Chasers: visible until they've locked on, then it disappears.
+	var show_range := not is_dead and not (is_chaser and state == State.HUNT)
+	if show_range:
+		var ring := Color(base_color.r, base_color.g, base_color.b, 0.25)
+		draw_circle(Vector2.ZERO, _detect_radius_px(), ring)
+
 	# All drawn facing right, mirrored by _facing. Chasers are stretched
 	# lengthwise (more elongated) on top of their longer base length.
 	var stretch := 1.3 if is_chaser else 1.0
