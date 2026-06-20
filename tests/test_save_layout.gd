@@ -15,6 +15,7 @@ func _ready() -> void:
 	_test_layout_round_trip()
 	_test_legacy_save_upgrades_to_starting_layout()
 	_test_invalid_layout_recovers_on_load()
+	_test_engine_module_dropped_on_load()
 	SaveData.reset_for_test()
 
 	if _failures == 0:
@@ -53,7 +54,7 @@ func _test_layout_round_trip() -> void:
 	SaveData.load_data()
 
 	_check(SaveData.banked_scrap == 12, "banked scrap still round-trips")
-	_check(SaveData.layout.placements.size() == 7, "the 7 placed rooms persisted")
+	_check(SaveData.layout.placements.size() == 4, "the 4 placed rooms persisted")
 	_check(bought_slot in SaveData.layout.slots, "the bought slot persisted")
 	_check(SaveData.layout.inventory.get("turret_room", 0) == 1,
 		"the inventoried room persisted")
@@ -64,6 +65,7 @@ func _test_legacy_save_upgrades_to_starting_layout() -> void:
 	print("[legacy save upgrade]")
 	SaveData.reset_for_test()
 	# A pre-M4 save: banked totals + loadout, but NO layout key.
+	# The "engine_boost" key is from pre-M7-1 saves and is silently ignored on load.
 	_write_raw_save({
 		"banked_scrap": 7,
 		"banked_fish": 3,
@@ -73,9 +75,8 @@ func _test_legacy_save_upgrades_to_starting_layout() -> void:
 	SaveData.load_data()
 
 	_check(SaveData.banked_scrap == 7, "legacy banked scrap loads")
-	_check(SaveData.loadout.engine_boost, "legacy loadout loads")
-	_check(SaveData.layout.placements.size() == 7,
-		"a save with no layout boots to the starting Minnow+ (7 rooms)")
+	_check(SaveData.layout.placements.size() == 4,
+		"a save with no layout boots to the M7 base sub (4 rooms)")
 	_check(SubValidator.validate(SaveData.layout)["ok"], "the upgraded layout validates")
 
 func _test_invalid_layout_recovers_on_load() -> void:
@@ -85,7 +86,7 @@ func _test_invalid_layout_recovers_on_load() -> void:
 	# claw room's cell. On load it must recover (room back to inventory), not
 	# crash or wipe the save.
 	var broken := SubLayout.starting_layout()
-	broken.placements.append(SubLayout.Placement.new("storage", Vector2i(1, 1)))  # overlaps claw
+	broken.placements.append(SubLayout.Placement.new("storage", Vector2i(-1, 0)))  # overlaps claw_room
 	_check(not SubValidator.validate(broken)["ok"], "the hand-written layout is illegal")
 	_write_raw_save({
 		"banked_scrap": 5,
@@ -100,3 +101,27 @@ func _test_invalid_layout_recovers_on_load() -> void:
 		"the loaded layout was recovered to a legal one")
 	_check(SaveData.layout.inventory.get("storage", 0) >= 1,
 		"the offending room was returned to inventory, not lost")
+
+func _test_engine_module_dropped_on_load() -> void:
+	print("[engine module dropped on load]")
+	SaveData.reset_for_test()
+	# Simulate an old 7-room save that includes the retired engine room.
+	# On load, recover() must strip the engine placement (unknown module) and
+	# leave a valid sub — no crash, no ghost placement.
+	var old_layout := SubLayout.starting_layout()
+	old_layout.placements.append(SubLayout.Placement.new("engine", Vector2i(2, 0)))
+	_write_raw_save({
+		"banked_scrap": 3,
+		"loadout": {},
+		"layout": old_layout.to_dict(),
+	})
+
+	SaveData.load_data()
+	_check(SaveData.banked_scrap == 3, "scrap is untouched")
+	var engine_found := false
+	for p in SaveData.layout.placements:
+		if p.module_id == "engine":
+			engine_found = true
+	_check(not engine_found, "the retired engine placement is dropped on load")
+	_check(SubValidator.validate(SaveData.layout)["ok"],
+		"the layout without the engine still validates")

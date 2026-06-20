@@ -36,6 +36,13 @@ static func _firing_face_offset(facing: String) -> Vector2i:
 static func validate(layout: SubLayout) -> Dictionary:
 	var violations: Array[String] = []
 
+	# Pre-check: all placements must refer to known modules. Unknown IDs (rooms
+	# removed from the catalog, e.g. the retired engine room) are flagged here
+	# so recover() can strip them on load rather than leaving ghost placements.
+	for p in layout.placements:
+		if ModuleCatalog.by_id(p.module_id) == null:
+			violations.append("Module '%s' is no longer in the catalog." % p.module_id)
+
 	# Rule 1: core fixed — the tower exists exactly once and is never in
 	# inventory. The helm is core too, but (2026-06-15) can be picked up and
 	# relocated like any other room — it's just never allowed to be missing
@@ -228,10 +235,13 @@ static func recover(layout: SubLayout) -> SubLayout:
 			recovered.placements.append(p)
 
 	# Non-core placements keep their cells on a first-come basis; losers
-	# return to inventory.
+	# return to inventory. Unknown module IDs (rooms retired from the catalog)
+	# are dropped silently — no inventory refund since the room no longer exists.
 	for p in layout.placements:
 		var def := ModuleCatalog.by_id(p.module_id)
-		if def != null and def.is_core:
+		if def == null:
+			continue  # unknown module: silently drop (retired from catalog)
+		if def.is_core:
 			continue
 		var cells := SubLayout.placement_cells(p)
 		var conflict := false

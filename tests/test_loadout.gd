@@ -1,8 +1,8 @@
 extends Node
 
 ## Headless test for Module D: the dry-dock loadout — buying upgrades with
-## banked scrap, persisting them, and the sub building itself from them (engine
-## boost, faster repairs).
+## banked scrap, persisting them, and the sub building itself from them
+## (faster repairs). Engine Boost was retired in M7-1.
 ##
 ## NOTE (M4-4b): the second gun room is no longer a SubLoadout bolt-on — the sub
 ## is layout-driven now, and the turret room returns as a placeable room in
@@ -17,7 +17,7 @@ var _failures := 0
 func _ready() -> void:
 	SaveData.reset_for_test()
 	_test_purchase_and_save()
-	await _test_engine_and_repair_mults()
+	_test_repair_mult()
 	SaveData.reset_for_test()
 
 	if _failures == 0:
@@ -34,29 +34,23 @@ func _check(cond: bool, msg: String) -> void:
 		push_error("  FAIL: " + msg)
 		_failures += 1
 
-func _frames(n: int) -> void:
-	for i in n:
-		await get_tree().physics_frame
-
-func _count_turrets(sub: Sub) -> int:
-	var n := 0
-	for c in sub.get_children():
-		if c is TurretStation:
-			n += 1
-	return n
-
 func _test_purchase_and_save() -> void:
 	print("[purchase + save]")
 	SaveData.reset_for_test()
-	var cost: int = SubLoadout.catalog_entry("engine_boost")["cost"]
+	var cost: int = SubLoadout.catalog_entry("fast_repair")["cost"]
 
-	_check(not SaveData.purchase("engine_boost"), "can't buy with no banked scrap")
+	_check(not SaveData.purchase("fast_repair"), "can't buy with no banked scrap")
 
 	SaveData.banked_scrap = cost + 5
-	_check(SaveData.purchase("engine_boost"), "buy engine boost once affordable")
+	_check(SaveData.purchase("fast_repair"), "buy fast_repair once affordable")
 	_check(SaveData.banked_scrap == 5, "the cost was deducted from banked scrap")
-	_check(SaveData.loadout.engine_boost, "engine boost is now owned")
-	_check(not SaveData.purchase("engine_boost"), "can't buy the same upgrade twice")
+	_check(SaveData.loadout.fast_repair, "fast_repair is now owned")
+	_check(not SaveData.purchase("fast_repair"), "can't buy the same upgrade twice")
+
+	# engine_boost is no longer in the catalog (M7-1).
+	_check(SubLoadout.catalog_entry("engine_boost").is_empty(),
+		"engine_boost is not in the catalog (retired M7-1)")
+	_check(not SaveData.purchase("engine_boost"), "buying a retired upgrade is refused")
 
 	# Persist + reload.
 	var scrap := SaveData.banked_scrap
@@ -64,37 +58,15 @@ func _test_purchase_and_save() -> void:
 	SaveData.loadout = SubLoadout.new()
 	SaveData.load_data()
 	_check(SaveData.banked_scrap == scrap, "banked scrap survives a save/reload")
-	_check(SaveData.loadout.engine_boost, "owned upgrade survives a save/reload")
+	_check(SaveData.loadout.fast_repair, "fast_repair survives a save/reload")
 
-func _test_engine_and_repair_mults() -> void:
-	print("[engine + repair mults]")
-	# A boosted sub should out-accelerate a base sub over the same input.
-	var base := Sub.new()
-	add_child(base)
-	var fast := Sub.new()
-	var lo := SubLoadout.new()
-	lo.engine_boost = true
-	fast.loadout = lo
-	add_child(fast)
-	await _frames(2)
-
-	for i in 30:
-		base.drive_input = Vector2(1, 0)
-		fast.drive_input = Vector2(1, 0)
-		await get_tree().physics_frame
-	_check(fast.velocity.x > base.velocity.x + 1.0,
-		"engine boost makes the sub accelerate faster")
-
-	var repair := Sub.new()
-	var lo2 := SubLoadout.new()
-	lo2.fast_repair = true
-	repair.loadout = lo2
-	add_child(repair)
-	await _frames(2)
-	_check(repair.repair_time_mult() < 1.0, "repair training shortens repair time")
+func _test_repair_mult() -> void:
+	print("[repair mult]")
+	var base := SubLoadout.new()
 	_check(is_equal_approx(base.repair_time_mult(), 1.0), "base sub repairs at normal speed")
+	_check(is_equal_approx(base.move_mult(), 1.0), "move_mult is permanently 1.0 (engine retired)")
 
-	base.queue_free()
-	fast.queue_free()
-	repair.queue_free()
-	await _frames(2)
+	var trained := SubLoadout.new()
+	trained.fast_repair = true
+	_check(trained.repair_time_mult() < 1.0, "repair training shortens repair time")
+	_check(is_equal_approx(trained.move_mult(), 1.0), "fast_repair does not change move_mult")

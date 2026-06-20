@@ -41,7 +41,7 @@ func _test_grid_constants() -> void:
 
 func _test_catalog() -> void:
 	print("[module catalog]")
-	var ids := ["helm", "tower", "engine", "claw_room", "storage",
+	var ids := ["helm", "tower", "claw_room", "storage",
 		"turret_room", "bullet_room", "floodlight_pod"]
 	for id in ids:
 		var def := ModuleCatalog.by_id(id)
@@ -53,6 +53,8 @@ func _test_catalog() -> void:
 	_check(ModuleCatalog.by_id("turret_room").has_firing_face,
 		"the turret room has a firing face")
 	_check(ModuleCatalog.by_id("floodlight_pod").is_pod, "the floodlight is a pod")
+	_check(ModuleCatalog.by_id("engine") == null,
+		"engine module is retired — by_id returns null")
 	_check(ModuleCatalog.by_id("does_not_exist") == null,
 		"an unknown id returns null, not a crash")
 
@@ -60,7 +62,7 @@ func _test_footprints() -> void:
 	print("[footprints]")
 	_check(ModuleCatalog.by_id("helm").footprint == Vector2i(1, 1), "helm is 1x1")
 	_check(ModuleCatalog.by_id("tower").footprint == Vector2i(1, 1), "tower is 1x1")
-	_check(ModuleCatalog.by_id("engine").footprint == Vector2i(1, 1), "engine is 1x1")
+	_check(ModuleCatalog.by_id("claw_room").footprint == Vector2i(1, 1), "claw_room is 1x1")
 
 	var p := SubLayout.Placement.new("helm", Vector2i(4, 0))
 	var cells: Array = SubLayout.placement_cells(p)
@@ -70,14 +72,13 @@ func _test_footprints() -> void:
 func _test_starting_layout() -> void:
 	print("[starting layout]")
 	var layout := SubLayout.starting_layout()
-	_check(layout.placements.size() == 7,
-		"the Minnow+ has 7 placed modules (engine, helm, turret room, tower, "
-		+ "bullet room, claw room, storage)")
+	_check(layout.placements.size() == 4,
+		"the M7 base sub has 4 placed modules (claw_room, helm, bullet_room, tower)")
 
 	var ids: Array = []
 	for p in layout.placements:
 		ids.append(p.module_id)
-	for id in ["helm", "tower", "turret_room", "engine", "claw_room", "storage", "bullet_room"]:
+	for id in ["helm", "tower", "claw_room", "bullet_room"]:
 		_check(id in ids, "the starting layout includes a '%s'" % id)
 
 	# Every placed module's id resolves in the catalog.
@@ -85,8 +86,7 @@ func _test_starting_layout() -> void:
 		_check(ModuleCatalog.by_id(p.module_id) != null,
 			"placement '%s' resolves in the catalog" % p.module_id)
 
-	# Tower sits directly above the helm (helm at (1,0), tower at (1,-1))
-	# per §2.1.
+	# Tower sits directly above the helm (helm at (0,0), tower at (0,-1)).
 	var tower_pos := Vector2i.ZERO
 	var helm_pos := Vector2i.ZERO
 	for p in layout.placements:

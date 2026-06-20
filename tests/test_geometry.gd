@@ -43,20 +43,20 @@ func _room_at(geo: SubGeometry, cell: Vector2i) -> SubGeometry.Room:
 func _test_room_count_and_indices() -> void:
 	print("[rooms]")
 	var geo := SubGeometry.build(SubLayout.starting_layout())
-	_check(geo.rooms.size() == 7, "the Minnow+ compiles to 7 rooms")
-	# Water indices are the placement order, 0..6, unique.
+	_check(geo.rooms.size() == 4, "the M7 base sub compiles to 4 rooms")
+	# Water indices are the placement order, 0..3, unique.
 	var seen: Dictionary = {}
 	for room in geo.rooms:
 		seen[room.water_index] = true
-	_check(seen.size() == 7, "every room has a distinct water index")
-	_check(geo.index_at(Vector2i(2, 0)) == _room_at(geo, Vector2i(2, 0)).water_index,
+	_check(seen.size() == 4, "every room has a distinct water index")
+	_check(geo.index_at(Vector2i(1, 0)) == _room_at(geo, Vector2i(1, 0)).water_index,
 		"index_at agrees with the room's water index")
 	_check(geo.index_at(Vector2i(9, 9)) == -1, "an empty cell has no room index")
 
 func _test_rooms_are_centered() -> void:
 	print("[centering]")
 	var geo := SubGeometry.build(SubLayout.starting_layout())
-	# The occupied bounding box (3 wide x 3 tall: x in [0..2], y in [-1..1])
+	# The occupied bounding box (3 wide x 2 tall: x in [-1..1], y in [-1..0])
 	# centers on the origin, so the rects' combined bbox is symmetric.
 	var min_p := Vector2(INF, INF)
 	var max_p := Vector2(-INF, -INF)
@@ -70,38 +70,34 @@ func _test_rooms_are_centered() -> void:
 func _test_cell_size() -> void:
 	print("[cell size]")
 	var geo := SubGeometry.build(SubLayout.starting_layout())
-	var helm := _room_at(geo, Vector2i(2, 0))
+	var helm := _room_at(geo, Vector2i(0, 0))
 	_check(is_equal_approx(helm.rect.size.x, SubGrid.CELL_W_PX), "a room is one cell wide (3.75m)")
 	_check(is_equal_approx(helm.rect.size.y, SubGrid.CELL_H_PX), "a room is one cell tall (3.0m)")
 
 func _test_doors_match_horizontal_adjacency() -> void:
 	print("[doors]")
 	var geo := SubGeometry.build(SubLayout.starting_layout())
-	# Horizontal neighbours: engine(0,0)-helm(1,0), helm(1,0)-turret_room(2,0),
-	# bullet_room(0,1)-claw_room(1,1), claw_room(1,1)-storage(2,1) = 4 doorways.
-	_check(geo.doors.size() == 4, "four doorways (the horizontally adjacent room pairs)")
+	# Horizontal neighbours: claw_room(-1,0)-helm(0,0), helm(0,0)-bullet_room(1,0) = 2 doorways.
+	_check(geo.doors.size() == 2, "two doorways (the horizontally adjacent room pairs)")
 	# A door sits on the shared wall between its two cells.
 	var found := false
 	for door in geo.doors:
-		if door.a_cell == Vector2i(0, 0) and door.b_cell == Vector2i(1, 0):
+		if door.a_cell == Vector2i(-1, 0) and door.b_cell == Vector2i(0, 0):
 			found = true
-			var left := _room_at(geo, Vector2i(0, 0))
+			var left := _room_at(geo, Vector2i(-1, 0))
 			_check(is_equal_approx(door.wall_x, left.rect.position.x + left.rect.size.x),
-				"the engine-helm doorway is on their shared wall")
-	_check(found, "there is an engine<->helm doorway")
+				"the claw_room-helm doorway is on their shared wall")
+	_check(found, "there is a claw_room<->helm doorway")
 
 func _test_ladders_match_vertical_adjacency() -> void:
 	print("[ladders]")
 	var geo := SubGeometry.build(SubLayout.starting_layout())
-	# Vertical neighbours: tower(1,-1)-helm(1,0), helm(1,0)-claw_room(1,1),
-	# engine(0,0)-bullet_room(0,1), turret_room(2,0)-storage(2,1) = 4 ladders.
-	_check(geo.ladders.size() == 4, "four ladders (the vertically stacked room pairs)")
+	# Vertical neighbours: tower(0,-1)-helm(0,0) = 1 ladder.
+	_check(geo.ladders.size() == 1, "one ladder (the vertically stacked room pair)")
 	var pairs: Array = []
 	for ladder in geo.ladders:
 		pairs.append([ladder.upper_cell, ladder.lower_cell])
-	_check([Vector2i(1, -1), Vector2i(1, 0)] in pairs, "tower<->helm ladder exists")
-	_check([Vector2i(1, 0), Vector2i(1, 1)] in pairs, "helm<->claw ladder exists")
-	_check([Vector2i(0, 0), Vector2i(0, 1)] in pairs, "engine<->bullet_room ladder exists")
+	_check([Vector2i(0, -1), Vector2i(0, 0)] in pairs, "tower<->helm ladder exists")
 
 func _test_ladder_parity_sides() -> void:
 	print("[ladder parity]")
@@ -112,10 +108,8 @@ func _test_ladder_parity_sides() -> void:
 
 	var geo := SubGeometry.build(SubLayout.starting_layout())
 	for ladder in geo.ladders:
-		if ladder.upper_cell == Vector2i(1, -1):
+		if ladder.upper_cell == Vector2i(0, -1):
 			_check(ladder.section == 1, "tower's floor (1, odd) puts its ladder on s1")
-		elif ladder.upper_cell == Vector2i(1, 0) or ladder.upper_cell == Vector2i(0, 0):
-			_check(ladder.section == 5, "the main row's floor (2, even) puts its ladders on s5")
 
 func _test_sections_bake_to_offsets() -> void:
 	print("[section baking]")
@@ -144,7 +138,7 @@ func _test_slots_are_not_rooms_but_count_for_centering() -> void:
 			bought = c
 	layout.slots.append(bought)
 	var geo := SubGeometry.build(layout)
-	_check(geo.rooms.size() == 7, "a bought-but-empty slot is not a generated room")
+	_check(geo.rooms.size() == 4, "a bought-but-empty slot is not a generated room")
 	# The slot widened/shifted the bounding box, so the box now spans the slot.
 	_check(geo.grid_max.x >= bought.x and geo.grid_min.x <= bought.x,
 		"the slot is inside the geometry's bounding box (counts as hull)")
@@ -153,7 +147,7 @@ func _test_connections_topology() -> void:
 	print("[connections]")
 	var geo := SubGeometry.build(SubLayout.starting_layout())
 	var conns := geo.connections()
-	_check(conns.size() == 8, "eight water connections (4 doors + 4 ladders)")
+	_check(conns.size() == 3, "three water connections (2 doors + 1 ladder)")
 	var doors := 0
 	var ladders := 0
 	for c in conns:
@@ -161,4 +155,4 @@ func _test_connections_topology() -> void:
 			doors += 1
 		elif c["kind"] == "ladder":
 			ladders += 1
-	_check(doors == 4 and ladders == 4, "connections split 4 doors / 4 ladders")
+	_check(doors == 2 and ladders == 1, "connections split 2 doors / 1 ladder")

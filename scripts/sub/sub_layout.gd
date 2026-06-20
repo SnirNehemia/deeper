@@ -138,27 +138,22 @@ static func placement_cells(p: Placement) -> Array:
 			cells.append(p.grid_pos + Vector2i(dx, dy))
 	return cells
 
-## "The Minnow+" (MODULAR_SUB_IMPLEMENTATION.md §2.1, resized to the uniform
-## 1x1 cell per ROOM_SYSTEM.md §1): the M3 sub re-expressed on the grid. Helm
-## at the bow (right) end of the main row, tower above the helm, the Bullet
-## Room mounted stern-mounted/mirrored on the lower deck, claw and storage
-## filling out the rest — each room a single (3.75m x 3m) cell (2026-06-16
-## "Room" rework: the old placeholder "room" module is gone, replaced by the
-## hand-built Turret Room as the Minnow+'s bow gun).
+## M7 base sub — "telescope + control + bullet, tower above" (DECISIONS.md
+## 2026-06-20). Replaces the six-room Minnow+: engine room retired (M7-1),
+## dedicated claw/storage rooms leave the base loadout. The claw_room here is
+## a temporary telescope stub (M7-1); it will be replaced by telescope_room
+## in M7-3. The turret_room and storage room are still purchasable from the shop.
 ##
-##              [Tower 1x1]                    y = -1
-## [Engine 1x1][Helm 1x1][Turret Room 1x1]      y =  0   (stern -> bow)
-## [Bullet Room 1x1][Claw 1x1][Storage 1x1]     y = +1
+##        [Tower (0,-1)]          y = -1
+## [Claw(-1,0)][Helm(0,0)][Bullet(1,0)]  y = 0  (stern -> bow)
+##  ^telescope stub^
 static func starting_layout() -> SubLayout:
 	var layout := SubLayout.new()
 	layout.placements = [
-		Placement.new("engine", Vector2i(0, 0)),
-		Placement.new("helm", Vector2i(1, 0)),
-		Placement.new("turret_room", Vector2i(2, 0)),
-		Placement.new("tower", Vector2i(1, -1)),
-		Placement.new("bullet_room", Vector2i(0, 1), "left"),
-		Placement.new("claw_room", Vector2i(1, 1), "bottom"),
-		Placement.new("storage", Vector2i(2, 1)),
+		Placement.new("claw_room", Vector2i(-1, 0), "left"),  # telescope stub (M7-3 swaps)
+		Placement.new("helm",        Vector2i(0,  0)),
+		Placement.new("bullet_room", Vector2i(1,  0), "right"),
+		Placement.new("tower",       Vector2i(0, -1)),
 	]
 	return layout
 

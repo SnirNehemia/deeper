@@ -63,7 +63,7 @@ func _test_joint_controls() -> void:
 	await _frames(2)
 	var claw := _find_claw(sub)
 	_check(claw != null, "sub built a claw station")
-	_check(claw.room_index == 5, "claw console is in the lower claw room")
+	_check(claw.room_index == 0, "claw console is in the stern claw room (index 0)")
 	_check(claw.is_home(), "the arm starts folded at home")
 
 	claw.shoulder_angle = 0.0

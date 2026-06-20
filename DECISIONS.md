@@ -295,19 +295,16 @@
   visible-cage + carry-ferry design.
 
 ## Settled (2026-06-12, ROOM_SYSTEM.md reconciliation with M4)
-- **One uniform cell, 3.75m x 3m**, replaces the M4-draft's mixed 2x1/1x1
+- **One uniform cell, 5m x 3m** (settled at Checkpoint 1 playtest 2026-06-13;
+  tried 3.75m too narrow, 7.5m too wide), replaces the M4-draft's mixed 2x1/1x1
   footprint catalog — every room (helm, tower, control room, engine, claw
   room, storage, turret room) is exactly one cell. Larger (multi-cell) rooms
   are deliberately deferred until a specific one is designed
   (`ROOM_SYSTEM.md` §7) — not to be generalized speculatively.
-  - 3.75m = five 0.75m "sections" (s1-s5), a pure authoring layer for where a
+  - 5m = five 1m "sections" (s1-s5), a pure authoring layer for where a
     room's elements (station, hatch, gun, claw, ladder) sit. Sections bake to
     local coordinates *before* `rebuild_from_layout` runs and never reach the
     pipeline, water model, hull generator, or `validate()`.
-  - **Flagged as a playtest point, not fully locked:** the 3.75m width is
-    "subject to change after a playtest where Snir inspects if it's the right
-    size" — re-raise at Checkpoint 1 (first time the generated/uniform-cell
-    sub is actually visible).
 - **Ladders are parity-placed, never authored:** odd floors (counted from the
   tower down) put their ladder in section s1, even floors in s5 — same "sides
   alternate floor-to-floor" rule from M3 Module A, now expressed on the
@@ -386,8 +383,8 @@
   schedules the turret room as M4-9 content; bridging it in would be throwaway.
 - **Ladders sit at the inner edge of their parity section, not the section
   centre.** The reserved ladder sections (s1/s5) hug the side walls, but a room
-  can have a doorway on the same wall, and the 0.75m section is barely wider
-  than the 0.7m crew — a wall-hugging ladder traps the crew on the door header.
+  can have a doorway on the same wall, and a wall-hugging ladder traps the crew
+  on the door header.
   So the shaft is offset inward (still within s1/s5) for clearance, mirroring
   how the M3 hand-built sub hand-placed ladders clear of doorways. **Revisit at
   Checkpoint 1** if the ladder/door spacing reads wrong.
@@ -763,3 +760,127 @@ Snir's 7-part request, scoped via AskUserQuestion:
   Q picks up and auto-deposits into hold). Orientation-aware like the
   floodlight. Too large for the M6 polish pass; should be its own milestone
   module brief.
+
+## Settled (2026-06-20, Milestone 7 — Hands on the Deep)
+
+- **Direction chosen:** M7 is a tight one-new-room slice — ship the parked
+  telescope, slim the base sub, demote the claw — over the larger candidate themes
+  (combat/encounter depth, sensing, progression/meta). Rationale: highest
+  fun-per-dev-hour (two modules cash in already-parked work), feelable at the first
+  playtest, and it builds directly on the M6 map/terrain pipeline. The other themes
+  are noted as future-milestone candidates.
+
+- **Add-room skill promoted to a real, code-verified skill (M7-0).**
+  `SKILL_STUB_add_room.md` is now built out as `.claude/skills/add-deeper-room/
+  SKILL.md`, with the stub's deferred TODOs filled against real code (the M4
+  pipeline, `validate`, section-bake, multi-resource costs, and the §6 base-gun /
+  bullet reference rooms all exist). The telescope (M7-2) is the skill's first
+  validation pass — built *via* the skill, not by hand. Supersedes
+  `SKILL_STUB_add_module.md` (already dead) and retires the stub. If the skill
+  can't be made clean, that's a design-level signal to surface before later
+  room-heavy milestones — see the skill's §8.
+
+- **Engine room retired; folded permanently into the control room.** There is no
+  engine room and there will not be one — propulsion is an inherent property of the
+  sub / control room, not a placeable module. **This reverses the 2026-06-10 round
+  3 decision** ("functional engine arrives as a module post-MVP", DECISIONS.md
+  line ~35): we are choosing *never* rather than *later*, because the engine room
+  never earned its slot and the leaner base sub reads better. Engine removal is
+  **structural only — movement must play identically** (no tuning change intended).
+
+- **"Engine Boost" upgrade deleted (not re-homed).** With no engine room, the
+  parked Engine Boost upgrade has no host; remove it from the dormant upgrade data
+  and treat it as retired. **Repair Training and the rest of the dormant
+  `SubLoadout` plumbing are untouched** (2026-06-16 round 5 still holds). Note: this
+  thins the dormant upgrade system to one live concept (Repair Training) — worth a
+  glance when the upgrade-tree reconnection is eventually scheduled (still parked,
+  gated behind the post-art elemental update per Snir).
+
+- **Base sub reshaped:** the starting loadout is now **control + bullet (main row),
+  conning tower above the control room, telescope room** as the collector. The base
+  **loses** the engine room, the dedicated claw room, and the dedicated storage
+  room. **This supersedes the 2026-06-16 round 4 "starting layout rework"** (the
+  six-room Minnow+) — update that entry's loadout to the M7 base. Old six-room saves
+  load via the existing `SubValidator.recover` drop-what-no-longer-fits path.
+
+- **Telescope is the base collector; the claw is demoted to a buyable alternate
+  (not deleted).** The claw keeps its full M3 mechanic (two-joint excavator, Q to
+  cage, foot-ferry to its own built-in pen, capacity 4) — it just moves from base
+  equipment into the shop. Players can run telescope-only, or buy a claw and run
+  both; rearrange free at the dock (M4 rule).
+
+- **Telescope mechanic (supersedes `ROOM_SYSTEM.md` §6 "Claw telescope room").**
+  The §6 entry (a `[-]` starting room: up/down extend, right/left rotate, `use` to
+  close the claw, capacity 4 on the claw, no aim, no cages) is **replaced** by the
+  M7 spec: **A/D aim (hull-clamped arc), S extend, W retract, Q grab (explicit,
+  never on-contact), ~8 m reach, two onboard cages (s2 + s4, capacity 6 each = 12),
+  auto-deposit the tip's catch into the cages on retract.** Orientation-aware like
+  the floodlight. **Rewrite the §6 entry to match at M7 close-out.** This also
+  **resolves the 2026-06-17 parked "Telescopic arm: deferred to its own session"**
+  (DECISIONS.md line ~761) — that park is now fulfilled. (Note the one control
+  delta from the original park: the original said "Q picks up and auto-deposits into
+  hold"; M7 keeps Q as an explicit *grab*, and "auto" applies only to the
+  retract-deposit step — grab is never on-contact.)
+
+- **Salvage storage is now per-collector, not a shared room.** The telescope
+  auto-deposits into its own two cages; the claw (when bought) ferries to its own
+  pen. The standalone storage room **leaves the base loadout** and returns only as
+  a later purchasable room when capacity is a real constraint. **Push-your-luck is
+  unchanged: cage/pen contents are lost on implosion until banked at the dock.**
+  The telescope is **not** a safe-income exception — its cages are lost on
+  implosion exactly like the claw pen; auto-deposit removes the *foot-ferry*, not
+  the *docking-to-bank* step.
+
+- **Telescope reach ~8 m** (`GameFeel.telescope.reach_m`) — long and straight, the
+  "long tool," versus the claw's short wide swing. Several cells out into open
+  water, measured from the keel base. (Reminder: the cell is 5 m wide = 5 ×
+  1 m sections, `ROOM_SYSTEM.md` §2 — reach is *not* in section units.)
+
+## Re-parked for a future milestone (2026-06-20)
+
+- **Three room types parked out of M7** to keep the telescope slice tight (one new
+  room only). Full briefs in `FUTURE_ROOMS.md`. Suggested homes are non-binding —
+  confirm at each milestone kickoff:
+  - **Heavy torpedo room** — *already authored in `ROOM_SYSTEM.md` §6*; awaits a
+    *build* milestone (suggested: an arsenal-expansion slice). Its real cost is the
+    post-launch guidance (weapon owns player input after firing) + two-stage
+    detonation. Not a new design, a new build.
+  - **Sonar room** — genuinely new (not in §6). Suggested: a sensing /
+    "read-the-deep" milestone; natural prerequisite for any darkness/depth work and
+    seeds the later elemental "Echo Ring" variant. **"Some enemies locate the sub
+    based on the pulse" is new fauna AI**, not a room mechanic — budget it as its
+    own module (a pulse-triggered hunter aggro, akin to M5 `is_hunter`).
+  - **Claw snake room** — genuinely new (not in §6). A *third* collector; schedule
+    *after* M7 has settled the telescope/claw base-vs-buyable economy, so the
+    contrast stays legible. **The brief marks it `[-]` (starting room), which
+    conflicts with the M7 base loadout — that `[-]` will not hold; it must be
+    purchasable (or reopen the base-sub decision).** Its routing/self-collision
+    mechanic is meaningfully harder than the telescope or claw — the milestone's
+    headline. It is also the one collector that auto-grabs on contact (the telescope
+    explicitly does not) — keep the three collectors distinct.
+
+- **Standalone storage room** — returns as its own purchasable room when capacity
+  becomes a real constraint (dropped from the M7 base loadout, see above). Not
+  scheduled.
+
+## Parked — update
+
+- ~~**Telescopic arm: deferred to its own session** (2026-06-17)~~ **Resolved
+  (M7): built as the base collector** with revised controls — see the M7 telescope
+  entry above.
+
+## Settled (2026-06-20, M7-1 — implementation)
+
+- **Engine room removed from `ModuleCatalog`**: `_room("engine", ...)` entry
+  deleted; `by_id("engine")` now returns null. Old saves with an engine placement
+  are caught by a new **unknown-module pre-check in `validate()`** (fires before
+  the existing rules) and dropped cleanly by `recover()` (null-def guard added to
+  the non-core loop). No inventory refund — the room no longer exists.
+- **`SubLoadout.engine_boost` field and `move_mult()` override removed**: Engine
+  Boost was the only thing in `catalog()` that called `move_mult()`; it is gone.
+  `move_mult()` now permanently returns `1.0`. `fast_repair` and `repair_time_mult()`
+  are unchanged. Pre-M7-1 saves with `"engine_boost": true` are silently ignored on
+  `from_dict()` load — the key is just not read.
+- **Starting layout slimmed to 4 rooms**: claw_room(−1,0,"left") as a telescope
+  stub (replaced by telescope_room in M7-3), helm(0,0), bullet_room(1,0,"right"),
+  tower(0,−1). Supersedes the six-room Minnow+2 from round 4 (2026-06-16).

@@ -51,7 +51,7 @@ func _test_hold_release_hold() -> void:
 	add_child(sub)
 	var crew := Crew.new()
 	crew.player_index = 0
-	crew.position = Vector2(-240, -60)  # engine room floor
+	crew.position = Vector2(-240, -60)  # claw_room floor
 	sub.add_child(crew)
 	await _frames(30)  # settle on the floor
 
@@ -91,7 +91,7 @@ func _test_auto_drain() -> void:
 	add_child(sub)
 	await _frames(2)
 
-	# Flood the engine room with no breaches anywhere: it should drain.
+	# Flood the claw_room with no breaches anywhere: it should drain.
 	sub.water_levels[0] = 0.5
 	await _frames(60)  # ~1s at the ~12s-to-empty rate
 	_check(sub.water_levels[0] < 0.5, "breach-free room drains on its own")
@@ -106,7 +106,7 @@ func _test_auto_drain() -> void:
 
 	# A breached room does NOT drain (others do). Flood every room evenly so
 	# equalization is neutral and only the drain/leak difference shows.
-	sub.water_levels = [0.5, 0.5, 0.5, 0.5, 0.0, 0.0, 0.0]
+	sub.water_levels = [0.5, 0.5, 0.5, 0.5]
 	sub.spawn_breach(1, GameFeel.water.leak_rate_min)
 	await _frames(60)
 	_check(sub.water_levels[1] > sub.water_levels[0] + 0.02,

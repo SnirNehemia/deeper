@@ -122,7 +122,7 @@ func _test_buy_room_into_inventory() -> void:
 	_check(SaveData.banked_scrap == 20 - int(cost.get("sc", 0)),
 		"the room's scrap cost was deducted")
 	# Buying a room does NOT place it — placements are unchanged (that's M4-8).
-	_check(SaveData.layout.placements.size() == 7, "buying a room leaves the placed rooms alone")
+	_check(SaveData.layout.placements.size() == 4, "buying a room leaves the placed rooms alone")
 
 func _test_buy_room_refused_when_broke() -> void:
 	print("[room too expensive]")
@@ -157,7 +157,8 @@ func _test_place_room_happy_path() -> void:
 	print("[place a room]")
 	SaveData.reset_for_test()
 	SaveData.banked_scrap = 1000
-	var pos := Vector2i(3, 1)  # adjacent to storage at (2,1); +x neighbor (4,1) is exterior
+	# (0,1) is below helm(0,0); firing face right hits (1,1) which is exterior.
+	var pos := Vector2i(0, 1)
 	SaveData.buy_slot(pos)
 	SaveData.buy_room("turret_room")
 	var ok := SaveData.place_room("turret_room", pos, "right")
@@ -176,16 +177,16 @@ func _test_place_room_refused_when_firing_face_blocked() -> void:
 	print("[firing face blocked]")
 	SaveData.reset_for_test()
 	SaveData.banked_scrap = 1000
-	var pos := Vector2i(3, 1)
+	# (0,1) is below helm(0,0). Facing "top" fires into (0,0) = helm (occupied).
+	var pos := Vector2i(0, 1)
 	SaveData.buy_slot(pos)
 	SaveData.buy_room("turret_room")
-	# Facing left fires -x into (2,1) = storage, which is occupied.
-	var ok := SaveData.place_room("turret_room", pos, "left")
-	_check(not ok, "placing the turret room facing left (firing face blocked) is refused")
+	var ok := SaveData.place_room("turret_room", pos, "top")
+	_check(not ok, "placing the turret room facing top (firing face blocked) is refused")
 	_check(pos in SaveData.layout.slots, "the slot is still empty")
 	_check(SaveData.layout.inventory.get("turret_room", 0) == 1,
 		"the room is still in inventory")
-	_check(not SaveData.place_room_violations("turret_room", pos, "left").is_empty(),
+	_check(not SaveData.place_room_violations("turret_room", pos, "top").is_empty(),
 		"the violation list explains why")
 
 func _test_place_room_refused_without_slot() -> void:
@@ -193,18 +194,18 @@ func _test_place_room_refused_without_slot() -> void:
 	SaveData.reset_for_test()
 	SaveData.banked_scrap = 1000
 	SaveData.buy_room("turret_room")
-	var ok := SaveData.place_room("turret_room", Vector2i(3, 0))
+	var ok := SaveData.place_room("turret_room", Vector2i(0, 1))
 	_check(not ok, "placing a room at a position with no owned slot is refused")
 	_check(SaveData.layout.inventory.get("turret_room", 0) == 1,
 		"the room remains in inventory")
-	_check(not SaveData.place_room_violations("turret_room", Vector2i(3, 0)).is_empty(),
+	_check(not SaveData.place_room_violations("turret_room", Vector2i(0, 1)).is_empty(),
 		"the violation list explains there's no slot there")
 
 func _test_return_room_to_inventory() -> void:
 	print("[return a room to inventory]")
 	SaveData.reset_for_test()
 	SaveData.banked_scrap = 1000
-	var pos := Vector2i(3, 1)
+	var pos := Vector2i(0, 1)
 	SaveData.buy_slot(pos)
 	SaveData.buy_room("turret_room")
 	SaveData.place_room("turret_room", pos)
@@ -222,9 +223,9 @@ func _test_return_room_to_inventory() -> void:
 func _test_return_room_refused_for_tower() -> void:
 	print("[can't return the tower]")
 	SaveData.reset_for_test()
-	var ok := SaveData.return_room_to_inventory(Vector2i(1, -1))  # tower
+	var ok := SaveData.return_room_to_inventory(Vector2i(0, -1))  # tower
 	_check(not ok, "returning the tower is refused")
-	_check(SaveData.layout.placements.size() == 7, "no placement was removed")
+	_check(SaveData.layout.placements.size() == 4, "no placement was removed")
 
 ## The helm is core but, since 2026-06-15, can be picked up and placed back
 ## like any other room — the dry dock just won't let the player leave with it
@@ -232,10 +233,10 @@ func _test_return_room_refused_for_tower() -> void:
 func _test_return_helm_to_inventory() -> void:
 	print("[return the helm to inventory]")
 	SaveData.reset_for_test()
-	var ok := SaveData.return_room_to_inventory(Vector2i(1, 0))  # helm
+	var ok := SaveData.return_room_to_inventory(Vector2i(0, 0))  # helm
 	_check(ok, "the helm can be picked up like any other room")
 	_check(SaveData.layout.inventory.get("helm", 0) == 1, "the helm is now in inventory")
-	_check(Vector2i(1, 0) in SaveData.layout.slots,
+	_check(Vector2i(0, 0) in SaveData.layout.slots,
 		"the helm's old cell becomes an owned empty slot")
 	var still_placed := false
 	for p in SaveData.layout.placements:
@@ -246,12 +247,12 @@ func _test_return_helm_to_inventory() -> void:
 func _test_place_helm_back() -> void:
 	print("[place the helm back]")
 	SaveData.reset_for_test()
-	SaveData.return_room_to_inventory(Vector2i(1, 0))
-	var ok := SaveData.place_room("helm", Vector2i(1, 0))
+	SaveData.return_room_to_inventory(Vector2i(0, 0))
+	var ok := SaveData.place_room("helm", Vector2i(0, 0))
 	_check(ok, "the helm can be placed back into an owned slot")
 	var found := false
 	for p in SaveData.layout.placements:
-		if p.module_id == "helm" and p.grid_pos == Vector2i(1, 0):
+		if p.module_id == "helm" and p.grid_pos == Vector2i(0, 0):
 			found = true
 	_check(found, "the helm is placed again")
 	_check(SaveData.layout.inventory.get("helm", 0) == 0,
@@ -265,7 +266,7 @@ func _test_slot_price_stable_across_place_and_return() -> void:
 	print("[slot price stable across place/return]")
 	SaveData.reset_for_test()
 	SaveData.banked_scrap = 1000
-	var pos := Vector2i(3, 0)
+	var pos := Vector2i(0, 1)  # adjacent to helm(0,0)
 	SaveData.buy_slot(pos)
 	SaveData.buy_room("turret_room")
 
@@ -314,27 +315,27 @@ func _test_buy_pod_refused_for_non_pod() -> void:
 	_check(not SaveData.buy_pod("does_not_exist"), "an unknown id is refused, not a crash")
 	_check(SaveData.banked_scrap == 1000, "no scrap spent on any refused buy")
 
-## Buys a slot at (3,1) (adjacent to storage at (2,1)) and places a freshly
+## Buys a slot at (0,1) (adjacent to helm at (0,0)) and places a freshly
 ## bought Floodlight Room there — the dedicated room that can host the
-## floodlight pod (M4-9). Its +x face (4,1) is exterior, its -x face (2,1) is
-## storage (occupied).
+## floodlight pod (M4-9). Its +x face (1,1) is exterior, its -y face (0,0) is
+## helm (occupied).
 func _setup_floodlight_room() -> void:
-	SaveData.buy_slot(Vector2i(3, 1))
+	SaveData.buy_slot(Vector2i(0, 1))
 	SaveData.buy_room("floodlight_room")
-	SaveData.place_room("floodlight_room", Vector2i(3, 1))
+	SaveData.place_room("floodlight_room", Vector2i(0, 1))
 	# Placing the room auto-attaches its lamp (2026-06-19 rework) — undo that
 	# here so these tests can exercise place_pod/return_pod directly against a
 	# clean "room placed, pod in inventory, nothing attached" state.
 	for pod in SaveData.layout.pods.duplicate():
-		if pod.host_cell == Vector2i(3, 1):
-			SaveData.return_pod_to_inventory(Vector2i(3, 1), pod.face)
+		if pod.host_cell == Vector2i(0, 1):
+			SaveData.return_pod_to_inventory(Vector2i(0, 1), pod.face)
 
 func _test_place_pod_happy_path() -> void:
 	print("[attach a pod to an exterior face]")
 	SaveData.reset_for_test()
 	SaveData.banked_scrap = 1000
 	_setup_floodlight_room()
-	var ok := SaveData.place_pod("floodlight_pod", Vector2i(3, 1), "right")
+	var ok := SaveData.place_pod("floodlight_pod", Vector2i(0, 1), "right")
 	_check(ok, "attaching the floodlight pod to its room's exterior face succeeds")
 	_check(SaveData.layout.inventory.get("floodlight_pod", 0) == 0,
 		"the attached pod is removed from inventory")
@@ -346,12 +347,12 @@ func _test_place_pod_refused_on_non_exterior_face() -> void:
 	SaveData.reset_for_test()
 	SaveData.banked_scrap = 1000
 	_setup_floodlight_room()
-	# The floodlight room's left face (2,1) is storage — not exterior.
-	var ok := SaveData.place_pod("floodlight_pod", Vector2i(3, 1), "left")
+	# The floodlight room at (0,1)'s top face (0,0) is occupied by helm.
+	var ok := SaveData.place_pod("floodlight_pod", Vector2i(0, 1), "top")
 	_check(not ok, "attaching a pod to a non-exterior face is refused")
 	_check(SaveData.layout.inventory.get("floodlight_pod", 0) == 1,
 		"the pod is still in inventory")
-	_check(not SaveData.place_pod_violations("floodlight_pod", Vector2i(3, 1), "left").is_empty(),
+	_check(not SaveData.place_pod_violations("floodlight_pod", Vector2i(0, 1), "top").is_empty(),
 		"the violation list explains why")
 
 func _test_place_pod_refused_on_room_that_cant_host_it() -> void:
@@ -359,23 +360,23 @@ func _test_place_pod_refused_on_room_that_cant_host_it() -> void:
 	SaveData.reset_for_test()
 	SaveData.banked_scrap = 1000
 	SaveData.buy_room("floodlight_room")  # bundles the pod into inventory
-	# Turret room's top face (2,-1) is exterior, but it isn't built to host a pod.
-	var ok := SaveData.place_pod("floodlight_pod", Vector2i(2, 0), "top")
+	# bullet_room(1,0) top face (1,-1) is exterior, but bullet_room can't host a pod.
+	var ok := SaveData.place_pod("floodlight_pod", Vector2i(1, 0), "top")
 	_check(not ok, "attaching a pod to a room that can't host it is refused")
 	_check(SaveData.layout.inventory.get("floodlight_pod", 0) == 1,
 		"the pod is still in inventory")
-	_check(not SaveData.place_pod_violations("floodlight_pod", Vector2i(2, 0), "top").is_empty(),
+	_check(not SaveData.place_pod_violations("floodlight_pod", Vector2i(1, 0), "top").is_empty(),
 		"the violation list explains why")
 
 func _test_place_pod_refused_without_inventory() -> void:
 	print("[pod refused without inventory]")
 	SaveData.reset_for_test()
 	SaveData.banked_scrap = 1000
-	_setup_floodlight_room()
+	_setup_floodlight_room()  # floodlight_room at (0,1)
 	# Buying the room bundles in its pod (2026-06-19) — remove it to test the
 	# "not in inventory" case on its own.
 	SaveData.layout.inventory.erase("floodlight_pod")
-	var ok := SaveData.place_pod("floodlight_pod", Vector2i(3, 1), "right")
+	var ok := SaveData.place_pod("floodlight_pod", Vector2i(0, 1), "right")
 	_check(not ok, "attaching a pod not owned in inventory is refused")
 	_check(SaveData.layout.pods.is_empty(), "no pod was attached")
 
@@ -384,22 +385,22 @@ func _test_return_pod_to_inventory() -> void:
 	SaveData.reset_for_test()
 	SaveData.banked_scrap = 1000
 	_setup_floodlight_room()
-	SaveData.place_pod("floodlight_pod", Vector2i(3, 1), "right")
-	var ok := SaveData.return_pod_to_inventory(Vector2i(3, 1), "right")
+	SaveData.place_pod("floodlight_pod", Vector2i(0, 1), "right")
+	var ok := SaveData.return_pod_to_inventory(Vector2i(0, 1), "right")
 	_check(ok, "detaching an attached pod succeeds")
 	_check(SaveData.layout.inventory.get("floodlight_pod", 0) == 1,
 		"the pod is back in inventory")
 	_check(SaveData.layout.pods.is_empty(), "the pod is no longer in the layout's pod list")
-	_check(not SaveData.return_pod_to_inventory(Vector2i(3, 1), "right"),
+	_check(not SaveData.return_pod_to_inventory(Vector2i(0, 1), "right"),
 		"detaching a pod that isn't there is refused")
-	_check(not SaveData.return_pod_to_inventory(Vector2i(2, 0), "top"),
+	_check(not SaveData.return_pod_to_inventory(Vector2i(1, 0), "top"),
 		"detaching a pod that isn't there is refused")
 
 func _test_place_room_refused_without_inventory() -> void:
 	print("[no inventory]")
 	SaveData.reset_for_test()
 	SaveData.banked_scrap = 1000
-	var pos := Vector2i(3, 1)
+	var pos := Vector2i(0, 1)
 	SaveData.buy_slot(pos)
 	var ok := SaveData.place_room("turret_room", pos)
 	_check(not ok, "placing a room not owned in inventory is refused")
