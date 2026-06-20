@@ -1,15 +1,17 @@
 # STATUS — DEEPER
 
-_Read this at session start. Last updated: 2026-06-20 — **M7-2 done; M7-3 (swap claw stub → telescope as base collector) is next.**_
+_Read this at session start. Last updated: 2026-06-20 — **M7-3 done; E/Shift now buys in shop. Next: M7-4.**_
 
 **Milestone 7 — Hands on the Deep — in progress.**
-M7-0 (add-room skill promotion), M7-1 (engine room retirement + slim base sub), and M7-2 (telescope arm room) are complete and committed. The starting sub is a 4-room hull: `claw_room(-1,0)` as telescope stub (M7-3 swaps this to `telescope_room`), `helm(0,0)`, `bullet_room(1,0,"right")`, `tower(0,-1)`.
+M7-0 through M7-3 are complete and committed. The starting sub is a 4-room hull: `telescope_room(-1,0,"left")`, `helm(0,0)`, `bullet_room(1,0,"right")`, `tower(0,-1)`.
+
+**M7-3 — Telescope is the base collector (2026-06-20):** `starting_layout()` now places `telescope_room` at (-1,0) instead of the old `claw_room` stub. `claw_room` is now a purchasable alternate collector (5 sc, appears in shop). `dry_dock.gd` rotatable-room check updated for `telescope_room`. Shop bug fixed: E (P1 interact) and Shift (P2 interact) now buy the selected shop item; hint text corrected to show "Q: assembly" (was "Tab: assembly"). All tests updated: `test_claw.gd` gained `_new_claw_sub()` so claw tests build an explicit claw layout independent of `starting_layout()`.
 
 **M7-2 — Telescope arm room:** `telescope_room` added to `ModuleCatalog`. `TelescopeStation` (new file: `scripts/stations/telescope_station.gd`) extends Station with a single straight arm: A/D aims within a clamped arc (±60° around `facing_dir`), S extends toward open water (up to `reach_m` ~8 m), W retracts, Q grabs a `SalvageItem` in WATER state near the tip. Auto-deposit fires when the arm returns home: the tip item transfers into the room's s2 cage (then s4), each with capacity 6 (12 total). Cages full → deposit refused, item stays on tip. `Sub.try_bank()` and `reset_state()` now also iterate `_telescope_stations`. `SubVisual` draws the arm, tip grabber, and two cage outlines that fill with icons. `tests/test_telescope.tscn` (18 checks) covers aim clamping, extend/retract limits, grab, auto-deposit, full-cage refusal, and reset.
 
 Also fixed (M7-1 session): **fish attention circle now triggers on the sub's hull edge**, not its centre. `Fish._dist_to_sub_hull()` finds the nearest point on any `hull_rects()` Rect2 (local space, distance-preserved by `to_local`).
 
-**Next step: M7-3 — make telescope the base collector; demote claw to buyable alternate room.**
+**Next step: M7-4 — bank telescope cages at the dock + show cage fill count on the telescope console.**
 
 ---
 

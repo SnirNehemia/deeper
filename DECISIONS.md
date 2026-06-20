@@ -885,6 +885,12 @@ Snir's 7-part request, scoped via AskUserQuestion:
   stub (replaced by telescope_room in M7-3), helm(0,0), bullet_room(1,0,"right"),
   tower(0,−1). Supersedes the six-room Minnow+2 from round 4 (2026-06-16).
 
+## Settled (2026-06-20, M7-3 — implementation)
+
+- **Telescope is the base collector from M7-3 onward.** `SubLayout.starting_layout()` places `telescope_room` at (-1,0) facing "left". `claw_room` is now a purchasable alternate collector (cost `{"sc": 5}`, appears in shop). All tests that relied on `starting_layout()` containing `claw_room` were updated; `test_claw.gd` gained `_new_claw_sub()` to build an explicit claw layout.
+- **Shop interact key bug fixed.** `DryDock._shop_key()` now maps `KEY_E` and `KEY_SHIFT` to the buy action, matching the interact keys used everywhere else in the game. Hint text corrected to "Q: assembly" (was "Tab: assembly", wrong key).
+- **`telescope_room` is rotatable in Assembly.** `dry_dock.gd` `_build_cell_menu()` `rotatable` check now includes `placed_id == "telescope_room"`.
+
 ## Settled (2026-06-20, M7-2 — implementation)
 
 - **`telescope_room` added to `ModuleCatalog`** (cost `{"sc": 6}`, purchasable).
