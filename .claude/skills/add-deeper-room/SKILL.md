@@ -1,184 +1,207 @@
 ---
 name: add-deeper-room
-description: >
-  Add a new purchasable room type to DEEPER's submarine (a new gun, arm,
-  storage room, or similar one-cell room with its own station/mechanic). Use
-  when a brief says "add a room", "new room", "new station", "new weapon
-  room", or asks for a room modeled on the Turret Room. Do NOT use for
-  larger (multi-cell) rooms (ROOM_SYSTEM.md §7 — out of scope), for pods
-  (floodlight pod is the only one; a different pattern), or for ship-wide
-  upgrades (Engine Boost / Repair Training in sub_loadout.gd — unrelated
-  system).
+description: >-
+  Add a new room type to the DEEPER submarine (a station, weapon room, collector
+  arm, sensor, or passive container that occupies one grid cell). Use when a brief
+  says "add a room", "new room", "new station", "new weapon room", "new collector",
+  or specs a room from the ROOM_SYSTEM.md catalog. Covers filling the room-def,
+  hand-coding the unique mechanic against a reference room, wiring the upgrade tree
+  and multi-resource price, adding validation/art/layers, and the headless test.
+  Do NOT use for: designing what a room does (that's a milestone brief), balancing
+  stats/prices (playtest tuning), or larger multi-cell rooms (ROOM_SYSTEM.md §7 —
+  their own pass).
 ---
 
 # Add a DEEPER room
 
-This skill is a **checklist with a template**, not a generator. The plumbing
-(catalog entry, shop listing, validation, save/load, hull generation, water,
-flood-eject, section baking, art registration) is uniform and this checklist
-makes it free. The room's **unique mechanic** (the gun, the arm, whatever it
-does) is always hand-written against the closest existing room — copy
-`turret_room` (the reference implementation, M4-10) unless the brief points
-at a closer relative.
+This skill adds **one uniform-cell room type** to DEEPER. The submarine's room
+plumbing — grid, pipeline, validator, per-room water, hull generation, section
+baking, upgrade-tree wiring, multi-resource costs — **already exists and is
+inherited**. Your job is to fill the *declarative* parts (the room-def) and
+hand-code only the room's *unique mechanic* against the closest existing room.
+Everything else is wired for you. Do not re-implement it.
 
-**Read first:** `ROOM_SYSTEM.md` (§2 sections, §3 ladder parity, §4 economy,
-§6 the room you're building is probably already specced here) and
-`MODULAR_SUB_IMPLEMENTATION.md` §4-5 (pipeline + validation). If the room in
-the brief is one of the §6 worked examples, that's your stats/elements spec —
-don't invent numbers.
+> **Mental model:** the plumbing is data; the mechanism is code. A room-def
+> captures everything uniform across rooms (id, sections, elements, stats, upgrade
+> tree, price). A room's one novel behaviour (an arm's reach, a weapon's
+> projectile, a sensor's pulse) is always hand-written against a reference room.
+> This skill makes the plumbing free and points you at the right reference — it
+> does **not** pretend the mechanic is data.
 
-## Preconditions (confirm these exist before starting)
+## 0. Preconditions — read before touching anything
 
+**Read, in order:** `CLAUDE.md` → `STATUS.md` → `DECISIONS.md` →
+`MODULAR_SUB_IMPLEMENTATION.md` (§4–5: pipeline, validation) → `ROOM_SYSTEM.md`
+(§2 sections, §3 ladder parity, §4 economy, §5 upgrades, §6 catalog). The catalog
+in `ROOM_SYSTEM.md` §6 is your reference set — find the closest existing room to
+the one you're adding and read its implementation before writing anything.
+
+**Confirm these systems exist** (if any is missing, stop — the room can't be added
+cleanly and that's a design-level problem to surface):
+- the grid + `SubLayout` data model and `rebuild_from_layout` pipeline
+  (`MODULAR_SUB_IMPLEMENTATION.md` §4);
+- the **section-bake step** that compiles s1–s5 to local x-offsets *before* the
+  pipeline runs (`ROOM_SYSTEM.md` §2);
+- `validate()` as the **sole** layout authority (`MODULAR_SUB_IMPLEMENTATION.md`
+  §5) — never branch layout legality anywhere else;
+- the generic **upgrade-tree** mechanism (`ROOM_SYSTEM.md` §5);
+- **multi-resource cost** checking at the dock (`ROOM_SYSTEM.md` §4.2 — sc / s_ca /
+  m_ca / l_ca, *not* scrap-only);
+- the shop catalog the room must be registered in
+  (`scripts/sub/module_catalog.gd` — `ModuleCatalog.all()` and `purchasable_rooms()`);
+- `PlaceholderArt` (`scripts/placeholder_art.gd`) and `CollisionLayers`
+  (`scripts/collision_layers.gd`).
+
+**Confirm these specific files exist before writing:**
 - `scripts/sub/module_def.gd` (`ModuleDef` — catalog entry schema)
 - `scripts/sub/module_catalog.gd` (`ModuleCatalog.all()` — the catalog list +
   `purchasable_rooms()`)
-- `scripts/sub/sub_validator.gd` (`SubValidator.validate()` — the one
-  validator, rules are numbered)
-- `scripts/sub/sub_geometry.gd` (`SubGeometry` — compiles layout to rooms/
-  doors/ladders; section-bake helper `section_center_x()`)
-- `scripts/sub/sub.gd` (`Sub._compute_anchors()` computes seat/element
-  positions from sections; `Sub._build_stations()` instantiates station
-  nodes)
+- `scripts/sub/sub_validator.gd` (`SubValidator.validate()` — the one validator)
+- `scripts/sub/sub_geometry.gd` (`SubGeometry` — `section_center_x()`)
+- `scripts/sub/sub.gd` (`Sub._compute_anchors()`, `Sub._build_stations()`)
 - `autoload/save_data.gd` (`buy_room`, `can_afford_cost`, `cost_bundle()`)
 - `scripts/ui/dry_dock.gd` (Shop tab — reads `ModuleCatalog.purchasable_rooms()`
   automatically, no per-room UI code needed)
 
-If any of these are missing or renamed, **stop** — the pipeline has changed
-and this skill needs updating before it can be trusted.
+> **Reference rooms (closest-match table):** pick the nearest and read it first.
+> - **Collector arm** → claw room (`scripts/stations/claw_station.gd`, two-joint,
+>   ferry-to-pen) or the telescope room (M7: aim/extend/retract/Q-grab/auto-deposit-cages).
+> - **Weapon** → base-gun room (`turret_room`) or bullet room (§6) for fire-and-forget;
+>   the heavy-torpedo room (when built) for post-launch guidance + two-stage detonation.
+> - **Passive container** → storage room (§6: no station, cages only).
+> - **Remote/utility station** → the conning-tower Hull station (M5: remote-acts
+>   on the nearest target within a room radius).
+> (Verify these paths against the live tree — `STATUS.md` is the index of what
+> landed in which module.)
 
-> **Upgrade trees (ROOM_SYSTEM.md §5) are NOT yet wired into code.** No
-> generic per-room upgrade-tree mechanism exists (only the unrelated ship-wide
-> Engine Boost / Repair Training in `sub_loadout.gd`). If the brief's room has
-> an upgrade tree, **build the room without it** and flag the upgrade tree as
-> a follow-up — do not invent a one-off upgrade menu. See STATUS.md /
-> DECISIONS.md (M4-11, 2026-06-16) for this scoping call.
+## 1. The room-def — fill the template
 
-## The procedure
+Author the room declaratively in `module_catalog.gd`. Follow `_turret_room()` as
+the template (confirm exact field names in `module_def.gd` before writing):
 
-1. **Pick the room-def from `ROOM_SYSTEM.md` §6** (or the brief). Note: id,
-   display name, one-line description, cost bundle (`sc`/`s_ca`/`m_ca`/`l_ca`),
-   `has_firing_face` (true only if the mechanic fires/reaches *out* of the
-   sub on a wall that must stay exterior — see step 5), `can_host_pod` (almost
-   always false — only the Floodlight Room uses this), section→element map
-   (default: station in s3).
+```gdscript
+## <One-line note: what real mechanic this is, citing ROOM_SYSTEM.md §6 and
+## the Sub._build_xxx function that seats it.>
+static func _my_room() -> ModuleDef:
+    var def := ModuleDef.new()
+    def.id = "my_room"                       # stable snake_case key
+    def.display_name = "My Room"             # shop/UI label
+    def.description = "<one-line player-facing blurb, shown in the Shop tab>"
+    def.footprint = Vector2i(1, 1)           # always 1×1 for current rooms
+    def.has_firing_face = true               # only if it has an outward-facing mechanic
+    def.cost = {"sc": 4}                     # from ROOM_SYSTEM.md §6; never scrap-only assumption
+    return def
+```
 
-2. **Add the catalog entry** in `scripts/sub/module_catalog.gd`. Follow
-   `_turret_room()` as the template:
-   ```gdscript
-   ## <One-line note: what real mechanic this is, citing ROOM_SYSTEM.md §6 and
-   ## the Sub._build_xxx function that seats it.>
-   static func _my_room() -> ModuleDef:
-       var def := ModuleDef.new()
-       def.id = "my_room"
-       def.display_name = "My Room"
-       def.description = "<one-line player-facing blurb, shown in the Shop tab>"
-       def.footprint = Vector2i(1, 1)
-       def.has_firing_face = true  # only if it has an outward-facing mechanic
-       def.cost = {"sc": 4}  # from ROOM_SYSTEM.md §6
-       return def
-   ```
-   Add it to the array returned by `ModuleCatalog.all()`. That's the **entire
-   shop/buy/inventory wiring** — `purchasable_rooms()` and the dry dock's Shop
-   tab pick it up automatically because it's non-core, non-pod, and has a
-   non-empty `cost_bundle()`.
+Add it to `ModuleCatalog.all()`. That's the **entire shop/buy/inventory wiring** —
+`purchasable_rooms()` and the dry dock's Shop tab pick it up automatically because
+it's non-core, non-pod, and has a non-empty `cost_bundle()`.
 
-3. **Compute the room's anchors** in `Sub._compute_anchors()`. Pattern after
-   the M4-10 turret-room block (sub.gd, search `_turret_rooms`): loop
-   `geometry.rooms`, filter `room.module_id == "my_room"`, and compute
-   sub-local positions via `_section_x(room, N)` for `sN` elements (default
-   station in s3) or `room.rect.position.y + room.rect.size.y` for the floor
-   y. For a `tN`/`bN` (ceiling/floor-mounted) element, offset from
-   `room.rect.position.y` (ceiling) or the floor y by your element's size.
-   Store one dict per placed instance in a new `_my_rooms: Array` (mirroring
-   `_turret_rooms`), each holding whatever the station needs (seat position,
-   any outward-facing anchor, `room.water_index`, `room.mirrored`).
+**Section → element map** (`ROOM_SYSTEM.md` §2 notation):
+- **Default station is `s3`.** Passive rooms (storage) declare *no* station.
+- Use `sN` (mid-wall), `tN`/`bN` (ceiling/floor of section N — e.g. `b3` for a
+  keel-mounted arm base).
+- **Never author an element into the floor's ladder section** (s1 on odd floors,
+  s5 on even — §3). This is an authoring-time check; there is no runtime guard.
+- **Outside-element wall side:** guns, arms, sensors mount on an exterior face.
+  The design screen switches them left/right or auto-assigns the open-water face.
+- **Stats block:** all as `GameFeel` keys, never literals in logic.
+- **Price:** `[-]` for a starting room (no purchase); a resource bundle for a
+  purchasable one. Add the resource costs as `GameFeel` keys, not literals.
 
-   **Outward-facing elements** (guns, claws, anything denoted "outside" in
-   ROOM_SYSTEM.md §2): the firing-face wall depends on `mirrored` — unmirrored
-   points toward the bow (+x, room's right wall), mirrored toward the stern
-   (-x, room's left wall). This mirrors `SubValidator._firing_face_offset()`
-   exactly — same convention, same direction. See the turret-room block for
-   the `if room.mirrored: ... else: ...` shape.
+## 2. Hand-code the mechanic (only if the room has a new one)
 
-4. **Hand-code the mechanic**, against the closest reference:
-   - **Weapon firing outward** (gun, torpedo tube): copy `TurretStation`
-     (`scripts/stations/turret_station.gd`) and `Sub._build_turret_room()`
-     (sub.gd). Reuse `TurretStation` directly if the new gun is just another
-     torpedo tube at a different seat/facing (as M4-10 did) — only write a new
-     station class if the mechanic itself differs (different projectile,
-     aiming, etc).
-   - **Arm reaching outward** (claw-like): copy `ClawStation`
-     (`scripts/stations/claw_station.gd`) and `Sub._build_claw()`.
-   - **Passive container** (storage-like): copy the storage-pen pattern
-     (`Sub._compute_anchors()`'s `storage` block + `SubVisual._draw_storage_pen`,
-     `Sub.storage_count()`/`storage_scrap`).
-   - **Genuinely novel mechanic** (wrecking ball, shield, etc.): write a new
-     `*Station` class under `scripts/stations/`, following the shape of
-     `TurretStation`/`ClawStation` (fields: `sub`, `room_index`, `position`;
-     a `handle_input()` if it's player-operated; hooks into the flood/water
-     model only via existing `Sub`/`SaveData` APIs — never re-implement
-     flooding).
+Write the mechanic **against the nearest reference room** (table in §0).
+Flood-eject, water, hull, section-baking, save/load, and tilt are **inherited —
+do not re-implement them.**
 
-   In every case: instantiate the station in a new `Sub._build_my_room(entry:
-   Dictionary)` and call it from `Sub._build_stations()`:
-   ```gdscript
-   for r in _my_rooms:
-       _build_my_room(r)
-   ```
-   (additive — existing `if _room_by_id(...) != null: _build_xxx()` lines for
-   other rooms are untouched).
+- Reuse existing state machines — e.g. a new collector should ride the existing
+  `SalvageItem` state machine (water → grabbed → caged/banked), not a parallel one.
+- Keep the mechanic's surface small: one clear input scheme, one clear effect.
+- Orientation-aware elements (anything mounted on an outer wall) must read the
+  mounted side and map directional input toward open water — mirror the floodlight
+  (`scripts/stations/floodlight_station.gd`) / claw orientation handling so
+  controls feel correct on either wall.
+- Anything drawn (arms, tips, cages, beams, projectiles) goes through
+  `scripts/sub/sub_visual.gd`'s `_draw()` so it **tilts with the hull** — mirror
+  how the claw is drawn (`_draw_claw()`).
 
-5. **Add validation cases only if needed**, in `SubValidator.validate()`
-   — do not validate elsewhere. The existing rules already cover the common
-   cases for any `has_firing_face` room for free:
-   - Rule 5: firing face must be exterior (not blocked by another room).
-   - Rule 8: a `has_firing_face` room must sit at the far left/right edge of
-     its row.
-   A new room with `has_firing_face = true` needs **no new validator code** —
-   these rules key off the flag, not the room id. Only add a new rule if the
-   room's mechanic imposes a constraint neither rule covers (e.g. "must not be
-   on the top floor"). Also confirm (by inspection, not runtime check) that
-   your section→element map doesn't author into s1/s5 on a floor where that
-   section is the ladder (ROOM_SYSTEM.md §3) — this is an authoring-time
-   check, no code needed if you just don't do it.
+Instantiate the station in a new `Sub._build_my_room(entry: Dictionary)` and call
+it from `Sub._build_stations()`:
+```gdscript
+for r in _my_rooms:
+    _build_my_room(r)
+```
 
-6. **Register placeholder art + layers**:
-   - Add any new colors to `scripts/placeholder_art.gd` (follow the existing
-     grouped-by-system layout, e.g. under "# --- Sub / hull ---").
-   - Draw the element in `scripts/sub/sub_visual.gd`'s `_draw()` — follow
-     `_draw_turret()` / `_draw_storage_pen()` for the pattern (read positions
-     off the station/Sub, draw with `PlaceholderArt` colors, no magic numbers).
-   - Only touch `scripts/collision_layers.gd` if the mechanic needs a *new*
-     collision layer (most don't — torpedoes already use `PROJECTILE`, claws
-     use `SALVAGE`, etc).
+If the mechanic won't sit cleanly on the existing interface, **stop and report in
+design terms** (see §8).
 
-7. **Class-cache import**: if you added a new `class_name` script (a new
-   `*Station`), run once:
-   ```
-   "D:\Godot_v4.4.1-stable_win64.exe\Godot_v4.4.1-stable_win64.exe" --headless --path . --import
-   ```
-   before running any test that references it, or you'll get "Could not
-   resolve class".
+## 3. Wire the upgrade tree (generically)
 
-8. **Shop catalog**: done in step 2 — nothing further needed.
+> **NOTE: The generic upgrade-tree mechanism (`ROOM_SYSTEM.md` §5) is NOT yet
+> implemented in code** (DECISIONS.md M4-11 scoping call). If the brief's room has
+> an upgrade tree, **build the room without it**, carry an empty stub, and flag the
+> upgrade tree as a follow-up in STATUS.md. Do not build a bespoke upgrade menu
+> per room. When the generic mechanism does land, rooms will expose stat hooks the
+> tree drives — the sections below describe that future-state design.
 
-## Test skeleton
+Design guidance for when the mechanism ships:
+- **Linear chain:** "X first `[cost]`, then Y `[cost]`."
+- **Branch (one-time fork into mutually exclusive paths):** "splits to A or B,"
+  each with its own sub-chain.
+- Upgrades change **stats** (speed/damage/rate/capacity), **behaviour**, or
+  **element count** (extra cages, more minibombs). Wire them as data + hooks —
+  the room exposes the hooks, the tree drives them.
+- Costs escalate along a path, paid in §4.2 resource tiers.
+- A room with no upgrades carries an empty/stub tree — fine; don't invent content.
 
-Add a `_test_placed_<room_id>()` function to the relevant `tests/test_*.gd`
-(or a new file if the mechanic warrants its own suite), modeled on
-`tests/test_turret.gd`'s `_test_placed_turret_room()`. **Important:** building
-a `Sub` and reading its stations is **synchronous** — `Sub._ready()` builds
-geometry, anchors, and stations all in one call, so the test needs **no
-`await get_tree().physics_frame` loops** for these checks (the long
-frame-waits elsewhere in `test_turret.gd` predate this and have a known
-unrelated hang — don't copy that pattern).
+## 4. Price and slot
+
+`ROOM_SYSTEM.md` §4:
+
+- **Adding a room is two independent buys:** a **cell slot** (growth budget, price
+  escalates per `MODULAR_SUB_IMPLEMENTATION.md` §6) and the **room** (bought into
+  inventory, placed into an empty slot). You usually only price the *room* here;
+  the slot economy is shared and already exists.
+- **Costs are multi-resource bundles**, written `[…]`: `sc` scrap, `s_ca` small
+  carcass, `m_ca` medium carcass, `l_ca` large carcass. **Never assume scrap-only**
+  — the dock's multi-resource check is the path (§4.2). `[-]` = starting room,
+  owned from run one, not in the shop.
+- Add the resource costs as `GameFeel` keys, not literals.
+
+## 5. Validation, art, layers, import, catalog
+
+- **Validation:** if the room needs a new legality rule, add it in `validate()`
+  **only** (`MODULAR_SUB_IMPLEMENTATION.md` §5). The existing rules already cover
+  common cases for any `has_firing_face` room (rule 5: firing face exterior; rule 8:
+  at row/column edge). Only add a new rule if the mechanic imposes a constraint
+  neither covers.
+- **Section→element map authoring check:** confirm your element sections don't
+  land in the floor's parity ladder section (§3) — authoring-time check, no code.
+- **Art:** register colours/dimensions in `scripts/placeholder_art.gd`. Draw the
+  element in `scripts/sub/sub_visual.gd`'s `_draw()` — follow `_draw_turret()` /
+  `_draw_storage_pen()` for the pattern. No real art (that's the art pass).
+- **Layers:** only touch `scripts/collision_layers.gd` if the mechanic needs a
+  *new* collision layer. Most don't — torpedoes use `PROJECTILE`, claws use
+  `SALVAGE`, etc.
+- **Import trap:** if you added a script with `class_name`, run once:
+  ```
+  "D:\Godot_v4.4.1-stable_win64.exe\Godot_v4.4.1-stable_win64.exe" --headless --path . --import
+  ```
+  before testing, or you'll get "Could not resolve class" stale-cache errors.
+- **Catalog:** done in step 1 — `purchasable_rooms()` picks it up automatically.
+
+## 6. The test (copy-paste skeleton)
+
+Every room must pass the **universal invariants** in a headless suite
+(`tests/test_<room>.tscn` + `.gd`, modelled on the nearest existing room test).
 
 ```gdscript
 func _test_placed_my_room() -> void:
     print("[placed My Room]")
     var layout := SubLayout.starting_layout()
     # Pick a slot consistent with any has_firing_face edge rule (rule 8):
-    layout.placements.append(SubLayout.Placement.new("my_room", Vector2i(3, 0), false))
+    layout.placements.append(SubLayout.Placement.new("my_room", Vector2i(3, 0), "right"))
     _check(SubValidator.validate(layout)["ok"], "the layout with a placed My Room is valid")
 
     var sub := Sub.new()
@@ -193,58 +216,60 @@ func _test_placed_my_room() -> void:
     sub.queue_free()
 ```
 
-Universal invariants every new room should pass (most for free via shared
-code — call out only if something *doesn't*):
-- buyable (`ModuleCatalog.purchasable_rooms()` includes it once cost is set);
-- a layout placing it validates (or fails with a player-readable message if
-  placed illegally, e.g. a firing-face room mid-row → rule 8);
-- floods/ejects like any room (shared `Sub`/water-model code, untouched);
-- persists through save → load → `SubValidator.recover()` (shared `SaveData`/
-  `SubLayout` code, untouched).
+> Building a `Sub` and reading its stations is **synchronous** — `Sub._ready()`
+> builds geometry, anchors, and stations all in one call; no physics-frame awaits
+> needed for these checks.
 
-## Definition of done
+Assert:
+- **buyable** (or present in the base loadout for `[-]`); **placeable only in a
+  legal empty slot**; an illegal placement is **refused with a message**;
+- **sections bake correctly** — station lands at s3 x-offset; `tN`/`bN` mounts
+  land at the right ceiling/floor point; parity ladder section is clear;
+- the room **floods / breaches / ejects** like any room;
+- the **upgrade tree applies and persists** (when the mechanism lands);
+- **persists through save → load → rebuild**; **tilts with the hull**.
 
-- [ ] Catalog entry added (`module_catalog.gd`), appears in
-      `purchasable_rooms()`.
-- [ ] Anchors computed in `_compute_anchors()`, stored in a new
-      `_<room>_rooms` array.
-- [ ] Mechanic hand-coded (existing station reused, or new `*Station` class
-      following the established shape).
-- [ ] `_build_<room>()` wired into `_build_stations()`.
-- [ ] Validation: confirmed existing rules cover it, or a new numbered rule
-      added to `SubValidator.validate()` with a player-readable message.
-- [ ] Art: colors in `placeholder_art.gd`, drawing in `sub_visual.gd`.
-- [ ] New `class_name` script (if any): ran `--headless --path . --import`.
-- [ ] Test added and passing standalone (see hang caveat above).
-- [ ] Full headless suite green (no new `FAILED`/`FAIL:`/`SCRIPT ERROR`/
-      `Parse Error`).
-- [ ] Upgrade tree (if the brief's §6 entry has one): **not built** — note it
-      as a follow-up in STATUS.md, per the M4-11 scoping decision.
-- [ ] Commit message: `M<milestone>-<step>: <room name> room`.
+Then add the **room-specific assertions** (mechanic, stats, grab/deposit cycle, etc.).
 
-## Do not
+## 7. Definition of done
 
-- Don't re-implement flood/eject, water flow, hull generation, section
-  baking, or doorway/ladder placement — `Sub`, `SubGeometry`, and the water
-  model already do this for every room.
-- Don't add geometry outside `SubGeometry`/`Sub._compute_anchors()` /
-  `_build_stations()`.
-- Don't let s1-s5 section names leak past `_compute_anchors()` — everything
-  downstream (pipeline, water, `validate()`) works in baked coordinates only.
-- Don't add validation logic outside `SubValidator.validate()`.
-- Don't assume scrap-only cost — always use `cost = {...}` /
-  `cost_bundle()`, never the legacy `price` field, for new rooms.
-- Don't build a bespoke upgrade menu — if the room needs upgrades, stop and
-  flag it (see Preconditions).
-- Don't add real art/sound — placeholder colors/shapes only.
-- Don't add per-room Shop-tab UI code — `purchasable_rooms()` + the existing
-  Shop loop in `dry_dock.gd` already lists any catalog entry with a cost.
+All boxes checked, then commit:
 
-## Validating this skill
+- [ ] room-def filled (id, name, footprint, section→element map, outside wall,
+      stats as `GameFeel` keys);
+- [ ] mechanic hand-coded against the reference room (if any), inherited plumbing
+      untouched;
+- [ ] upgrade tree: empty stub + follow-up flagged in STATUS.md (per M4-11);
+- [ ] price (multi-resource) + any slot/reserved-cell interaction;
+- [ ] new validation cases in `validate()` only;
+- [ ] `PlaceholderArt` + `CollisionLayers` updated, no magic numbers;
+- [ ] `--headless --import` run if a `class_name` was added;
+- [ ] registered in the shop catalog (or base loadout for `[-]`);
+- [ ] room test green **and full suite green**;
+- [ ] `STATUS.md` updated (what shipped, files touched, test);
+- [ ] commit message matching the milestone convention, e.g. `M7-2: telescope arm room`.
 
-To re-verify this skill still matches the codebase, follow it end-to-end to
-re-derive `turret_room` from scratch in a scratch branch (rename it
-`turret_room_2`, run through steps 1-8 + the test skeleton, confirm the
-result matches `sub.gd`'s real `_turret_rooms`/`_build_turret_room`), then
-discard the branch. Any step that's ambiguous or missing means this file is
-stale — fix it here, not in the scratch branch.
+## 8. Do NOT
+
+- Re-implement flood-eject, water, hull generation, **section baking**, or
+  **upgrade-tree plumbing** per-room.
+- Add geometry outside `rebuild_from_layout`.
+- Let s1–s5 leak into the pipeline / water / hull / `validate` (they bake to
+  coordinates upstream — `ROOM_SYSTEM.md` §8 invariant).
+- Author an element into a floor's parity ladder section (§3).
+- Copy layout-legality logic out of `validate()`.
+- Assume scrap-only costs (§4.2).
+- Branch on a 2×1-vs-1×1 footprint (stale M4-draft logic — one uniform cell, §8).
+- Add real art or sound.
+- Build a larger (multi-cell) room here (`ROOM_SYSTEM.md` §7 — its own pass).
+- Build a bespoke per-room upgrade menu — flag the tree as a follow-up instead.
+- Add per-room Shop-tab UI code — `purchasable_rooms()` + the existing Shop loop
+  in `dry_dock.gd` already lists any catalog entry with a cost.
+- Use for ship-wide upgrades (Repair Training in `sub_loadout.gd` — unrelated system).
+
+**If the procedure can't be followed cleanly** — too many special cases, sections
+leak, the upgrade tree won't generalise, costs fight the system, the mechanic
+won't sit on the existing interface — **stop and report to Snir in design terms.**
+That means the room interface isn't as clean as `ROOM_SYSTEM.md` assumes, which is
+worth knowing *before* later milestones pile on more rooms. Pressure-testing the
+interface is half the reason this skill exists.
