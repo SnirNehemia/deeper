@@ -103,8 +103,8 @@ func _physics_process(delta: float) -> void:
 		return
 
 	var sub_in_territory := sub != null \
-		and home.distance_to(sub.global_position) <= feel.territory_radius_m * ppm
-	var dist_to_sub := global_position.distance_to(sub.global_position) if sub != null else INF
+		and _dist_to_sub_hull(home) <= feel.territory_radius_m * ppm
+	var dist_to_sub := _dist_to_sub_hull(global_position) if sub != null else INF
 
 	# Hunters lock on from farther away, in PATROL/CHASE/RETURN, regardless of
 	# territory (design doc §7).
@@ -166,6 +166,19 @@ func _physics_process(delta: float) -> void:
 			elif sub_in_territory:
 				state = State.CHASE
 	queue_redraw()
+
+## Distance from `world_pos` to the nearest point on the sub's hull (local
+## rects, distance-preserved by sub.to_local). Returns 0 if the point is
+## inside the hull.
+func _dist_to_sub_hull(world_pos: Vector2) -> float:
+	var local := sub.to_local(world_pos)
+	var min_dist := INF
+	for rect: Rect2 in sub.hull_rects():
+		var clamped := Vector2(
+			clampf(local.x, rect.position.x, rect.end.x),
+			clampf(local.y, rect.position.y, rect.end.y))
+		min_dist = minf(min_dist, local.distance_to(clamped))
+	return min_dist
 
 func _patrol(feel: GameFeel.FishFeel, ppm: float, delta: float) -> void:
 	# Drift between random points in the inner half of the territory.

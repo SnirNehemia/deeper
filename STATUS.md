@@ -1,6 +1,15 @@
 # STATUS — DEEPER
 
-_Read this at session start. Last updated: 2026-06-17 — **Milestone 6 closed + post-M6 polish.**_
+_Read this at session start. Last updated: 2026-06-20 — **M7-0 + M7-1 done; M7-2 (telescope room) is next.**_
+
+**Milestone 7 — Hands on the Deep — in progress.**
+M7-0 (add-room skill promotion) and M7-1 (engine room retirement + slim base sub) are complete and committed. The starting sub is now a 4-room hull: `claw_room(-1,0)` as telescope stub, `helm(0,0)`, `bullet_room(1,0,"right")`, `tower(0,-1)`. Engine Boost is retired from SubLoadout; `move_mult()` permanently returns 1.0. `SubValidator.validate()` now rejects placements whose `module_id` is no longer in the catalog, and `recover()` silently drops them so old saves load cleanly. All 7 headless suites green.
+
+Also fixed: **fish attention circle now triggers on the sub's hull edge**, not its centre. `Fish._dist_to_sub_hull()` finds the nearest point on any `hull_rects()` Rect2 (local space, distance-preserved by `to_local`), so a large sub is spotted the moment any part of it enters the territory/detection radius.
+
+**Next step: M7-2 — the telescope arm room.**
+
+---
 
 **Milestone 6 — Cartography & Structural Discipline — is complete.**
 All four modules shipped and the map pipeline is live as the default world:
@@ -413,8 +422,7 @@ generated tower spot.
   - Still open: re-confirm the 0.9m ladders + section-snapped elements on play.
 - **Ladder clearance fix:** ladder shafts sit at the *inner* edge of their
   parity section (s1/s5), not the section center, so a climbing crew clears the
-  doorway frame on that wall. The uniform 0.75m section is barely wider than the
-  crew (0.7m), so a wall-hugging ladder trapped the crew on the door header
+  doorway frame on that wall. A wall-hugging ladder trapped the crew on the door header
   (the M3 hand-built sub hand-placed ladders clear of doorways for the same
   reason). **Flag for Checkpoint 1:** confirm the ladder/door spacing reads OK.
 - **M4-5 largely folded in here:** because `room_rect()` feeds both the interior
