@@ -30,8 +30,10 @@ var is_hunter: bool = false
 ## ordinary fish.
 var is_chaser: bool = false
 
-## Sky zones from the map — fish won't swim into air pockets or open sky.
+## Sky zones from the map (pocket zones only) and the global water surface y.
+## Fish stay below water_surface_y and cannot enter cave air pockets.
 var sky_zones: Array = []
+var water_surface_y: float = 0.0
 
 var state: State = State.PATROL
 var is_dead: bool = false
@@ -50,6 +52,7 @@ var _wobble: float = 0.0
 var _hit_flash: float = 0.0
 var _knockback: Vector2 = Vector2.ZERO
 var _stun_timer: float = 0.0
+var _terrain_cast: ShapeCast2D
 ## True once a chaser has locked on — keeps the detection ring hidden even
 ## during RECOVER (when state briefly leaves HUNT between attacks).
 var _has_spotted: bool = false
@@ -71,6 +74,14 @@ func _ready() -> void:
 	circle.radius = length_m * GameFeel.PIXELS_PER_METER * 0.5
 	shape.shape = circle
 	add_child(shape)
+	# ShapeCast for terrain: fish can't swim through rock.
+	_terrain_cast = ShapeCast2D.new()
+	var cast_shape := CircleShape2D.new()
+	cast_shape.radius = circle.radius * 0.85  # slightly smaller to avoid edge false-positives
+	_terrain_cast.shape = cast_shape
+	_terrain_cast.collision_mask = Layers.TERRAIN
+	_terrain_cast.enabled = true
+	add_child(_terrain_cast)
 	area_entered.connect(_on_area_entered)
 
 func _physics_process(delta: float) -> void:
@@ -137,13 +148,11 @@ func _physics_process(delta: float) -> void:
 			# Circle off after a bite, then come back for another pass.
 			var recover_step := _recover_dir * feel.return_speed * ppm * delta
 			var recover_new := global_position + recover_step
-			var recover_blocked := false
-			for zone in sky_zones:
-				if (zone["rect"] as Rect2).has_point(recover_new):
-					recover_blocked = true
-					break
-			if not recover_blocked:
-				global_position = recover_new
+			if not _is_blocked_by_sky(recover_new):
+				_terrain_cast.target_position = recover_step
+				_terrain_cast.force_shapecast_update()
+				if not _terrain_cast.is_colliding():
+					global_position = recover_new
 			if _bite_cooldown <= 0.0:
 				if is_hunter or is_chaser:
 					state = State.HUNT
@@ -167,13 +176,31 @@ func _patrol(feel: GameFeel.FishFeel, ppm: float, delta: float) -> void:
 
 func _swim_toward(target: Vector2, speed: float, delta: float) -> void:
 	var dir := global_position.direction_to(target)
-	var new_pos := global_position + dir * speed * delta
-	for zone in sky_zones:
-		if (zone["rect"] as Rect2).has_point(new_pos):
-			return  # blocked — fish don't swim into air
-	global_position = new_pos
+	var step := dir * speed * delta
+	if _is_blocked_by_sky(global_position + step):
+		return
+	_terrain_cast.target_position = step
+	_terrain_cast.force_shapecast_update()
+	if _terrain_cast.is_colliding():
+		return
+	global_position += step
 	if absf(dir.x) > 0.1:
 		_facing = signf(dir.x)
+
+## True if `pos` would be in open air (above main surface or inside a pocket).
+## Fish are water creatures — they never cross these boundaries.
+func _is_blocked_by_sky(pos: Vector2) -> bool:
+	if water_surface_y > 0.0 and pos.y < water_surface_y:
+		return true
+	for zone in sky_zones:
+		if not zone.get("is_pocket", false):
+			continue
+		var sz: float = zone["surface_y"]
+		if pos.y < sz and global_position.y >= sz:
+			var rect: Rect2 = zone["rect"]
+			if pos.x >= rect.position.x and pos.x <= rect.position.x + rect.size.x:
+				return true
+	return false
 
 ## On hull contact (and off cooldown): lunge-bite — a small drip-tier breach
 ## at the bite point — then circle away for another pass.

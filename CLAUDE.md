@@ -32,7 +32,7 @@ Snir does not read or write code and will not learn Godot. He is the designer; y
 Briefs arrive as feature-sized chunks. Break them into internal steps yourself; headless-check after each step; never declare a feature done with a known-broken intermediate state.
 
 ## Git
-- Auto-commit after each *working* feature (headless check passed). Descriptive messages. Never commit a broken state. Push to GitHub at session end.
+- Auto-commit after each **module is complete** (headless check passed). Do not commit after every small tuning tweak or intermediate iteration — group related changes into one commit when a feature or fix is fully working end-to-end. Never commit a broken state. Push to GitHub at session end.
 
 ## Session end ritual
 1. Update `STATUS.md`: what was built, file-map changes, known issues, suggested next step.

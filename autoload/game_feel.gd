@@ -182,6 +182,8 @@ class TurretFeel:
 	## M5: HP damage dealt to a Fish/Wreck on hit. Equal to fish.hp so one
 	## torpedo still one-shots a fish (M2 acceptance, preserved).
 	var damage: float = 5.0
+	## ±speed spread added at launch (m/s) so shots don't all land the same place.
+	var speed_variation_m: float = 0.5
 
 var turret: TurretFeel = TurretFeel.new()
 

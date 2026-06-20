@@ -186,6 +186,7 @@ func _add_fish(pos: Vector2, is_hunter := false, is_chaser := false) -> void:
 	fish.is_hunter = is_hunter
 	fish.is_chaser = is_chaser
 	fish.sky_zones = _map_loader.sky_zones if _map_loader != null else []
+	fish.water_surface_y = _map_loader.water_surface_y if _map_loader != null else 0.0
 	add_child(fish)
 
 func _add_wreck(pos: Vector2) -> void:
@@ -211,7 +212,7 @@ func _add_dock_prompt() -> void:
 	var layer := CanvasLayer.new()
 	add_child(layer)
 	_dock_prompt = Label.new()
-	_dock_prompt.text = "At the dock — press Tab to open the Dry Dock and spend salvage"
+	_dock_prompt.text = "At the dock — use the tower console to open the Dry Dock"
 	_dock_prompt.set_anchors_preset(Control.PRESET_CENTER_TOP)
 	_dock_prompt.offset_top = 70
 	_dock_prompt.offset_left = -360
@@ -258,6 +259,3 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if event.keycode == KEY_ESCAPE:
 		get_tree().quit()
-	elif event.keycode == KEY_TAB and _is_docked():
-		_open_dry_dock()
-		get_viewport().set_input_as_handled()

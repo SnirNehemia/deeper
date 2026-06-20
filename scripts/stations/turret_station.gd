@@ -58,11 +58,10 @@ func handle_input(input: PlayerInput) -> void:
 
 func _fire() -> void:
 	_cooldown = fire_cooldown
-	# The visible barrel tilts with the hull's cosmetic pitch, so launch the
-	# projectile along that same tilted line (keeps shot + barrel aligned).
 	var dir := barrel_dir().rotated(sub.pitch)
 	var projectile: Torpedo = Bullet.new() if use_bullet else Torpedo.new()
-	projectile.velocity = dir * projectile_speed * GameFeel.PIXELS_PER_METER
+	var speed := projectile_speed + randf_range(-GameFeel.turret.speed_variation_m, GameFeel.turret.speed_variation_m)
+	projectile.velocity = dir * speed * GameFeel.PIXELS_PER_METER
 	# Launch into the world (not the sub) so it flies free of the hull.
 	var world := sub.get_parent()
 	world.add_child(projectile)

@@ -102,7 +102,7 @@ func _shop_key(code: int) -> void:
 					_try_buy_pod(entry["def"])
 				else:
 					_try_buy_room(entry["def"])
-		KEY_TAB:
+		KEY_Q:
 			_mode = Mode.ASSEMBLY
 		KEY_ESCAPE:
 			_close()
@@ -130,7 +130,7 @@ func _assembly_key(code: int) -> void:
 		# KP_Enter and Space are kept as convenience aliases.
 		KEY_E, KEY_SHIFT, KEY_KP_ENTER, KEY_SPACE:
 			_try_assembly_action()
-		KEY_TAB:
+		KEY_Q:
 			_mode = Mode.SHOP
 		KEY_ESCAPE:
 			_close()

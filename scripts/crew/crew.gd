@@ -50,6 +50,7 @@ var _respawn_label: Label = null
 var _facing: float = 1.0
 var _run_phase: float = 0.0
 var _was_on_floor: bool = false
+var _passing_crew: bool = false  # true during upward jump arc; disables crew-crew collision
 
 # On foot we stand on the sub interior, the hatch deck, and bump other crew.
 # While climbing we drop HATCH so the ladder can carry us through the deck hole.
@@ -152,6 +153,14 @@ func _physics_process(delta: float) -> void:
 		_on_ladder = true
 
 	collision_mask = _MASK_CLIMB if _on_ladder else _MASK_FOOT
+	# Phase through other crew while going up (jump or climbing) so you always
+	# land on top rather than getting stuck below. Re-enable on descent.
+	if velocity.y < 0.0:
+		_passing_crew = true
+	elif _passing_crew and (velocity.y >= 0.0 or is_on_floor()):
+		_passing_crew = false
+	if _passing_crew:
+		collision_mask &= ~Layers.CREW
 	if _on_ladder:
 		_move_on_ladder(move_x, move_y, feel, ppm, delta)
 	else:
