@@ -20,11 +20,11 @@ var move: Vector2 = Vector2.ZERO
 var jump_pressed: bool = false
 var jump_held: bool = false
 
-## Interact control — enter/exit stations, etc. (P1 E, P2 Right-Shift).
+## Interact control — enter/exit stations, etc. (P1 E, P2 /).
 var interact_pressed: bool = false
 var interact_held: bool = false
 
-## Use control — fire / activate a station's action (P1 Q, P2 Enter).
+## Use control — fire / activate a station's action (P1 Q, P2 .).
 var use_pressed: bool = false
 var use_held: bool = false
 

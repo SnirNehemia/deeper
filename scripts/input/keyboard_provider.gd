@@ -65,17 +65,15 @@ static func make_player_one() -> KeyboardProvider:
 		KeyBind.new(KEY_E),
 		KeyBind.new(KEY_Q))
 
-## Player 2: arrows move, Up jump+climb-up, Down climb-down, Right-Shift
-## interact, Enter use. Right-Shift is location-pinned so P1's Shift side never
-## triggers it.
+## Player 2: arrows move, Up jump+climb-up, Down climb-down, / interact, . use.
 static func make_player_two() -> KeyboardProvider:
 	return KeyboardProvider.new(
 		KeyBind.new(KEY_LEFT),
 		KeyBind.new(KEY_RIGHT),
 		KeyBind.new(KEY_UP),
 		KeyBind.new(KEY_DOWN),
-		KeyBind.new(KEY_SHIFT, KEY_LOCATION_RIGHT),
-		KeyBind.new(KEY_ENTER))
+		KeyBind.new(KEY_SLASH),
+		KeyBind.new(KEY_PERIOD))
 
 func handle_event(event: InputEvent) -> void:
 	if not (event is InputEventKey):

@@ -1,6 +1,61 @@
 # STATUS — DEEPER
 
-_Read this at session start. Last updated: 2026-06-16 — **Six post-wiring
+_Read this at session start. Last updated: 2026-06-17 — **Milestone 6 closed + post-M6 polish.**_
+
+**Milestone 6 — Cartography & Structural Discipline — is complete.**
+All four modules shipped and the map pipeline is live as the default world:
+
+- **M6-1 (Sub Builder Validation & Tight Hulls):** `SubLayout` connectivity is
+  enforced — a disconnected room blocks "Apply." Hull/collider wraps tightly
+  around placed rooms only; empty slots produce no visual or collision geometry.
+- **M6-2 (Multi-Layer Config & Generation Parsing):** `MapConfig` JSON + 4-PNG
+  pipeline. `GenerationLayerParser` maps pixel colors → entity spawns (white=sub
+  spawn, purple=territorial fish, green=chaser fish, grey=wreck, brown=dock zone).
+  `pixels_per_meter` is dynamic (current map: 4.0 px/m = 1 px = 0.25 m).
+- **M6-3 (Physical Layer Parser & Micro-Terrain):** `PhysicalLayerParser` scans
+  the phys PNG and merges horizontal runs into tagged terrain blocks. Three
+  terrain modifiers: sand (4 m/s safe, half severity), sharp rock (1 m/s safe,
+  max severity), dock (never breaches). Sky (#4d9bc7) and water (#1d4a70) are
+  passable — no collision.
+- **M6-4 (Visual Layering & Water Shimmer):** Background PNG at z=-100, foreground
+  at z=100 (masks gameplay), water shimmer GLSL shader between them (z=-50) so
+  only the background undulates — sub/crew/fish are sharp.
+
+**Full wiring:** `MapLoader` assembles all layers into one node. `world.gd` auto-
+detects `maps/cavern_depths_01/world_01.json` and uses the map pipeline; falls back
+to ShoreShelf if missing. Sub spawns at the white gen-layer pixel; fish/wrecks from
+their marker colors; dock zone from brown pixel cluster.
+
+**Post-M6 polish (same session):**
+- Air pocket buoyancy: approach zone below each pocket mouth gives the same
+  resistance as the open ocean surface (SURFACE_FLOAT_DEPTH below the pocket).
+  `_local_surface_y()` in `sub.gd` uses surface-line checks, not bounding-box rects.
+- Fish/projectiles blocked by sky: fish use `water_surface_y` + pocket surface-line
+  checks (not bounding-box rects — the old rect approach was too aggressive and
+  broke fish AI). `ShapeCast2D` pre-move check stops fish from swimming through
+  rock. Torpedoes/bullets arc downward under gravity when in sky zones.
+- Chaser detection ring: `_has_spotted` flag keeps the ring hidden through RECOVER
+  (not just HUNT). Alpha lowered to 0.05 (≈ 95% transparent).
+- Ammo speed variation: ±0.5 m/s random spread per shot (`GameFeel.turret.speed_variation_m`).
+- Dry dock entry: Tab no longer opens dock from world — only the hull-station tower
+  console does. Inside dock, Q switches between Shop and Layout (Tab removed).
+- Crew jump-through: during upward velocity arc, CREW bit is stripped from collision
+  mask so a jumping crew always climbs on top of a blocking crew, never gets stuck.
+- P2 keybind update: interact → `/`, use → `.` (was Right-Shift / Enter).
+
+**Suggested next step:** Plan Milestone 7. Candidate themes: enemy variety &
+combat depth; crew progression (fatigue, specialization); procedural cave
+generation; or narrative/progression layer. See the Opus planning prompt at
+the bottom of this file for the agreed format.
+
+**Known issues (pre-existing):**
+- `test_turret.tscn`, `test_lower_deck.tscn`, `test_drowning.tscn`,
+  `test_implosion.tscn`, `test_repair.tscn`: hang under `--headless --quit` due to
+  physics-frame awaits; verified standalone. All other suites run clean headlessly.
+
+---
+
+_Previous update: 2026-06-16 — **Six post-wiring
 fixes**: (1) water shimmer z_index moved from +50 to −50 so it sits between
 background and gameplay — the sub, crew, and fish no longer wobble, only the
 background art does. (2) Sky pixels (`#4d9bc7`) in the physical layer are now

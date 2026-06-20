@@ -738,3 +738,28 @@ Snir's 7-part request, scoped via AskUserQuestion:
 - **Dry Dock close-time check:** leaving the dock now re-runs the full layout
   validator and refuses (with the violation text, staying in the dock) if any
   placed room is left disconnected from the helm.
+
+
+## Settled (2026-06-17, Milestone 6 close-out)
+- **Dry dock entry: tower console only.** Tab no longer opens the dock from the
+  world view. The only entry point is `use` at the hull station in the conning
+  tower. Rationale: consistent with "every action comes from a crew station"
+  and avoids accidental dock-opens while moving.
+- **Dock mode switch: Q key.** Inside the dry dock, Q switches between Shop and
+  Layout (was Tab). Rationale: Tab is a system/browser key and breaks the
+  "no Tab in gameplay" convention; Q matches the game's existing "secondary
+  action" key for P1.
+- **P2 keybinds: / (interact) and . (use).** Replaces Right-Shift and Enter.
+  Rationale: Right-Shift is location-pinned (fragile) and Enter is grabbed by
+  some system events; / and . sit naturally on the right side of a UK/US
+  keyboard next to the arrow cluster.
+- **Fish movement: surface-line blocking, not bounding-box blocking.** Fish
+  respect the water surface and pocket boundaries using `water_surface_y` +
+  per-pocket surface-y comparisons, not sky-zone bounding-box rects (which
+  covered irregular shapes and caused false positives in valid water areas,
+  breaking fish AI entirely).
+- **Telescopic arm: deferred to its own session.** New room type with a
+  dedicated station mechanic (aim with A/D, extend with S, retract with W,
+  Q picks up and auto-deposits into hold). Orientation-aware like the
+  floodlight. Too large for the M6 polish pass; should be its own milestone
+  module brief.
