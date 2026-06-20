@@ -50,7 +50,7 @@ var _respawn_label: Label = null
 var _facing: float = 1.0
 var _run_phase: float = 0.0
 var _was_on_floor: bool = false
-var _passing_crew: bool = false  # true during upward jump arc; disables crew-crew collision
+var _crew_pass_timer: float = 0.0  # seconds left to phase through other crew after a jump
 
 # On foot we stand on the sub interior, the hatch deck, and bump other crew.
 # While climbing we drop HATCH so the ladder can carry us through the deck hole.
@@ -153,13 +153,10 @@ func _physics_process(delta: float) -> void:
 		_on_ladder = true
 
 	collision_mask = _MASK_CLIMB if _on_ladder else _MASK_FOOT
-	# Phase through other crew while going up (jump or climbing) so you always
-	# land on top rather than getting stuck below. Re-enable on descent.
-	if velocity.y < 0.0:
-		_passing_crew = true
-	elif _passing_crew and (velocity.y >= 0.0 or is_on_floor()):
-		_passing_crew = false
-	if _passing_crew:
+	# Phase through other crew for a fixed window after a jump so you land on
+	# top rather than getting stuck. Timer is set at jump-start (see _move_on_foot).
+	_crew_pass_timer = maxf(0.0, _crew_pass_timer - delta)
+	if _crew_pass_timer > 0.0:
 		collision_mask &= ~Layers.CREW
 	if _on_ladder:
 		_move_on_ladder(move_x, move_y, feel, ppm, delta)
@@ -386,13 +383,12 @@ func _move_on_foot(move_x: float, jump_pressed: bool, feel: GameFeel.CrewFeel,
 	_coyote = feel.coyote_time if on_floor else _coyote - delta
 	_jump_buffer = feel.jump_buffer_time if jump_pressed else _jump_buffer - delta
 	if _jump_buffer > 0.0 and _coyote > 0.0:
-		# Only deep (waist-high) water saps the jump, so you can still hop out
-		# of a shallow puddle.
 		var jump_mult := water.swim_jump_mult if is_submerged() else 1.0
 		velocity.y = -feel.jump_velocity() * ppm * jump_mult
 		_jump_buffer = 0.0
 		_coyote = 0.0
 		_stretch()
+		_crew_pass_timer = 0.6  # phase through other crew for the upward arc
 
 	move_and_slide()
 
