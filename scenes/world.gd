@@ -253,6 +253,7 @@ func _rebuild_sub() -> void:
 	_salvage_hud.sub = _sub
 	_alerts.watch(_sub)
 	_cam.reset_smoothing()
+	get_tree().call_group("fish", "set", "sub", _sub)
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not (event is InputEventKey) or not event.pressed:
