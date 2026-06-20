@@ -1,9 +1,20 @@
 # STATUS — DEEPER
 
-_Read this at session start. Last updated: 2026-06-20 — **M7-3 done; E/Shift now buys in shop. Next: M7-4.**_
+_Read this at session start. Last updated: 2026-06-21 — **M7-3 polish done (7 telescope improvements). Next: M7-4.**_
 
 **Milestone 7 — Hands on the Deep — in progress.**
 M7-0 through M7-3 are complete and committed. The starting sub is a 4-room hull: `telescope_room(-1,0,"left")`, `helm(0,0)`, `bullet_room(1,0,"right")`, `tower(0,-1)`.
+
+**M7-3 polish (2026-06-21, 7 items):**
+1. **Telescope reserved zone**: `telescope_room` now reserves the cell in its facing direction in `SubLayout.reserved_cell_types()` (labelled "telescope") and `SubValidator` rule 10 blocks any room from being placed there. Test added in `test_validate.gd`.
+2. **Face-relative controls**: `telescope_station.gd` now uses `Station.face_aim_input` and `Station.face_zoom_input` for face-aware controls (left wall: W/S aims, A extends, D retracts). `test_telescope.gd` updated.
+3. **Chelae indicator**: the arm tip now draws open pincer lines when waiting for Q, and closed parallel prongs when carrying an item (replacing the old straight jaw line). `sub_visual.gd`.
+4. **Both-player shop keys**: dry dock's shop now accepts E, Q, /, . Enter, Numpad Enter, Space to buy. Assembly uses / for P2 interact. Q/. cycles menu items. Tab switches between shop and assembly (was Q). All stale KEY_SHIFT references replaced with KEY_SLASH.
+5. **Auto-retract on release**: when no extend/retract input is held, the arm slowly returns home at `auto_retract_speed = 3 m/s` (`GameFeel.TelescopeFeel`).
+6. **Faster auto-retract when carrying**: when carrying an item, auto-retract is `auto_retract_speed_carrying = 10 m/s`.
+7. **Updated add-deeper-room skill**: §2 now explicitly names `Station.face_aim_input` / `face_zoom_input`; §5 documents the reserved-exterior-cell pattern.
+
+**Known issues (pre-existing):** `test_claw.tscn` — "the dropped catch is loose again on the floor" fails (pre-existing, confirmed not caused by M7-3 polish).
 
 **M7-3 — Telescope is the base collector (2026-06-20):** `starting_layout()` now places `telescope_room` at (-1,0) instead of the old `claw_room` stub. `claw_room` is now a purchasable alternate collector (5 sc, appears in shop). `dry_dock.gd` rotatable-room check updated for `telescope_room`. Shop bug fixed: E (P1 interact) and Shift (P2 interact) now buy the selected shop item; hint text corrected to show "Q: assembly" (was "Tab: assembly"). All tests updated: `test_claw.gd` gained `_new_claw_sub()` so claw tests build an explicit claw layout independent of `starting_layout()`.
 

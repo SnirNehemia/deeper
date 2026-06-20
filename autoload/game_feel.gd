@@ -349,7 +349,9 @@ class TelescopeFeel:
 	var aim_arc_deg: float = 120.0     ## total sweep arc; arm stays within ±60° of facing
 	var aim_speed_deg: float = 80.0    ## deg/s
 	var extend_speed: float = 6.0      ## m/s extending
-	var retract_speed: float = 8.0     ## m/s retracting (faster for snappy auto-deposit)
+	var retract_speed: float = 8.0     ## m/s retracting (manual, faster for snappy feel)
+	var auto_retract_speed: float = 3.0         ## m/s auto-retract when no extend key held
+	var auto_retract_speed_carrying: float = 10.0 ## faster auto-retract while carrying an item
 	var home_radius_m: float = 0.5     ## tip within this distance of base → auto-deposit fires
 	var grab_radius_m: float = 0.7     ## tip must be within this of a salvage item to grab
 	var tip_capacity: int = 1          ## items the tip can hold at once

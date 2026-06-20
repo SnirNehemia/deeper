@@ -95,14 +95,14 @@ func _shop_key(code: int) -> void:
 		KEY_DOWN, KEY_S:
 			if not _shop_entries.is_empty():
 				_shop_index = wrapi(_shop_index + 1, 0, _shop_entries.size())
-		KEY_E, KEY_SHIFT, KEY_ENTER, KEY_KP_ENTER, KEY_SPACE:
+		KEY_E, KEY_Q, KEY_SLASH, KEY_PERIOD, KEY_ENTER, KEY_KP_ENTER, KEY_SPACE:
 			if not _shop_entries.is_empty():
 				var entry: Dictionary = _shop_entries[_shop_index]
 				if entry["type"] == "pod":
 					_try_buy_pod(entry["def"])
 				else:
 					_try_buy_room(entry["def"])
-		KEY_Q:
+		KEY_TAB:
 			_mode = Mode.ASSEMBLY
 		KEY_ESCAPE:
 			_close()
@@ -126,11 +126,11 @@ func _assembly_key(code: int) -> void:
 			_move_assembly_cursor(Vector2i(-1, 0))
 		KEY_RIGHT, KEY_D:
 			_move_assembly_cursor(Vector2i(1, 0))
-		# "interact" (P1=E, P2=Right-Shift): buy a slot or open the cell's menu.
+		# "interact" (P1=E, P2=/): buy a slot or open the cell's menu.
 		# KP_Enter and Space are kept as convenience aliases.
-		KEY_E, KEY_SHIFT, KEY_KP_ENTER, KEY_SPACE:
+		KEY_E, KEY_SLASH, KEY_KP_ENTER, KEY_SPACE:
 			_try_assembly_action()
-		KEY_Q:
+		KEY_TAB:
 			_mode = Mode.SHOP
 		KEY_ESCAPE:
 			_close()
@@ -145,11 +145,11 @@ func _menu_key(code: int) -> void:
 		_close_menu()
 		return
 	match code:
-		KEY_Q, KEY_ENTER, KEY_DOWN, KEY_S:
+		KEY_Q, KEY_PERIOD, KEY_ENTER, KEY_DOWN, KEY_S:
 			_menu_index = wrapi(_menu_index + 1, 0, menu.size())
 		KEY_UP, KEY_W:
 			_menu_index = wrapi(_menu_index - 1, 0, menu.size())
-		KEY_E, KEY_SHIFT, KEY_KP_ENTER, KEY_SPACE:
+		KEY_E, KEY_SLASH, KEY_KP_ENTER, KEY_SPACE:
 			_confirm_menu_item(menu[_menu_index])
 		KEY_ESCAPE:
 			_close_menu()
@@ -159,11 +159,11 @@ func _menu_key(code: int) -> void:
 ## back to the cell's menu (which stays open, 2026-06-19).
 func _rotate_select_key(code: int) -> void:
 	match code:
-		KEY_Q, KEY_ENTER, KEY_UP, KEY_W, KEY_RIGHT, KEY_D:
+		KEY_Q, KEY_PERIOD, KEY_ENTER, KEY_UP, KEY_W, KEY_RIGHT, KEY_D:
 			_rotate_index = wrapi(_rotate_index + 1, 0, _rotate_options.size())
 		KEY_DOWN, KEY_S, KEY_LEFT, KEY_A:
 			_rotate_index = wrapi(_rotate_index - 1, 0, _rotate_options.size())
-		KEY_E, KEY_SHIFT, KEY_KP_ENTER, KEY_SPACE:
+		KEY_E, KEY_SLASH, KEY_KP_ENTER, KEY_SPACE:
 			_confirm_rotate_select()
 		KEY_ESCAPE:
 			_rotate_select = false
@@ -186,11 +186,11 @@ func _confirm_rotate_select() -> void:
 ## the cell's menu (which stays open).
 func _face_select_key(code: int) -> void:
 	match code:
-		KEY_Q, KEY_ENTER, KEY_UP, KEY_W, KEY_RIGHT, KEY_D:
+		KEY_Q, KEY_PERIOD, KEY_ENTER, KEY_UP, KEY_W, KEY_RIGHT, KEY_D:
 			_face_index = wrapi(_face_index + 1, 0, _faces.size())
 		KEY_DOWN, KEY_S, KEY_LEFT, KEY_A:
 			_face_index = wrapi(_face_index - 1, 0, _faces.size())
-		KEY_E, KEY_SHIFT, KEY_KP_ENTER, KEY_SPACE:
+		KEY_E, KEY_SLASH, KEY_KP_ENTER, KEY_SPACE:
 			_confirm_face_select()
 		KEY_ESCAPE:
 			_face_select = false
@@ -570,7 +570,7 @@ class _View extends Control:
 		var hint := ""
 		match dock._mode:
 			DryDock.Mode.SHOP:
-				hint = "W/S select   E/Enter buy   Q: assembly   Esc leave"
+				hint = "W/S select   E/Q/Enter buy   Tab: assembly   Esc leave"
 			DryDock.Mode.ASSEMBLY:
 				if dock._face_select:
 					hint = "Use/Arrows pick face   Interact attach   Esc cancel"

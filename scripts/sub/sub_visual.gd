@@ -271,14 +271,19 @@ func _draw_telescope(t: TelescopeStation) -> void:
 	draw_rect(Rect2(base + Vector2(-10.0, -10.0), Vector2(20.0, 20.0)),
 		PlaceholderArt.SUB_STRUCTURE)
 	draw_circle(base, 5.0, PlaceholderArt.HULL_COLOR)
-	# Tip grabber jaw
-	var jaw_hw := 14.0
-	draw_line(tip + perp * jaw_hw, tip - perp * jaw_hw,
-		PlaceholderArt.LADDER_COLOR, 4.0)
-	draw_circle(tip, 5.0, PlaceholderArt.HULL_COLOR)
-	# Item riding the tip
+	# Chelae (pincer tips): open/spread when waiting for Q; closed when holding an item.
+	var jaw_len := 14.0
 	if t.has_tip_item():
+		# Closed: two short prongs nearly parallel, gripping the item.
+		var pinch := perp * 5.0
+		draw_line(tip + pinch, tip + pinch + dir * jaw_len, PlaceholderArt.LADDER_COLOR, 3.0)
+		draw_line(tip - pinch, tip - pinch + dir * jaw_len, PlaceholderArt.LADDER_COLOR, 3.0)
 		draw_circle(tip, 10.0, PlaceholderArt.SCRAP_COLOR.lightened(0.2))
+	else:
+		# Open: two prongs angled outward from the tip, like spread tongs.
+		draw_line(tip, tip + dir.rotated(deg_to_rad(35.0)) * jaw_len, PlaceholderArt.LADDER_COLOR, 3.0)
+		draw_line(tip, tip + dir.rotated(deg_to_rad(-35.0)) * jaw_len, PlaceholderArt.LADDER_COLOR, 3.0)
+	draw_circle(tip, 5.0, PlaceholderArt.HULL_COLOR)
 	# Onboard cages
 	_draw_telescope_cages(t)
 

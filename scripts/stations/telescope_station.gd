@@ -4,11 +4,12 @@ extends Station
 ## Telescoping collector arm: a single straight arm from the hull wall, operated
 ## from a console in the telescope room.
 ##
-## Controls (from any outer wall; "toward open water" is always forward):
-##   A/D  — aim the arm within a clamped arc around facing_dir
-##   S    — extend arm toward open water (up to reach_m)
-##   W    — retract arm back toward the base
+## Controls (face-relative — see Station.face_aim_input / face_zoom_input):
+##   Left/right wall: W/S aim, A extends toward open water, D retracts toward hull.
+##   Top/bottom wall: A/D aim, W extends toward open water, S retracts toward hull.
 ##   Q    — grab a SalvageItem in WATER state near the tip (explicit, never on-contact)
+## Auto-retract: when no extend/retract key is held the arm slowly returns home on
+##   its own; much faster when carrying an item (speeds in GameFeel.telescope).
 ##
 ## Auto-deposit: when the arm comes home (tip within home_radius_m of the base),
 ## any item on the tip transfers automatically into the room's s2 cage (then s4).
@@ -47,18 +48,24 @@ func handle_input(input: PlayerInput) -> void:
 	var feel := GameFeel.telescope
 	var delta := get_physics_process_delta_time()
 
-	# Aim: A/D (move.x) rotates the arm around facing_dir. Clamped to ±arc/2.
+	# Aim: face-relative (W/S on left/right walls; A/D on top/bottom walls).
 	var half_arc := deg_to_rad(feel.aim_arc_deg * 0.5)
 	aim_angle = clampf(
-		aim_angle + input.move.x * deg_to_rad(feel.aim_speed_deg) * delta,
+		aim_angle + Station.face_aim_input(facing_dir, input) * deg_to_rad(feel.aim_speed_deg) * delta,
 		-half_arc, half_arc)
 
-	# Extend/retract: S (+move.y) extends, W (-move.y) retracts.
+	# Extend/retract: face-relative (positive = toward open water = extend).
+	# Auto-retract when no key is held; faster while carrying.
 	var max_ext := feel.reach_m * Sub.PPM
-	if input.move.y > 0.0:
+	var zoom := Station.face_zoom_input(facing_dir, input)
+	if zoom > 0.0:
 		extension = clampf(extension + feel.extend_speed * Sub.PPM * delta, 0.0, max_ext)
-	elif input.move.y < 0.0:
+	elif zoom < 0.0:
 		extension = clampf(extension - feel.retract_speed * Sub.PPM * delta, 0.0, max_ext)
+	else:
+		var auto_speed := feel.auto_retract_speed_carrying if is_instance_valid(_tip_item) \
+			else feel.auto_retract_speed
+		extension = clampf(extension - auto_speed * Sub.PPM * delta, 0.0, max_ext)
 
 	# Auto-deposit when the arm returns home.
 	if is_home() and is_instance_valid(_tip_item):

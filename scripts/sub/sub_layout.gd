@@ -242,6 +242,8 @@ func reserved_cell_types() -> Dictionary:
 			reserved[p.grid_pos + SubValidator._firing_face_offset(p.facing)] = "gun"
 		if p.module_id == "claw_room":
 			reserved[p.grid_pos + SubValidator._firing_face_offset(p.facing)] = "claw"
+		if p.module_id == "telescope_room":
+			reserved[p.grid_pos + SubValidator._firing_face_offset(p.facing)] = "telescope"
 	# A floodlight pod's exterior face must stay clear too — a room placed
 	# there would block the lamp, just like a gun's firing face or the claw's
 	# drop cell (2026-06-19).

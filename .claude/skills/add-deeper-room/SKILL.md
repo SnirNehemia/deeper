@@ -118,10 +118,18 @@ do not re-implement them.**
 - Reuse existing state machines — e.g. a new collector should ride the existing
   `SalvageItem` state machine (water → grabbed → caged/banked), not a parallel one.
 - Keep the mechanic's surface small: one clear input scheme, one clear effect.
-- Orientation-aware elements (anything mounted on an outer wall) must read the
-  mounted side and map directional input toward open water — mirror the floodlight
-  (`scripts/stations/floodlight_station.gd`) / claw orientation handling so
-  controls feel correct on either wall.
+- **Orientation-aware elements** (anything mounted on an outer wall) must use the
+  two static helpers in `Station` for face-relative controls:
+  - `Station.face_aim_input(facing_dir, input)` → signed float for rotating aim
+    (W/S on left/right walls; A/D on top/bottom walls).
+  - `Station.face_zoom_input(facing_dir, input)` → positive = extend toward open
+    water, negative = retract toward hull (the other axis: A/D on left/right walls,
+    W/S on top/bottom walls). Mirror `floodlight_station.gd` and `telescope_station.gd`.
+  - **Do not** read `input.move.x`/`input.move.y` directly in an exterior-element
+    station — that breaks when the room is on any wall other than the right.
+- **Exterior-element visual state:** if the element has open/closed or active/idle
+  states at its tip (pincers, lamp, sensor), draw them based on the station's state
+  method (e.g. `has_tip_item()`) — see `_draw_telescope()` in `sub_visual.gd`.
 - Anything drawn (arms, tips, cages, beams, projectiles) goes through
   `scripts/sub/sub_visual.gd`'s `_draw()` so it **tilts with the hull** — mirror
   how the claw is drawn (`_draw_claw()`).
@@ -176,6 +184,13 @@ Design guidance for when the mechanism ships:
   common cases for any `has_firing_face` room (rule 5: firing face exterior; rule 8:
   at row/column edge). Only add a new rule if the mechanic imposes a constraint
   neither covers.
+  - **Exterior-element reserved cell:** every room with a physical element that
+    extends outside the hull (arm, lamp, sensor) must also reserve the exterior cell
+    in `SubLayout.reserved_cell_types()` (returns a dict `{cell: "label"}`) AND add
+    a validation rule in `sub_validator.gd` that blocks placing any room there.
+    Pattern: `if p.module_id == "my_room": reserved[p.grid_pos + _firing_face_offset(p.facing)] = "my_room"`.
+    See claw_room (rule 9) and telescope_room (rule 10) in `sub_validator.gd` and
+    `reserved_cell_types()` in `sub_layout.gd`.
 - **Section→element map authoring check:** confirm your element sections don't
   land in the floor's parity ladder section (§3) — authoring-time check, no code.
 - **Art:** register colours/dimensions in `scripts/placeholder_art.gd`. Draw the

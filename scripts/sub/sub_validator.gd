@@ -181,6 +181,14 @@ static func validate(layout: SubLayout) -> Dictionary:
 			if cell_owners.has(reach):
 				violations.append("The claw's drop path is blocked.")
 
+	# Rule 10: clear telescope reach — the cell the telescope arm extends into
+	# must stay clear of other rooms so the arm can reach open water.
+	for p in layout.placements:
+		if p.module_id == "telescope_room":
+			var reach := p.grid_pos + _firing_face_offset(p.facing)
+			if cell_owners.has(reach):
+				violations.append("The telescope arm's reach is blocked by another room.")
+
 	# Rule 6: pod faces — a pod attaches only to an exterior face of an
 	# occupied cell that's built to host pods (ModuleDef.can_host_pod, e.g. the
 	# Floodlight Room); one pod per face. A face counts as exterior if no other

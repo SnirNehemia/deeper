@@ -84,13 +84,15 @@ func _test_extend_retract() -> void:
 	var max_ext := GameFeel.telescope.reach_m * Sub.PPM
 
 	# Same headless trick: set extension beyond max then run the extend branch.
+	# LEFT-facing arm: face_zoom_input > 0 (extend) when move.x < 0 (A key).
 	t.extension = max_ext * 10.0  # way beyond reach
-	t.handle_input(_fake_input(Vector2(0.0, 1.0)))  # S = extend branch fires
+	t.handle_input(_fake_input(Vector2(-1.0, 0.0)))  # A = extend for left-facing arm
 	_check(absf(t.extension - max_ext) < 0.1, "extend clamps at reach_m")
 
-	# Retract branch: set extension to 0 and hold W — must not go negative.
+	# Retract branch: set extension to 0 and hold D — must not go negative.
+	# LEFT-facing arm: face_zoom_input < 0 (retract) when move.x > 0 (D key).
 	t.extension = 0.0
-	t.handle_input(_fake_input(Vector2(0.0, -1.0)))  # W = retract branch
+	t.handle_input(_fake_input(Vector2(1.0, 0.0)))  # D = retract for left-facing arm
 	_check(t.extension == 0.0, "retract clamps at 0 (cannot go negative)")
 
 	# Verify positive extension actually works in the branch.
