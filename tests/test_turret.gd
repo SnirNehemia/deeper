@@ -218,7 +218,7 @@ func _test_placed_bullet_room() -> void:
 	print("[placed Bullet Room (M4-12)]")
 	var layout := SubLayout.starting_layout()
 	# Below helm(0,0): (0,1) facing "left" fires to (-1,1) exterior.
-	# (-1,1) is in the same row as (-1,0) claw_room? No — different rows (y=1 vs y=0).
+	# (-1,1) is in the same row as (-1,0) telescope_room? No — different rows (y=1 vs y=0).
 	# Rule 8: facing "left", only room in row y=1, so -1 is both min and max x ✓.
 	layout.placements.append(SubLayout.Placement.new("bullet_room", Vector2i(0, 1), "left"))
 	_check(SubValidator.validate(layout)["ok"], "the layout with a second placed bullet room is valid")

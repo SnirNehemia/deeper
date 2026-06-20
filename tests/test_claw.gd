@@ -41,6 +41,20 @@ func _new_sub() -> Sub:
 	add_child(sub)
 	return sub
 
+## Builds a sub with a claw_room explicitly, so claw tests are independent of
+## the starting_layout() (which now uses telescope_room as base collector).
+func _new_claw_sub() -> Sub:
+	var layout := SubLayout.new()
+	layout.placements = [
+		SubLayout.Placement.new("claw_room", Vector2i(-1, 0), "left"),
+		SubLayout.Placement.new("helm",      Vector2i(0,  0)),
+		SubLayout.Placement.new("tower",     Vector2i(0, -1)),
+	]
+	var sub := Sub.new()
+	sub.layout = layout
+	add_child(sub)
+	return sub
+
 func _find_claw(sub: Sub) -> ClawStation:
 	for child in sub.get_children():
 		if child is ClawStation:
@@ -59,7 +73,7 @@ func _tip_world(sub: Sub, claw: ClawStation) -> Vector2:
 
 func _test_joint_controls() -> void:
 	print("[excavator joint controls]")
-	var sub := _new_sub()
+	var sub := _new_claw_sub()
 	await _frames(2)
 	var claw := _find_claw(sub)
 	_check(claw != null, "sub built a claw station")
@@ -87,7 +101,7 @@ func _test_joint_controls() -> void:
 
 func _test_snap_and_dump() -> void:
 	print("[snap + dump]")
-	var sub := _new_sub()
+	var sub := _new_claw_sub()
 	sub.global_position = Vector2.ZERO
 	await _frames(2)
 	var claw := _find_claw(sub)
@@ -127,7 +141,7 @@ func _test_snap_and_dump() -> void:
 
 func _test_carry() -> void:
 	print("[crew ferries a catch to storage]")
-	var sub := _new_sub()
+	var sub := _new_claw_sub()
 	await _frames(2)
 	# A loose catch sitting on the claw room floor at the drop hatch.
 	var item := SalvageItem.make_scrap(Vector2.ZERO)
@@ -174,7 +188,7 @@ func _test_carry() -> void:
 
 func _test_cage_capacity() -> void:
 	print("[cage capacity]")
-	var sub := _new_sub()
+	var sub := _new_claw_sub()
 	sub.global_position = Vector2.ZERO
 	await _frames(2)
 	var claw := _find_claw(sub)
@@ -195,7 +209,7 @@ func _test_cage_capacity() -> void:
 
 func _test_storage_cap() -> void:
 	print("[storage cap]")
-	var sub := _new_sub()
+	var sub := _new_claw_sub()
 	await _frames(2)
 	var cap: int = GameFeel.claw.storage_capacity
 	var accepted := 0
@@ -211,7 +225,7 @@ func _test_storage_cap() -> void:
 
 func _test_no_hull_autocollect() -> void:
 	print("[no hull auto-collect]")
-	var sub := _new_sub()
+	var sub := _new_claw_sub()
 	sub.global_position = Vector2.ZERO
 	await _frames(2)
 	var item := SalvageItem.make_scrap(sub.global_position)

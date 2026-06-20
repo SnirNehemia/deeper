@@ -140,20 +140,19 @@ static func placement_cells(p: Placement) -> Array:
 
 ## M7 base sub — "telescope + control + bullet, tower above" (DECISIONS.md
 ## 2026-06-20). Replaces the six-room Minnow+: engine room retired (M7-1),
-## dedicated claw/storage rooms leave the base loadout. The claw_room here is
-## a temporary telescope stub (M7-1); it will be replaced by telescope_room
-## in M7-3. The turret_room and storage room are still purchasable from the shop.
+## dedicated claw/storage rooms leave the base loadout. The telescope_room is
+## the base collector from M7-3 onward; claw_room is a purchasable alternate.
+## The turret_room and storage room are still purchasable from the shop.
 ##
-##        [Tower (0,-1)]          y = -1
-## [Claw(-1,0)][Helm(0,0)][Bullet(1,0)]  y = 0  (stern -> bow)
-##  ^telescope stub^
+##        [Tower (0,-1)]                   y = -1
+## [Telescope(-1,0)][Helm(0,0)][Bullet(1,0)]  y = 0  (stern -> bow)
 static func starting_layout() -> SubLayout:
 	var layout := SubLayout.new()
 	layout.placements = [
-		Placement.new("claw_room", Vector2i(-1, 0), "left"),  # telescope stub (M7-3 swaps)
-		Placement.new("helm",        Vector2i(0,  0)),
-		Placement.new("bullet_room", Vector2i(1,  0), "right"),
-		Placement.new("tower",       Vector2i(0, -1)),
+		Placement.new("telescope_room", Vector2i(-1, 0), "left"),
+		Placement.new("helm",           Vector2i(0,  0)),
+		Placement.new("bullet_room",    Vector2i(1,  0), "right"),
+		Placement.new("tower",          Vector2i(0, -1)),
 	]
 	return layout
 

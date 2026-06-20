@@ -95,7 +95,7 @@ func _shop_key(code: int) -> void:
 		KEY_DOWN, KEY_S:
 			if not _shop_entries.is_empty():
 				_shop_index = wrapi(_shop_index + 1, 0, _shop_entries.size())
-		KEY_ENTER, KEY_KP_ENTER, KEY_SPACE:
+		KEY_E, KEY_SHIFT, KEY_ENTER, KEY_KP_ENTER, KEY_SPACE:
 			if not _shop_entries.is_empty():
 				var entry: Dictionary = _shop_entries[_shop_index]
 				if entry["type"] == "pod":
@@ -399,7 +399,7 @@ func _build_cell_menu(cell: Vector2i) -> Array:
 	if SaveData._is_relocatable(placed_def):
 		menu.append({"type": "return_room", "id": placed_id})
 	var rotatable := placed_def.has_firing_face or placed_id == "claw_room" \
-		or placed_id == "floodlight_room"
+		or placed_id == "telescope_room" or placed_id == "floodlight_room"
 	if rotatable and SaveData.rotate_room_violations(cell).is_empty():
 		menu.append({"type": "rotate_room", "id": placed_id})
 	if placed_def.can_host_pod and placed_id != "floodlight_room":
@@ -570,7 +570,7 @@ class _View extends Control:
 		var hint := ""
 		match dock._mode:
 			DryDock.Mode.SHOP:
-				hint = "W/S select   Enter buy   Tab: assembly   Esc leave"
+				hint = "W/S select   E/Enter buy   Q: assembly   Esc leave"
 			DryDock.Mode.ASSEMBLY:
 				if dock._face_select:
 					hint = "Use/Arrows pick face   Interact attach   Esc cancel"

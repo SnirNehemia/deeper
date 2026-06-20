@@ -86,7 +86,7 @@ func _test_invalid_layout_recovers_on_load() -> void:
 	# claw room's cell. On load it must recover (room back to inventory), not
 	# crash or wipe the save.
 	var broken := SubLayout.starting_layout()
-	broken.placements.append(SubLayout.Placement.new("storage", Vector2i(-1, 0)))  # overlaps claw_room
+	broken.placements.append(SubLayout.Placement.new("storage", Vector2i(-1, 0)))  # overlaps telescope_room
 	_check(not SubValidator.validate(broken)["ok"], "the hand-written layout is illegal")
 	_write_raw_save({
 		"banked_scrap": 5,

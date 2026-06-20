@@ -42,7 +42,7 @@ func _test_grid_constants() -> void:
 func _test_catalog() -> void:
 	print("[module catalog]")
 	var ids := ["helm", "tower", "claw_room", "storage",
-		"turret_room", "bullet_room", "floodlight_pod"]
+		"turret_room", "bullet_room", "floodlight_pod", "telescope_room"]
 	for id in ids:
 		var def := ModuleCatalog.by_id(id)
 		_check(def != null, "catalog has a '%s' module" % id)
@@ -73,12 +73,12 @@ func _test_starting_layout() -> void:
 	print("[starting layout]")
 	var layout := SubLayout.starting_layout()
 	_check(layout.placements.size() == 4,
-		"the M7 base sub has 4 placed modules (claw_room, helm, bullet_room, tower)")
+		"the M7 base sub has 4 placed modules (telescope_room, helm, bullet_room, tower)")
 
 	var ids: Array = []
 	for p in layout.placements:
 		ids.append(p.module_id)
-	for id in ["helm", "tower", "claw_room", "bullet_room"]:
+	for id in ["helm", "tower", "telescope_room", "bullet_room"]:
 		_check(id in ids, "the starting layout includes a '%s'" % id)
 
 	# Every placed module's id resolves in the catalog.

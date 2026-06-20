@@ -45,14 +45,14 @@ func _test_drown_and_respawn() -> void:
 
 	var sub := Sub.new()
 	add_child(sub)
-	# Flood only the claw_room: the victim drowns there, but the helm room
+	# Flood only the telescope_room: the victim drowns there, but the helm room
 	# (the respawn point) stays dry long enough to verify full-air respawn —
 	# water creeps toward it only slowly over one door sill.
 	sub.water_levels = [1.0, 0.0, 0.0, 0.0]
 
 	var victim := Crew.new()
 	victim.player_index = 0
-	victim.position = Vector2(-SubGrid.CELL_W_PX, -60)  # claw_room — fully underwater
+	victim.position = Vector2(-SubGrid.CELL_W_PX, -60)  # telescope_room — fully underwater
 	sub.add_child(victim)
 
 	var buddy := Crew.new()
@@ -92,7 +92,7 @@ func _test_air_refill() -> void:
 
 	var crew := Crew.new()
 	crew.player_index = 0
-	crew.position = Vector2(-240, -60)  # flooded claw_room
+	crew.position = Vector2(-240, -60)  # flooded telescope_room
 	sub.add_child(crew)
 
 	await _seconds(2.0)  # hold breath for ~2s

@@ -77,7 +77,7 @@ func _test_cell_size() -> void:
 func _test_doors_match_horizontal_adjacency() -> void:
 	print("[doors]")
 	var geo := SubGeometry.build(SubLayout.starting_layout())
-	# Horizontal neighbours: claw_room(-1,0)-helm(0,0), helm(0,0)-bullet_room(1,0) = 2 doorways.
+	# Horizontal neighbours: telescope_room(-1,0)-helm(0,0), helm(0,0)-bullet_room(1,0) = 2 doorways.
 	_check(geo.doors.size() == 2, "two doorways (the horizontally adjacent room pairs)")
 	# A door sits on the shared wall between its two cells.
 	var found := false
@@ -86,8 +86,8 @@ func _test_doors_match_horizontal_adjacency() -> void:
 			found = true
 			var left := _room_at(geo, Vector2i(-1, 0))
 			_check(is_equal_approx(door.wall_x, left.rect.position.x + left.rect.size.x),
-				"the claw_room-helm doorway is on their shared wall")
-	_check(found, "there is a claw_room<->helm doorway")
+				"the telescope_room-helm doorway is on their shared wall")
+	_check(found, "there is a telescope_room<->helm doorway")
 
 func _test_ladders_match_vertical_adjacency() -> void:
 	print("[ladders]")

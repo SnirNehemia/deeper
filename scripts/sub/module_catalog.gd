@@ -12,7 +12,7 @@ static func all() -> Array[ModuleDef]:
 	return [
 		_room("helm", "Helm", Vector2i(1, 1), 0, true),
 		_room("tower", "Conning Tower", Vector2i(1, 1), 0, true),
-		_room("claw_room", "Claw Room", Vector2i(1, 1), 0, false),
+		_claw_room(),
 		_room("storage", "Storage Room", Vector2i(1, 1), 0, false),
 		_turret_room(),
 		_bullet_room(),
@@ -35,6 +35,17 @@ static func _room(id: String, display_name: String, footprint: Vector2i,
 	def.footprint = footprint
 	def.price = price
 	def.is_core = is_core
+	return def
+
+## The Claw Room (M7-3): a two-joint excavator arm. Now a purchasable alternate
+## collector; the telescope_room is the base loadout's default collector.
+static func _claw_room() -> ModuleDef:
+	var def := ModuleDef.new()
+	def.id = "claw_room"
+	def.display_name = "Claw Room"
+	def.description = "Two-joint excavator arm. Grab and dump salvage into the hold."
+	def.footprint = Vector2i(1, 1)
+	def.cost = {"sc": 5}
 	return def
 
 ## The Base Gun Room (M4-10, ROOM_SYSTEM.md §6 "Base gun room") — the first
