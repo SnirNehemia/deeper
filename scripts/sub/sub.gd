@@ -137,6 +137,13 @@ var _bullet_rooms: Array = []
 ## Built in _compute_anchors, consumed by _build_floodlight_room.
 var _floodlight_rooms: Array = []
 
+## One entry per placed `telescope_room` (M7-2):
+## {"room", "seat", "base_local", "facing_dir", "cage_s2_x", "cage_s4_x", "floor_y"}.
+## Built in _compute_anchors, consumed by _build_telescope_room.
+var _telescope_rooms: Array = []
+## Live TelescopeStation nodes, for try_bank and reset_state.
+var _telescope_stations: Array[TelescopeStation] = []
+
 func _ready() -> void:
 	collision_layer = Layers.SUB_HULL
 	collision_mask = Layers.TERRAIN
@@ -342,6 +349,35 @@ func _compute_anchors() -> void:
 			"right", _:
 				tip = Vector2(r.position.x + r.size.x, r.get_center().y)
 		_floodlight_rooms.append({"room": room, "seat": seat, "tip": tip, "base_dir": dir})
+
+	# Placed telescope rooms (M7-2): console seat in s3, arm base on the exterior
+	# wall the room faces, s2/s4 cage x-positions for the visual.
+	_telescope_rooms = []
+	for room in geometry.rooms:
+		if room.module_id != "telescope_room":
+			continue
+		var floor_y := room.rect.position.y + room.rect.size.y
+		var seat := Vector2(_section_x(room, 3), floor_y - crew_half)
+		var r := room.rect
+		var base_local: Vector2
+		match room.facing:
+			"top":
+				base_local = Vector2(r.get_center().x, r.position.y - WALL_T)
+			"left":
+				base_local = Vector2(r.position.x - WALL_T, r.get_center().y)
+			"right":
+				base_local = Vector2(r.position.x + r.size.x + WALL_T, r.get_center().y)
+			"bottom", _:
+				base_local = Vector2(r.get_center().x, r.position.y + r.size.y + WALL_T)
+		_telescope_rooms.append({
+			"room": room,
+			"seat": seat,
+			"base_local": base_local,
+			"facing_dir": _facing_dir(room.facing),
+			"cage_s2_x": _section_x(room, 2),
+			"cage_s4_x": _section_x(room, 4),
+			"floor_y": floor_y,
+		})
 
 ## Unit vector pointing out of the hull for a `facing`/pod-face string
 ## ("right"/"left"/"top"/"bottom") — shared by gun tubes, the claw's reach
@@ -613,6 +649,8 @@ func reset_state() -> void:
 	storage_scrap = 0
 	storage_fish = 0
 	storage_med_carcass = 0
+	for ts in _telescope_stations:
+		ts.reset_cages()
 	velocity = Vector2.ZERO
 	drive_input = Vector2.ZERO
 	pitch = 0.0
@@ -653,12 +691,20 @@ func deposit_salvage(kind: int) -> bool:
 func try_bank(dock_pos: Vector2, radius: float) -> bool:
 	if global_position.distance_to(dock_pos) > radius:
 		return false
-	if storage_scrap <= 0 and storage_fish <= 0 and storage_med_carcass <= 0:
+	var has_claw_storage := storage_scrap > 0 or storage_fish > 0 or storage_med_carcass > 0
+	var has_telescope := false
+	for ts in _telescope_stations:
+		if ts.cage_count() > 0:
+			has_telescope = true
+			break
+	if not has_claw_storage and not has_telescope:
 		return false
 	SaveData.bank(storage_scrap, storage_fish, storage_med_carcass)
 	storage_scrap = 0
 	storage_fish = 0
 	storage_med_carcass = 0
+	for ts in _telescope_stations:
+		ts.bank_cages()
 	return true
 
 # --- Hull (generated from the occupied cells) ---
@@ -842,6 +888,8 @@ func _build_stations() -> void:
 		_build_floodlight_room(fr)
 	if _room_by_id("claw_room") != null:
 		_build_claw()
+	for tr in _telescope_rooms:
+		_build_telescope_room(tr)
 
 ## Conning-tower Hull station (M5-C1): remote, slow auto-patch.
 func _build_hull_station() -> void:
@@ -910,3 +958,19 @@ func _build_claw() -> void:
 	claw.hatch_x = _claw_hatch.x
 	add_child(claw)
 	_visual.claw = claw
+
+## A placed Telescope Room's arm station (M7-2): straight arm aimed with A/D,
+## extended/retracted with S/W, grab on Q, auto-deposits on retract home.
+func _build_telescope_room(tr: Dictionary) -> void:
+	var tele := TelescopeStation.new()
+	tele.sub = self
+	tele.room_index = tr["room"].water_index
+	tele.position = tr["seat"]
+	tele.base_local = tr["base_local"]
+	tele.facing_dir = tr["facing_dir"]
+	tele.cage_s2_x = tr["cage_s2_x"]
+	tele.cage_s4_x = tr["cage_s4_x"]
+	tele.cage_floor_y = tr["floor_y"]
+	add_child(tele)
+	_telescope_stations.append(tele)
+	_visual.telescopes.append(tele)

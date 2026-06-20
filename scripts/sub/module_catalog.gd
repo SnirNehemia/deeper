@@ -18,6 +18,7 @@ static func all() -> Array[ModuleDef]:
 		_bullet_room(),
 		_floodlight_room(),
 		_floodlight_pod(),
+		_telescope_room(),
 	]
 
 static func by_id(id: String) -> ModuleDef:
@@ -90,6 +91,19 @@ static func _floodlight_pod() -> ModuleDef:
 	def.is_pod = true
 	def.footprint = Vector2i(0, 0)
 	def.cost = {}
+	return def
+
+## The Telescope Room (M7-2): a straight telescoping arm mounted on the room's
+## exterior wall. Aim A/D, extend S, retract W, grab Q. Auto-deposits the
+## caught item into the room's two onboard cages (s2 + s4, capacity 6 each)
+## when the arm retracts to home. Built by TelescopeStation (Sub._build_telescope_room).
+static func _telescope_room() -> ModuleDef:
+	var def := ModuleDef.new()
+	def.id = "telescope_room"
+	def.display_name = "Telescope Room"
+	def.description = "A long straight collector arm. Aim, extend, grab, retract to auto-store."
+	def.footprint = Vector2i(1, 1)
+	def.cost = {"sc": 6}  # purchasable (M7-3 prices TBD; starter is free via layout)
 	return def
 
 ## The modules a player can buy into inventory at the dock right now: not core

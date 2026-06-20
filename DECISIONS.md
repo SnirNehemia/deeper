@@ -884,3 +884,23 @@ Snir's 7-part request, scoped via AskUserQuestion:
 - **Starting layout slimmed to 4 rooms**: claw_room(−1,0,"left") as a telescope
   stub (replaced by telescope_room in M7-3), helm(0,0), bullet_room(1,0,"right"),
   tower(0,−1). Supersedes the six-room Minnow+2 from round 4 (2026-06-16).
+
+## Settled (2026-06-20, M7-2 — implementation)
+
+- **`telescope_room` added to `ModuleCatalog`** (cost `{"sc": 6}`, purchasable).
+  `TelescopeStation` (`scripts/stations/telescope_station.gd`) extends Station.
+  Arm anchored at the exterior wall (matching the claw's `_claw_anchor` logic).
+  Console seat in s3; s2 and s4 cages drawn and filled by `SubVisual`.
+- **Telescope control scheme implemented**: A/D → `input.move.x` adjusts `aim_angle`
+  within `±aim_arc_deg/2` (clamped every frame); S/W → `input.move.y` extends /
+  retracts `extension` within `[0, reach_m * PPM]`; Q (`use_pressed`) → `_grab()`
+  snaps nearest WATER-state `SalvageItem` within `grab_radius_m` onto the tip.
+- **Auto-deposit on retract**: when `is_home()` (`extension ≤ home_radius_m * PPM`)
+  and a tip item exists, `_try_deposit()` moves the item's kind into `_cage_s2` then
+  `_cage_s4`. The SalvageItem node is freed; its `Kind` (int) is stored in the cage
+  array. Cages full → deposit refused, item stays on tip.
+- **`Sub.try_bank()` and `reset_state()` extended** to iterate `_telescope_stations`
+  so cages bank at dock and are lost on implosion, same risk as the claw pen.
+- **`SubVisual` draws**: straight arm tube + base mount + tip jaw + two cage outlines
+  with stacked scrap/fish icons. All drawn in hull-local space so the arm tilts with
+  the hull's pitch, identical to the claw.

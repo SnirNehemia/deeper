@@ -341,3 +341,18 @@ class DockFeel:
 			+ (level - 1) * slot_level_increment
 
 var dock: DockFeel = DockFeel.new()
+
+## Telescope arm room feel (M7-2). A single straight arm that aims, extends,
+## and auto-deposits into its own onboard cages on retract.
+class TelescopeFeel:
+	var reach_m: float = 8.0           ## maximum arm length (m)
+	var aim_arc_deg: float = 120.0     ## total sweep arc; arm stays within ±60° of facing
+	var aim_speed_deg: float = 80.0    ## deg/s
+	var extend_speed: float = 6.0      ## m/s extending
+	var retract_speed: float = 8.0     ## m/s retracting (faster for snappy auto-deposit)
+	var home_radius_m: float = 0.5     ## tip within this distance of base → auto-deposit fires
+	var grab_radius_m: float = 0.7     ## tip must be within this of a salvage item to grab
+	var tip_capacity: int = 1          ## items the tip can hold at once
+	var cage_capacity: int = 6         ## items per onboard cage (s2 + s4 = 12 total)
+
+var telescope: TelescopeFeel = TelescopeFeel.new()

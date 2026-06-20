@@ -18,6 +18,10 @@ var claw: ClawStation = null
 ## with the hull's pitch, like the turrets.
 var floodlights: Array[FloodlightStation] = []
 
+## The telescope arm stations (M7-2), set by Sub. Arms are drawn here so they
+## tilt with the hull's pitch, like the claw.
+var telescopes: Array[TelescopeStation] = []
+
 func _draw() -> void:
 	var sub := get_parent() as Sub
 	if sub == null or sub.geometry == null:
@@ -65,6 +69,9 @@ func _draw() -> void:
 	_draw_claw_console(sub)
 	_draw_storage_pen(sub)
 	_draw_claw()
+	for t in telescopes:
+		_draw_console(t.position)
+		_draw_telescope(t)
 	for f in floodlights:
 		_draw_console(f.position)
 	_draw_water(sub)
@@ -248,6 +255,71 @@ func _draw_ladder(center_x: float, top_y: float, bottom_y: float) -> void:
 	while rung < bottom_y:
 		draw_rect(Rect2(center_x - rail_x, rung, rail_x * 2.0, 3.0), PlaceholderArt.LADDER_COLOR)
 		rung += 16.0
+
+## Telescope arm (M7-2): straight arm from the hull wall, tip grabber,
+## onboard cages at s2 and s4. All in hull-local space so it pitches with the sub.
+func _draw_telescope(t: TelescopeStation) -> void:
+	if t == null:
+		return
+	var base := t.base_local
+	var tip := t.tip_local()
+	var dir := t.facing_dir.rotated(t.aim_angle)
+	var perp := dir.orthogonal()
+	# Arm tube
+	draw_line(base, tip, PlaceholderArt.SUB_STRUCTURE, 7.0)
+	# Base mount block
+	draw_rect(Rect2(base + Vector2(-10.0, -10.0), Vector2(20.0, 20.0)),
+		PlaceholderArt.SUB_STRUCTURE)
+	draw_circle(base, 5.0, PlaceholderArt.HULL_COLOR)
+	# Tip grabber jaw
+	var jaw_hw := 14.0
+	draw_line(tip + perp * jaw_hw, tip - perp * jaw_hw,
+		PlaceholderArt.LADDER_COLOR, 4.0)
+	draw_circle(tip, 5.0, PlaceholderArt.HULL_COLOR)
+	# Item riding the tip
+	if t.has_tip_item():
+		draw_circle(tip, 10.0, PlaceholderArt.SCRAP_COLOR.lightened(0.2))
+	# Onboard cages
+	_draw_telescope_cages(t)
+
+## Two onboard cage outlines on the room floor (s2 and s4), filling from bottom
+## up as catches auto-deposit. Scrap = small square, fish/carcass = small circle.
+func _draw_telescope_cages(t: TelescopeStation) -> void:
+	var floor_y := t.cage_floor_y
+	var cage_w := 30.0
+	var cage_h := 44.0
+	var bar := PlaceholderArt.LADDER_COLOR
+	var contents_list: Array = [t.cage_s2(), t.cage_s4()]
+	var xs: Array = [t.cage_s2_x, t.cage_s4_x]
+	for c in 2:
+		var cx: float = xs[c]
+		var top_y := floor_y - cage_h
+		# Cage frame (three sides; floor is the room floor itself)
+		draw_line(Vector2(cx - cage_w * 0.5, top_y),
+			Vector2(cx - cage_w * 0.5, floor_y), bar, 2.0)
+		draw_line(Vector2(cx + cage_w * 0.5, top_y),
+			Vector2(cx + cage_w * 0.5, floor_y), bar, 2.0)
+		draw_line(Vector2(cx - cage_w * 0.5, top_y),
+			Vector2(cx + cage_w * 0.5, top_y), bar, 2.0)
+		# Crossbar ribs
+		var rib_y := top_y + cage_h * 0.5
+		draw_line(Vector2(cx - cage_w * 0.5, rib_y),
+			Vector2(cx + cage_w * 0.5, rib_y), bar, 1.0)
+		# Contents stacked bottom-up, 2 per row
+		var contents: Array[int] = contents_list[c]
+		for i in contents.size():
+			var row := i / 2
+			var col := i % 2
+			var px := cx - 7.0 + col * 14.0
+			var py := floor_y - 7.0 - row * 14.0
+			match contents[i]:
+				SalvageItem.Kind.SCRAP:
+					draw_rect(Rect2(px - 4.0, py - 4.0, 8.0, 8.0),
+						PlaceholderArt.SCRAP_COLOR)
+				SalvageItem.Kind.MED_FISH:
+					draw_circle(Vector2(px, py), 4.0, PlaceholderArt.CARCASS_MED_COLOR)
+				_:
+					draw_circle(Vector2(px, py), 4.0, PlaceholderArt.CARCASS_COLOR)
 
 func _draw_round_rect(rect: Rect2, radius: float, color: Color) -> void:
 	var r := minf(radius, minf(rect.size.x, rect.size.y) * 0.5)

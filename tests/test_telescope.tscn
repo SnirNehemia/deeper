@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://dtele5cope001"]
+
+[ext_resource type="Script" path="res://tests/test_telescope.gd" id="1_telescope"]
+
+[node name="TestTelescope" type="Node"]
+script = ExtResource("1_telescope")
