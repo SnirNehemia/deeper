@@ -142,9 +142,9 @@ func _test_cages_full_refuses_deposit_and_grab() -> void:
 	var cap := GameFeel.telescope.cage_capacity
 	# Manually fill both cages to capacity.
 	for _i in cap:
-		t._cage_s2.append(SalvageItem.Kind.SCRAP)
+		t._cage_s2.append(_scrap_slot())
 	for _i in cap:
-		t._cage_s4.append(SalvageItem.Kind.SCRAP)
+		t._cage_s4.append(_scrap_slot())
 	_check(t.cages_full(), "cages report full when both at capacity")
 
 	# Attempt grab — should be refused.
@@ -169,7 +169,7 @@ func _test_reset_clears_cages() -> void:
 	var sub := _make_sub()
 	var t := _telescope(sub)
 	# Fill a cage and put an item on the tip.
-	t._cage_s2.append(SalvageItem.Kind.SCRAP)
+	t._cage_s2.append(_scrap_slot())
 	var scrap := SalvageItem.make_scrap(sub.to_global(t.tip_local()))
 	add_child(scrap)
 	scrap.set_caged()
@@ -182,6 +182,11 @@ func _test_reset_clears_cages() -> void:
 	_check(t.extension == 0.0, "reset returns arm to home (extension 0)")
 
 	sub.queue_free()
+
+## A cage slot dict for a bare scrap item (see TelescopeStation._slot_for) --
+## used when a test fills a cage directly without a real SalvageItem.
+func _scrap_slot() -> Dictionary:
+	return {"kind": SalvageItem.Kind.SCRAP, "color": "", "value": 0}
 
 # --- Input helpers ---
 

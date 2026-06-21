@@ -44,9 +44,9 @@ func _ready() -> void:
 	# Buying with enough money adds it to inventory and spends the wallet.
 	var cost := def.cost_bundle()
 	SaveData.banked_scrap = 100
-	SaveData.banked_fish = 100
-	SaveData.banked_med_carcass = 100
-	SaveData.banked_large_carcass = 100
+	for code in cost:
+		if code != "sc":
+			SaveData.banked_currency[code] = 100
 	var scrap_before := SaveData.banked_scrap
 	dock._shop_key(KEY_ENTER)
 	_check(SaveData.layout.inventory.get(def.id, 0) == 1,

@@ -33,9 +33,10 @@ var extension: float = 0.0
 
 ## Item riding the arm tip (grabbed but not yet deposited).
 var _tip_item: SalvageItem = null
-## Onboard cage contents: arrays of SalvageItem.Kind (int). s2 fills first.
-var _cage_s2: Array[int] = []
-var _cage_s4: Array[int] = []
+## Onboard cage contents: one slot dict per item — {"kind", "color", "value"}
+## (see _slot_for) — s2 fills first.
+var _cage_s2: Array[Dictionary] = []
+var _cage_s4: Array[Dictionary] = []
 
 ## MILESTONE_8.md Module 2: a live fish caught by the tip, held separately
 ## from `_tip_item` (it doesn't take a cage-capacity slot — a struggling
@@ -132,10 +133,10 @@ func is_home() -> bool:
 
 # --- Cage accessors (read by SubVisual) ---
 
-func cage_s2() -> Array[int]:
+func cage_s2() -> Array[Dictionary]:
 	return _cage_s2
 
-func cage_s4() -> Array[int]:
+func cage_s4() -> Array[Dictionary]:
 	return _cage_s4
 
 func has_tip_item() -> bool:
@@ -240,11 +241,11 @@ func _attempt_pull() -> void:
 		extension = maxf(0.0, extension - GameFeel.reel.pull_distance_m * Sub.PPM)
 
 ## Delivered home alive: finished off through the normal damage pipeline
-## (always lethal — see Fish.finish_catch), reusing the same carcass-drop hook
-## `die()` already provides (MILESTONE_8.md Module 4 will later change what
-## die() drops — zero rework needed here). The resulting carcass is then
-## auto-collected (2026-06-21) — you already did the hard part reeling it in,
-## re-grabbing the carcass it just dropped at your own feet would be busywork.
+## (always lethal — see Fish.finish_catch), reusing the same currency-drop
+## hook `die()` already provides (MILESTONE_8.md Module 4). The resulting
+## drops are then auto-collected (2026-06-21) — you already did the hard part
+## reeling it in, re-grabbing what it just dropped at your own feet would be
+## busywork.
 func _finalize_fish_catch() -> void:
 	if not is_instance_valid(_grabbed_fish):
 		return
@@ -253,36 +254,41 @@ func _finalize_fish_catch() -> void:
 	_grabbed_fish = null
 	_reel = null
 	fish.finish_catch(GameFeel.reel.finish_damage)
-	_auto_collect_loot(fish.last_carcass)
+	_auto_collect_loot(fish.last_drops)
 
-## Deposits a just-finished catch's carcass straight into the onboard cage —
-## the same place a normal manual grab+retract would land it — skipping the
-## "snap it up off the tip again" step. Still un-banked/at-risk until docked,
-## same as any other catch; if both cages happen to be full, it's left
-## floating, collectible the normal way once one frees up.
-func _auto_collect_loot(carcass: SalvageItem) -> void:
-	if not is_instance_valid(carcass):
-		return
+## Deposits a just-finished catch's currency drops straight into the onboard
+## cage — the same place a normal manual grab+retract would land them —
+## skipping the "snap it up off the tip again" step. Still un-banked/at-risk
+## until docked, same as any other catch; if both cages happen to be full,
+## a drop is left floating, collectible the normal way once one frees up.
+func _auto_collect_loot(drops: Array[SalvageItem]) -> void:
+	for drop in drops:
+		if not is_instance_valid(drop):
+			continue
+		if _stow_in_cage(_slot_for(drop)):
+			drop.queue_free()
+
+## A cage slot dict for `item` — {"kind", "color", "value"} — the shape both
+## _try_deposit and _auto_collect_loot push into _cage_s2/_cage_s4.
+func _slot_for(item: SalvageItem) -> Dictionary:
+	return {"kind": item.kind, "color": item.currency_color, "value": item.currency_value}
+
+## Appends `slot` to s2 (then s4) if either has room. Returns whether it fit.
+func _stow_in_cage(slot: Dictionary) -> bool:
 	var cap := GameFeel.telescope.cage_capacity
 	if _cage_s2.size() < cap:
-		_cage_s2.append(carcass.kind)
+		_cage_s2.append(slot)
 	elif _cage_s4.size() < cap:
-		_cage_s4.append(carcass.kind)
+		_cage_s4.append(slot)
 	else:
-		return
-	carcass.queue_free()
+		return false
+	return true
 
 ## Transfer the tip item into the s2 cage (then s4) and free the node.
 func _try_deposit() -> void:
 	if not is_instance_valid(_tip_item):
 		return
-	var cap := GameFeel.telescope.cage_capacity
-	var kind: int = _tip_item.kind
-	if _cage_s2.size() < cap:
-		_cage_s2.append(kind)
-	elif _cage_s4.size() < cap:
-		_cage_s4.append(kind)
-	else:
+	if not _stow_in_cage(_slot_for(_tip_item)):
 		return  # both full — item stays on tip until the sub banks
 	_tip_item.queue_free()
 	_tip_item = null
@@ -290,15 +296,15 @@ func _try_deposit() -> void:
 ## Called by Sub.try_bank() — transfer all cage contents to the save file.
 func bank_cages() -> void:
 	var sc := 0
-	var fi := 0
-	var mc := 0
-	for kind in (_cage_s2 + _cage_s4):
-		match kind:
-			SalvageItem.Kind.SCRAP:    sc += 1
-			SalvageItem.Kind.FISH:     fi += 1
-			SalvageItem.Kind.MED_FISH: mc += 1
-	if sc > 0 or fi > 0 or mc > 0:
-		SaveData.bank(sc, fi, mc)
+	var currency := {}
+	for slot in (_cage_s2 + _cage_s4):
+		if slot["kind"] == SalvageItem.Kind.SCRAP:
+			sc += 1
+		else:
+			var color: String = slot["color"]
+			currency[color] = int(currency.get(color, 0)) + int(slot["value"])
+	if sc > 0 or not currency.is_empty():
+		SaveData.bank(sc, currency)
 	_cage_s2.clear()
 	_cage_s4.clear()
 

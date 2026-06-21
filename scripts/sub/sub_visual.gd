@@ -172,21 +172,18 @@ func _draw_storage_pen(sub: Sub) -> void:
 	while x <= pen.position.x + pen.size.x + 0.1:
 		draw_line(Vector2(x, pen.position.y), Vector2(x, floor_y), bar, 2.0)
 		x += sec_w * 0.25  # four bars across the section
-	# Stacked contents: scrap squares then carcass blobs (small, then medium),
-	# packed bottom-up.
-	var total: int = sub.storage_count()
+	# Stacked scrap crates, packed bottom-up. Color currency is capacity-free
+	# (MILESTONE_8.md Module 4 — a running value total per color, not discrete
+	# physical objects) so it has nothing to stack here; see SalvageHud for
+	# its readout instead.
+	var total: int = sub.storage_scrap
 	var per_row := 3
 	var slot := pen.size.x / per_row
 	for i in total:
 		var col := i % per_row
 		var row := i / per_row
 		var p := Vector2(pen.position.x + slot * (col + 0.5), floor_y - 10.0 - row * 14.0)
-		if i < sub.storage_scrap:
-			draw_rect(Rect2(p - Vector2(5, 5), Vector2(10, 10)), PlaceholderArt.SCRAP_COLOR)
-		elif i < sub.storage_scrap + sub.storage_fish:
-			draw_circle(p, 5.0, PlaceholderArt.CARCASS_COLOR)
-		else:
-			draw_circle(p, 5.0, PlaceholderArt.CARCASS_MED_COLOR)
+		draw_rect(Rect2(p - Vector2(5, 5), Vector2(10, 10)), PlaceholderArt.SCRAP_COLOR)
 
 ## A floodlight's beam (M4-17 rework): a cone with its tip at the hull and its
 ## base flaring outward into open water, in the station's live aim direction.
@@ -312,7 +309,8 @@ func _draw_reel_rope(base: Vector2, catch_point: Vector2, reel: ReelMinigame) ->
 	draw_circle(bead_pos, 5.0, Color.WHITE)
 
 ## Two onboard cage outlines on the room floor (s2 and s4), filling from bottom
-## up as catches auto-deposit. Scrap = small square, fish/carcass = small circle.
+## up as catches auto-deposit. Scrap = small square; color currency (Module 4)
+## = small circle tinted by its color (PlaceholderArt.currency_color).
 func _draw_telescope_cages(t: TelescopeStation) -> void:
 	var floor_y := t.cage_floor_y
 	var cage_w := 30.0
@@ -335,20 +333,17 @@ func _draw_telescope_cages(t: TelescopeStation) -> void:
 		draw_line(Vector2(cx - cage_w * 0.5, rib_y),
 			Vector2(cx + cage_w * 0.5, rib_y), bar, 1.0)
 		# Contents stacked bottom-up, 2 per row
-		var contents: Array[int] = contents_list[c]
+		var contents: Array[Dictionary] = contents_list[c]
 		for i in contents.size():
 			var row := i / 2
 			var col := i % 2
 			var px := cx - 7.0 + col * 14.0
 			var py := floor_y - 7.0 - row * 14.0
-			match contents[i]:
-				SalvageItem.Kind.SCRAP:
-					draw_rect(Rect2(px - 4.0, py - 4.0, 8.0, 8.0),
-						PlaceholderArt.SCRAP_COLOR)
-				SalvageItem.Kind.MED_FISH:
-					draw_circle(Vector2(px, py), 4.0, PlaceholderArt.CARCASS_MED_COLOR)
-				_:
-					draw_circle(Vector2(px, py), 4.0, PlaceholderArt.CARCASS_COLOR)
+			var slot := contents[i]
+			if slot["kind"] == SalvageItem.Kind.SCRAP:
+				draw_rect(Rect2(px - 4.0, py - 4.0, 8.0, 8.0), PlaceholderArt.SCRAP_COLOR)
+			else:
+				draw_circle(Vector2(px, py), 4.0, PlaceholderArt.currency_color(slot["color"]))
 
 func _draw_round_rect(rect: Rect2, radius: float, color: Color) -> void:
 	var r := minf(radius, minf(rect.size.x, rect.size.y) * 0.5)

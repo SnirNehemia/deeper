@@ -91,10 +91,13 @@ func _load_map() -> void:
 ## the hardcoded ShoreShelf placements used since Milestone 1.
 func _spawn_entities() -> void:
 	if _map_loader != null:
-		for pos in _map_loader.territorial_fish_spawns:
-			_add_fish(pos)
-		for pos in _map_loader.hunter_fish_spawns:
-			_add_fish(pos, Fish.Behavior.CHASER, EnemyDef.Class.BIG)  # green gen-layer pixels → green chasers
+		# 2026-06-21: each entry's "cls" comes from the gen layer's connected-
+		# pixel-blob size (GenerationLayerParser._cluster_to_spawns) — a single
+		# painted pixel is Small, two touching is Big, three+ touching is Elite.
+		for spawn in _map_loader.territorial_fish_spawns:
+			_add_fish(spawn["pos"], Fish.Behavior.TERRITORIAL, spawn["cls"])
+		for spawn in _map_loader.hunter_fish_spawns:
+			_add_fish(spawn["pos"], Fish.Behavior.CHASER, spawn["cls"])  # green gen-layer pixels → green chasers
 		for pos in _map_loader.wreck_spawns:
 			_add_wreck(pos)
 	else:

@@ -27,6 +27,22 @@ static func by_id(id: String) -> ModuleDef:
 			return def
 	return null
 
+## MILESTONE_8.md Module 4: every purchasable room costs a flat
+## GameFeel.currency.flat_room_price in one randomly-chosen currency color —
+## first-pass numbers, explicitly provisional (Snir, 2026-06-21: skip the
+## planned color→room mapping Q&A, balance later). The color is picked once
+## per room id and cached for the process's lifetime: `all()` rebuilds a
+## fresh Array[ModuleDef] on every call, so re-rolling per call would make
+## the *same* room's price flicker between colors across two calls in the
+## same shop session.
+static var _room_price_color_cache: Dictionary = {}
+
+static func _flat_room_cost(room_id: String) -> Dictionary:
+	if not _room_price_color_cache.has(room_id):
+		var colors := GameFeel.currency.room_price_colors
+		_room_price_color_cache[room_id] = colors[randi() % colors.size()]
+	return {_room_price_color_cache[room_id]: GameFeel.currency.flat_room_price}
+
 static func _room(id: String, display_name: String, footprint: Vector2i,
 		price: int, is_core: bool) -> ModuleDef:
 	var def := ModuleDef.new()
@@ -45,7 +61,7 @@ static func _claw_room() -> ModuleDef:
 	def.display_name = "Claw Room"
 	def.description = "Two-joint excavator arm. Grab and dump salvage into the hold."
 	def.footprint = Vector2i(1, 1)
-	def.cost = {"sc": 5}
+	def.cost = _flat_room_cost("claw_room")
 	return def
 
 ## The Base Gun Room (M4-10, ROOM_SYSTEM.md §6 "Base gun room") — the first
@@ -58,7 +74,7 @@ static func _turret_room() -> ModuleDef:
 	def.description = "Operate a torpedo gun firing toward open water."
 	def.footprint = Vector2i(1, 1)
 	def.has_firing_face = true
-	def.cost = {"sc": 4}  # base gun room (ROOM_SYSTEM.md §6)
+	def.cost = _flat_room_cost("turret_room")  # base gun room (ROOM_SYSTEM.md §6)
 	return def
 
 ## The Bullet Room (M4-12, ROOM_SYSTEM.md §6 "Bullet weapon room") — the
@@ -73,7 +89,7 @@ static func _bullet_room() -> ModuleDef:
 	def.description = "Fires fast bullets at a high rate."
 	def.footprint = Vector2i(1, 1)
 	def.has_firing_face = true
-	def.cost = {"s_ca": 6}  # bullet weapon room (ROOM_SYSTEM.md §6)
+	def.cost = _flat_room_cost("bullet_room")  # bullet weapon room (ROOM_SYSTEM.md §6)
 	return def
 
 ## A room built to host the floodlight pod (M4-9) — the pod attaches to one of
@@ -86,7 +102,7 @@ static func _floodlight_room() -> ModuleDef:
 	def.display_name = "Floodlight Room"
 	def.footprint = Vector2i(1, 1)
 	def.can_host_pod = true
-	def.cost = {"sc": 10}  # bundled price covers the room + its pod (2026-06-19)
+	def.cost = _flat_room_cost("floodlight_room")  # bundled price covers the room + its pod (2026-06-19)
 	return def
 
 ## The floodlight pod is no longer sold separately (2026-06-19): buying the
@@ -114,7 +130,7 @@ static func _telescope_room() -> ModuleDef:
 	def.display_name = "Telescope Room"
 	def.description = "A long straight collector arm. Aim, extend, grab, retract to auto-store."
 	def.footprint = Vector2i(1, 1)
-	def.cost = {"sc": 6}  # purchasable (M7-3 prices TBD; starter is free via layout)
+	def.cost = _flat_room_cost("telescope_room")  # starter is free via layout, this is for a 2nd
 	return def
 
 ## The modules a player can buy into inventory at the dock right now: not core

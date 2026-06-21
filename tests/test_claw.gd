@@ -214,11 +214,15 @@ func _test_storage_cap() -> void:
 	var cap: int = GameFeel.claw.storage_capacity
 	var accepted := 0
 	for i in cap + 5:
-		if sub.deposit_salvage(SalvageItem.Kind.SCRAP):
+		if sub.deposit_salvage(SalvageItem.make_scrap(Vector2.ZERO)):
 			accepted += 1
 	_check(accepted == cap, "storage accepts exactly its capacity")
 	_check(sub.storage_full(), "storage reports full at the cap")
-	_check(not sub.deposit_salvage(SalvageItem.Kind.FISH), "a full pen refuses more")
+	# Currency is capacity-free (MILESTONE_8.md Module 4) -- a full scrap pen
+	# still refuses more scrap, but currency always lands.
+	_check(not sub.deposit_salvage(SalvageItem.make_scrap(Vector2.ZERO)), "a full pen refuses more scrap")
+	_check(sub.deposit_salvage(SalvageItem.make_currency(Vector2.ZERO, "teal", 5)),
+		"a full scrap pen still accepts currency (capacity-free)")
 
 	sub.queue_free()
 	await _frames(2)

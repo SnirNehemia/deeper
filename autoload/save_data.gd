@@ -12,15 +12,15 @@ extends Node
 
 const SAVE_PATH := "user://save.json"
 
-## Salvage that's been banked (safe) by returning to the dock. The carcass
-## tiers are the ROOM_SYSTEM.md §4.2 spend resources: banked_fish is the small
-## carcass (s_ca) — the only one that drops today; medium/large (m_ca/l_ca)
-## fill once bigger enemies exist (M5) but the wallet handles them now so room
-## prices can be multi-resource.
-var banked_scrap: int = 0       ## sc
-var banked_fish: int = 0        ## s_ca (small carcass)
-var banked_med_carcass: int = 0   ## m_ca
-var banked_large_carcass: int = 0 ## l_ca
+## Salvage that's been banked (safe) by returning to the dock.
+## `banked_scrap` is the one fixed physical resource (ROOM_SYSTEM.md §4.2's
+## `sc`). Everything else is color currency (MILESTONE_8.md Module 4,
+## replacing the retired carcass tiers): an open-ended resource-code ->
+## amount ledger, since species currency colors (plus "gold", the elite
+## premium) aren't a fixed enum — M9 adds more colors with zero code changes
+## here.
+var banked_scrap: int = 0          ## sc
+var banked_currency: Dictionary = {}  ## color code (e.g. "teal", "gold") -> amount
 
 ## The submarine's persistent upgrade state (engine boost / repair training;
 ## the gun-room slot is parked until M4-9).
@@ -48,9 +48,11 @@ func load_data() -> void:
 	var data: Variant = JSON.parse_string(file.get_as_text())
 	if data is Dictionary:
 		banked_scrap = int(data.get("banked_scrap", 0))
-		banked_fish = int(data.get("banked_fish", 0))
-		banked_med_carcass = int(data.get("banked_med_carcass", 0))
-		banked_large_carcass = int(data.get("banked_large_carcass", 0))
+		banked_currency = {}
+		var saved_currency: Variant = data.get("banked_currency", {})
+		if saved_currency is Dictionary:
+			for code in saved_currency:
+				banked_currency[code] = int(saved_currency[code])
 		loadout.from_dict(data.get("loadout", {}))
 		if data.has("layout"):
 			# Validate + recover so a layout left illegal by a rules change
@@ -65,21 +67,25 @@ func save_data() -> void:
 		return
 	file.store_string(JSON.stringify({
 		"banked_scrap": banked_scrap,
-		"banked_fish": banked_fish,
-		"banked_med_carcass": banked_med_carcass,
-		"banked_large_carcass": banked_large_carcass,
+		"banked_currency": banked_currency,
 		"loadout": loadout.to_dict(),
 		"layout": layout.to_dict(),
 	}))
 
-## Add salvage to the banked totals and persist immediately.
-func bank(scrap: int, fish: int, med_carcass: int = 0) -> void:
-	if scrap <= 0 and fish <= 0 and med_carcass <= 0:
-		return
-	banked_scrap += scrap
-	banked_fish += fish
-	banked_med_carcass += med_carcass
-	save_data()
+## Add scrap and/or color currency to the banked totals and persist
+## immediately. `currency` is a color code -> amount Dictionary (see
+## Sub.storage_currency / TelescopeStation.bank_cages).
+func bank(scrap: int, currency: Dictionary = {}) -> void:
+	var changed := scrap > 0
+	if scrap > 0:
+		banked_scrap += scrap
+	for code in currency:
+		var amount := int(currency[code])
+		if amount > 0:
+			banked_currency[code] = int(banked_currency.get(code, 0)) + amount
+			changed = true
+	if changed:
+		save_data()
 
 ## Can the player currently afford `cost` scrap?
 func can_afford(cost: int) -> bool:
@@ -126,21 +132,18 @@ func buy_slot(pos: Vector2i) -> bool:
 func next_slot_price(pos: Vector2i) -> int:
 	return GameFeel.dock.slot_price(layout.level_of(pos), layout.total_slots_bought)
 
-## Current balance of a resource code (ROOM_SYSTEM.md §4.2).
+## Current balance of a resource code (ROOM_SYSTEM.md §4.2): "sc" is scrap,
+## any other code is a color-currency code (MILESTONE_8.md Module 4).
 func resource_balance(code: String) -> int:
-	match code:
-		"sc": return banked_scrap
-		"s_ca": return banked_fish
-		"m_ca": return banked_med_carcass
-		"l_ca": return banked_large_carcass
-	return 0
+	if code == "sc":
+		return banked_scrap
+	return int(banked_currency.get(code, 0))
 
 func _add_resource(code: String, amount: int) -> void:
-	match code:
-		"sc": banked_scrap += amount
-		"s_ca": banked_fish += amount
-		"m_ca": banked_med_carcass += amount
-		"l_ca": banked_large_carcass += amount
+	if code == "sc":
+		banked_scrap += amount
+	else:
+		banked_currency[code] = int(banked_currency.get(code, 0)) + amount
 
 ## True if every resource in `cost` (code -> amount) is covered by the wallet.
 func can_afford_cost(cost: Dictionary) -> bool:
@@ -358,9 +361,7 @@ func return_pod_to_inventory(host_cell: Vector2i, face: String) -> bool:
 ## what, if anything, should).
 func reset_for_test() -> void:
 	banked_scrap = 0
-	banked_fish = 0
-	banked_med_carcass = 0
-	banked_large_carcass = 0
+	banked_currency = {}
 	loadout = SubLoadout.new()
 	layout = SubLayout.starting_layout()
 	if FileAccess.file_exists(SAVE_PATH):

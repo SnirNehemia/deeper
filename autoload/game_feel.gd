@@ -287,6 +287,40 @@ class EnemyRangedFeel:
 
 var enemy_ranged: EnemyRangedFeel = EnemyRangedFeel.new()
 
+## MILESTONE_8.md Module 4: color-currency economy. Replaces the retired
+## carcass tiers (s_ca/m_ca/l_ca) — an enemy drops its species' currency_color
+## (EnemyDef, per-species) instead, split into these denominations. Room
+## prices are flat-and-random for now (Snir, 2026-06-21: "price/balance is not
+## crucial, I'll balance it in a later milestone" — skipping the planned
+## color→room mapping Q&A). See TUNING.md.
+class CurrencyFeel:
+	## Denomination pickups a drop total is broken into, largest first (a
+	## simple greedy split — the milestone's open "denomination split rule"
+	## question, resolved with the simplest option since exact behavior here
+	## isn't load-bearing yet).
+	var denominations: Array[int] = [50, 10, 5, 1]
+	## Flat price (in one randomly-chosen currency color) for every
+	## purchasable room — first-pass numbers, explicitly provisional until
+	## M9's real species/color faucet exists to balance against.
+	var flat_room_price: int = 4
+	## The pool a room's price color is randomly drawn from. Today only the
+	## reference fish's placeholder color exists; M9 adds real species colors
+	## here. Deliberately excludes "gold" — that's the elite-only premium
+	## currency, not a room-gating color.
+	var room_price_colors: Array[String] = ["teal"]
+
+	## Breaks `total` into denomination pickups, e.g. 8 -> [5, 1, 1, 1].
+	func split(total: int) -> Array[int]:
+		var pickups: Array[int] = []
+		var remaining := total
+		for d in denominations:
+			while remaining >= d:
+				pickups.append(d)
+				remaining -= d
+		return pickups
+
+var currency: CurrencyFeel = CurrencyFeel.new()
+
 ## Turret / torpedo feel (Milestone 2). Torpedoes are slow and weighty like
 ## the sub — leading a moving fish is the skill.
 class TurretFeel:

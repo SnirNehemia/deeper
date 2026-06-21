@@ -11,7 +11,7 @@ var _failures := 0
 func _ready() -> void:
 	SaveData.reset_for_test()
 	await _test_storage_counters()
-	await _test_carcass_kind()
+	await _test_currency_kind()
 	await _test_dock_banking()
 	_test_save_round_trip()
 	SaveData.reset_for_test()
@@ -43,47 +43,51 @@ func _test_storage_counters() -> void:
 	print("[storage counters]")
 	var sub := _new_sub()
 
-	sub.deposit_salvage(SalvageItem.Kind.SCRAP)
-	sub.deposit_salvage(SalvageItem.Kind.SCRAP)
-	sub.deposit_salvage(SalvageItem.Kind.FISH)
+	sub.deposit_salvage(SalvageItem.make_scrap(Vector2.ZERO))
+	sub.deposit_salvage(SalvageItem.make_scrap(Vector2.ZERO))
+	sub.deposit_salvage(SalvageItem.make_currency(Vector2.ZERO, "teal", 5))
 	_check(sub.storage_scrap == 2, "depositing scrap raises the scrap counter")
-	_check(sub.storage_fish == 1, "depositing a carcass raises the fish counter")
+	_check(int(sub.storage_currency.get("teal", 0)) == 5,
+		"depositing currency raises that color's running total")
 
 	# Unbanked storage is lost on implosion reset (the push-your-luck stakes).
 	sub.reset_state()
-	_check(sub.storage_scrap == 0 and sub.storage_fish == 0,
+	_check(sub.storage_scrap == 0 and sub.storage_currency.is_empty(),
 		"reset (implosion) clears unbanked on-board storage")
 
 	sub.queue_free()
 	await _frames(2)
 
-func _test_carcass_kind() -> void:
-	print("[carcass tagging]")
-	var carcass := SalvageItem.make_carcass(Vector2.ZERO)
-	add_child(carcass)
-	_check(carcass.kind == SalvageItem.Kind.FISH, "carcass has the FISH kind")
-	_check(carcass.is_in_group("salvage"), "carcass is findable by the claw")
-	_check(carcass.is_in_group("salvage_carcass"), "carcass is tagged for run-reset cleanup")
-	carcass.queue_free()
+func _test_currency_kind() -> void:
+	print("[currency tagging]")
+	var drop := SalvageItem.make_currency(Vector2.ZERO, "teal", 5)
+	add_child(drop)
+	_check(drop.kind == SalvageItem.Kind.CURRENCY, "a drop has the CURRENCY kind")
+	_check(drop.currency_color == "teal" and drop.currency_value == 5,
+		"a drop carries its color and denomination value")
+	_check(drop.is_in_group("salvage"), "a drop is findable by the claw")
+	_check(drop.is_in_group("salvage_carcass"), "a drop is tagged for run-reset cleanup")
+	drop.queue_free()
 	await _frames(2)
 
 func _test_dock_banking() -> void:
 	print("[dock banking]")
 	var sub := _new_sub()
 	sub.storage_scrap = 3
-	sub.storage_fish = 2
+	sub.storage_currency = {"teal": 12}
 
 	var dock := Vector2(2000, 2000)
 	var radius := 100.0
 
 	sub.global_position = dock + Vector2(500, 0)  # far from dock
 	_check(not sub.try_bank(dock, radius), "far from dock: nothing banked")
-	_check(sub.storage_scrap == 3 and sub.storage_fish == 2, "storage untouched away from dock")
+	_check(sub.storage_scrap == 3 and sub.storage_currency.get("teal", 0) == 12,
+		"storage untouched away from dock")
 
 	sub.global_position = dock
 	_check(sub.try_bank(dock, radius), "at the dock: storage is banked")
-	_check(sub.storage_scrap == 0 and sub.storage_fish == 0, "storage emptied after banking")
-	_check(SaveData.banked_scrap == 3 and SaveData.banked_fish == 2,
+	_check(sub.storage_scrap == 0 and sub.storage_currency.is_empty(), "storage emptied after banking")
+	_check(SaveData.banked_scrap == 3 and SaveData.banked_currency.get("teal", 0) == 12,
 		"banked totals reflect the deposited storage")
 
 	sub.queue_free()
@@ -91,13 +95,13 @@ func _test_dock_banking() -> void:
 
 func _test_save_round_trip() -> void:
 	print("[save round trip]")
-	SaveData.bank(4, 1)  # appends to the 3/2 banked above -> 7/3, and saves to disk
+	SaveData.bank(4, {"teal": 1})  # appends to the 3/12 banked above -> 7/13, and saves to disk
 	var saved_scrap := SaveData.banked_scrap
-	var saved_fish := SaveData.banked_fish
+	var saved_teal: int = SaveData.banked_currency.get("teal", 0)
 
 	SaveData.banked_scrap = 0
-	SaveData.banked_fish = 0
+	SaveData.banked_currency = {}
 	SaveData.load_data()
 
-	_check(SaveData.banked_scrap == saved_scrap and SaveData.banked_fish == saved_fish,
+	_check(SaveData.banked_scrap == saved_scrap and SaveData.banked_currency.get("teal", 0) == saved_teal,
 		"reloading the save file restores the banked totals")

@@ -21,8 +21,11 @@ var sky_zones: Array = []
 var dock_center: Vector2 = Vector2.ZERO
 var dock_radius: float = 0.0
 ## Entity spawn lists read by the world to create Fish and Wreck nodes.
-var territorial_fish_spawns: Array[Vector2] = []
-var hunter_fish_spawns: Array[Vector2] = []
+## Fish spawns are Array[Dictionary] — {"pos": Vector2, "cls": EnemyDef.Class}
+## — one entry per connected pixel blob in the gen layer (see
+## GenerationLayerParser._cluster_to_spawns: blob size sets the class tier).
+var territorial_fish_spawns: Array[Dictionary] = []
+var hunter_fish_spawns: Array[Dictionary] = []
 var wreck_spawns: Array[Vector2] = []
 ## The dock-zone Area2D (collision_mask = SUB_HULL) added as a child, so the
 ## world can call dock_zone.overlaps_body(sub) for the dry-dock prompt.

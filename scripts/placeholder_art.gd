@@ -36,8 +36,17 @@ const CHASER_LENGTH_M: float = 1.6        ## more elongated than the territorial
 
 # --- Salvage ---
 const SCRAP_COLOR := Color("c8a050")      ## scrap crate (warm metal)
-const CARCASS_COLOR := Color("9a7ab8")    ## sunken fish carcass (faded fish purple)
-const CARCASS_MED_COLOR := Color("4ac46a") ## medium carcass from a basic_chaser (green)
+## MILESTONE_8.md Module 4: named currency-color lookup for rendering a drop —
+## per-species currency_color (EnemyDef) and "gold" (the elite premium
+## currency) are arbitrary strings, not a fixed enum, so this is a Dictionary
+## rather than more const Colors. Unknown names (a typo, or a color not yet
+## registered here) fall back to a neutral grey rather than erroring.
+const CURRENCY_COLORS := {
+	"teal": Color("2ec4b6"),
+	"gold": Color("d4af37"),
+}
+static func currency_color(name: String) -> Color:
+	return CURRENCY_COLORS.get(name, Color("b8b8c0"))
 const WRECK_COLOR := Color("5a5a52")      ## closed wreck hull (dull rust-grey)
 const WRECK_OPEN_COLOR := Color("3a3a36") ## cracked-open wreck (darker, hollow)
 const WRECK_LENGTH_M: float = 4.0

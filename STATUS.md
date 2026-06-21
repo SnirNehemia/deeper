@@ -1,8 +1,91 @@
 # STATUS — DEEPER
 
-_Read this at session start. Last updated: 2026-06-21 — **M8 Module 3 done (ranged attacks + difficulty classes) + reeled-in loot now auto-collects. Next: M8 Module 4 (color currency — needs a Snir Q&A first) or Module 5 (the add-enemy skill).**_
+_Read this at session start. Last updated: 2026-06-21 — **M8 Module 4 done (color currency economy + flat room pricing), gen-map pixel clustering -> fish class tiers done. Next: Module 5 (the add-enemy skill) — the last remaining piece of Milestone 8.**_
 
-**Milestone 8 — The Fauna Pass — in progress (Modules 0-3 of 5 done, plus a grab-tug follow-up below).**
+**Milestone 8 — The Fauna Pass — in progress (Modules 0-4 of 5 done, plus a grab-tug follow-up below).**
+
+**M8 Module 4 — Color currency economy (2026-06-21):** the old fixed small/
+medium/large carcass tiers (which never got a spend path and had a
+never-actually-droppable top tier) are retired in favor of an open-ended
+color-currency ledger, and every purchasable room now has a price.
+- **Data model:** `SalvageItem.Kind` is now just `SCRAP`/`CURRENCY`
+  (`make_currency(pos, color, value)` replaces `make_carcass`); a drop
+  carries a color (`EnemyDef.currency_color`, or `"gold"` for the elite
+  premium) and a denomination value. New `GameFeel.currency`
+  (`CurrencyFeel`: `denominations`/`flat_room_price`/`room_price_colors`,
+  `split(total)` breaks a kill's currency total into discrete pickups). New
+  `PlaceholderArt.currency_color(name)` (a small color table, default grey
+  for unknown codes).
+- **Fish drops:** `Fish.die()` spawns one currency pickup per denomination
+  from `class_stats().currency_drop_total` (in the species' color), plus a
+  `"gold"` pickup for Elites with `gold_drop > 0` — same kill-drop pipeline
+  every weapon/grab-tug catch already routes through, no new code at the
+  call sites.
+- **Storage:** `Sub.storage_scrap` (capacity-limited, unchanged) +
+  new `Sub.storage_currency: Dictionary` (color -> running total,
+  **capacity-free** — it's a value ledger, not physical objects, but still
+  un-banked/at-risk until docked, same as scrap). `deposit_salvage(item)` now
+  takes the item itself (was a bare `Kind` int) so it can read the color/value
+  off a currency drop. `TelescopeStation`'s onboard cages now hold
+  `{"kind", "color", "value"}` slot dicts instead of bare `Kind` ints, for the
+  same reason.
+- **Banking:** `SaveData.banked_scrap` (unchanged) + new
+  `banked_currency: Dictionary`, replacing the retired
+  `banked_fish`/`banked_med_carcass`/`banked_large_carcass` fields entirely.
+  `SaveData.bank(scrap, currency)`, `resource_balance(code)`, and
+  `can_afford_cost(cost)` are fully generic over resource codes — `"sc"` is
+  scrap, anything else is a color. Save file schema updated to match
+  (`"banked_currency"` dict replaces the three old keys); a legacy save with
+  the old keys just has them silently ignored on load (same as the
+  pre-existing `engine_boost` legacy-key handling).
+- **Room pricing:** every purchasable room (`claw_room`, `turret_room`,
+  `bullet_room`, `floodlight_room`, `telescope_room`) now costs a flat **4
+  units of one randomly-chosen color** (`ModuleCatalog._flat_room_cost`),
+  picked once per room id and cached for the process's lifetime
+  (`_room_price_color_cache`) so the quoted price doesn't flicker across
+  repeated menu redraws (`ModuleCatalog.all()` rebuilds fresh `ModuleDef`s
+  every call with no caching upstream). Per Snir: balance isn't the priority
+  yet — the sub build gets tuned in a later milestone — so this is a
+  deliberate placeholder, not a tuned economy. `ROOM_SYSTEM.md` §4.2/§6
+  flagged as superseded where they still show the old carcass-tier prices.
+- **UI:** `DryDock`'s wallet header and `SalvageHud`'s storage/banked readout
+  both iterate `banked_currency`/`storage_currency` generically (no more
+  fixed scrap+3-tier layout); `SubVisual`'s telescope-cage icons read the new
+  slot-dict shape.
+- Headless-verified: `test_salvage`, `test_claw`, `test_telescope`,
+  `test_reel_minigame` rewritten for the new currency model and fully green.
+  `test_shop`/`test_dock_shop_ui`/`test_save_layout` updated for the retired
+  `banked_fish`/`banked_med_carcass`/`banked_large_carcass` fields and the new
+  flat color-currency room prices (tests now fund every `room_price_colors`
+  entry before buying a room, since price is no longer scrap). One
+  pre-existing `test_claw` failure ("the dropped catch is loose again on the
+  floor") and the same 4 pre-existing `test_dock_shop_ui` failures (tower-
+  cell/helm Assembly flows) confirmed via `git stash` to predate this
+  session's work, unrelated to the currency rework. Project boots clean
+  headless.
+- **Commit:** pending (see below).
+
+**Gen-map pixel clustering -> fish class tiers (2026-06-21):** a lone
+territorial/hunter marker pixel in a map's generation-layer PNG now spawns a
+Small fish, two 8-connected pixels spawn Big, three or more spawn Elite — map
+authors paint difficulty by clump size, no new per-pixel metadata.
+- `GenerationLayerParser._cluster_to_spawns` flood-fills each marker color's
+  pixel coordinates into 8-connected blobs (diagonal touches count, since a
+  hand-painted blob reads as "one clump" to a human eye even on a corner
+  touch) via BFS over a `Dictionary`-backed remaining-set, then maps blob size
+  -> `EnemyDef.Class` (1 px = Small, 2 = Big, 3+ = Elite) and computes each
+  blob's centroid as the spawn position.
+- `MapLoader.territorial_fish_spawns`/`hunter_fish_spawns` are now
+  `Array[Dictionary]` (`{"pos": Vector2, "cls": EnemyDef.Class}`) instead of
+  `Array[Vector2]`, so the class travels with the position all the way to
+  `World._spawn_entities`'s `_add_fish` call.
+- Headless-verified: `test_map_loader.gd` updated for the new Dictionary
+  shape; new `_test_clustering_by_pixel_count()` directly exercises
+  `_cluster_to_spawns` against lone/pair/trio/quad/non-adjacent pixel blobs.
+  Confirmed the real `maps/cavern_depths_01/world_01_gen.png` still parses
+  cleanly through the new code via a clean headless boot. Project boots clean
+  headless.
+- **Commit:** pending (see below).
 
 **M8 Module 3 — Ranged attacks + the three difficulty classes (2026-06-21):**
 any species can now be spawned at any class tier independent of its AI

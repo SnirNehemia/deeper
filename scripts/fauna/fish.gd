@@ -386,12 +386,14 @@ func release() -> void:
 func struggle_direction() -> Vector2:
 	return global_position.direction_to(home)
 
-## Cartoon pop + bubbles; the fish stays gone until reset_fish(). Leaves
-## behind a sinking carcass (Module B: a "fish" salvage currency) at the kill
-## site for the sub to collect. `last_carcass` lets a caller that already knows
-## it owns this kill (the reel minigame's finishing blow) grab a reference to
-## the carcass it just created and auto-collect it, without a group search.
-var last_carcass: SalvageItem = null
+## Cartoon pop + bubbles; the fish stays gone until reset_fish(). Drops its
+## class block's currency_drop_total in the species' currency_color (plus
+## gold_drop, for an Elite), split into denomination pickups — MILESTONE_8.md
+## Module 4, retiring the old single-carcass drop. `last_drops` lets a caller
+## that already knows it owns this kill (the reel minigame's finishing blow)
+## grab references to the pickups it just created and auto-collect them,
+## without a group search.
+var last_drops: Array[SalvageItem] = []
 
 func die() -> void:
 	is_dead = true
@@ -402,10 +404,21 @@ func die() -> void:
 	var pop := Torpedo.Puff.new()
 	pop.global_position = global_position
 	get_parent().add_child(pop)
-	var carcass_kind := SalvageItem.Kind.MED_FISH if behavior == Behavior.CHASER else SalvageItem.Kind.FISH
-	var carcass := SalvageItem.make_carcass(global_position, carcass_kind)
-	get_parent().add_child(carcass)
-	last_carcass = carcass
+	last_drops.clear()
+	var stats := class_stats()
+	for value in GameFeel.currency.split(stats.currency_drop_total):
+		_spawn_drop(enemy_def.currency_color, value)
+	if current_class == EnemyDef.Class.ELITE and stats.gold_drop > 0:
+		for value in GameFeel.currency.split(stats.gold_drop):
+			_spawn_drop("gold", value)
+
+## One denomination pickup, scattered a little around the kill site so several
+## drops from one kill don't all stack on the exact same pixel.
+func _spawn_drop(color: String, value: int) -> void:
+	var scatter := Vector2(randf_range(-15.0, 15.0), randf_range(-15.0, 15.0))
+	var drop := SalvageItem.make_currency(global_position + scatter, color, value)
+	get_parent().add_child(drop)
+	last_drops.append(drop)
 
 ## Back home, alive — the world's run reset calls this on the "fish" group.
 ## Unconditionally releases a grab too — whatever order this runs in versus
@@ -430,7 +443,7 @@ func reset_fish() -> void:
 	_stun_timer = 0.0
 	_hunter_lose_timer = 0.0
 	_has_spotted = false
-	last_carcass = null
+	last_drops.clear()
 
 ## Radius (px) of the detection zone shown as the attention circle.
 func _detect_radius_px() -> float:

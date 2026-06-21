@@ -53,6 +53,14 @@ func _check(cond: bool, msg: String) -> void:
 		push_error("  FAIL: " + msg)
 		_failures += 1
 
+## Room/pod prices are flat color currency now (MILESTONE_8.md Module 4), not
+## scrap -- fund every color a room could possibly be priced in (whichever one
+## ModuleCatalog's per-process random cache landed on) so purchase tests aren't
+## tripped up by which color got picked.
+func _fund_currency() -> void:
+	for color in GameFeel.currency.room_price_colors:
+		SaveData.banked_currency[color] = 1000
+
 func _test_buy_slot_happy_path() -> void:
 	print("[buy a slot]")
 	SaveData.reset_for_test()
@@ -114,6 +122,7 @@ func _test_buy_room_into_inventory() -> void:
 	print("[buy a room into inventory]")
 	SaveData.reset_for_test()
 	SaveData.banked_scrap = 20
+	_fund_currency()
 	var cost: Dictionary = ModuleCatalog.by_id("turret_room").cost_bundle()
 	var ok := SaveData.buy_room("turret_room")
 	_check(ok, "buying the turret room with enough scrap succeeds")
@@ -145,18 +154,18 @@ func _test_buy_room_refused_for_core_or_unknown() -> void:
 func _test_multi_resource_cost() -> void:
 	print("[multi-resource affordability]")
 	SaveData.reset_for_test()
-	var cost := {"sc": 2, "s_ca": 3, "m_ca": 1}
+	var cost := {"sc": 2, "teal": 3, "gold": 1}
 	SaveData.banked_scrap = 2
-	SaveData.banked_fish = 3
-	SaveData.banked_med_carcass = 0   # short one medium carcass
-	_check(not SaveData.can_afford_cost(cost), "missing one resource tier => can't afford")
-	SaveData.banked_med_carcass = 1
-	_check(SaveData.can_afford_cost(cost), "all tiers covered => can afford")
+	SaveData.banked_currency = {"teal": 3, "gold": 0}   # short on gold
+	_check(not SaveData.can_afford_cost(cost), "missing one resource color => can't afford")
+	SaveData.banked_currency["gold"] = 1
+	_check(SaveData.can_afford_cost(cost), "all colors covered => can afford")
 
 func _test_place_room_happy_path() -> void:
 	print("[place a room]")
 	SaveData.reset_for_test()
 	SaveData.banked_scrap = 1000
+	_fund_currency()
 	# (0,1) is below helm(0,0); firing face right hits (1,1) which is exterior.
 	var pos := Vector2i(0, 1)
 	SaveData.buy_slot(pos)
@@ -177,6 +186,7 @@ func _test_place_room_refused_when_firing_face_blocked() -> void:
 	print("[firing face blocked]")
 	SaveData.reset_for_test()
 	SaveData.banked_scrap = 1000
+	_fund_currency()
 	# (0,1) is below helm(0,0). Facing "top" fires into (0,0) = helm (occupied).
 	var pos := Vector2i(0, 1)
 	SaveData.buy_slot(pos)
@@ -193,6 +203,7 @@ func _test_place_room_refused_without_slot() -> void:
 	print("[no slot]")
 	SaveData.reset_for_test()
 	SaveData.banked_scrap = 1000
+	_fund_currency()
 	SaveData.buy_room("turret_room")
 	var ok := SaveData.place_room("turret_room", Vector2i(0, 1))
 	_check(not ok, "placing a room at a position with no owned slot is refused")
@@ -205,6 +216,7 @@ func _test_return_room_to_inventory() -> void:
 	print("[return a room to inventory]")
 	SaveData.reset_for_test()
 	SaveData.banked_scrap = 1000
+	_fund_currency()
 	var pos := Vector2i(0, 1)
 	SaveData.buy_slot(pos)
 	SaveData.buy_room("turret_room")
@@ -266,6 +278,7 @@ func _test_slot_price_stable_across_place_and_return() -> void:
 	print("[slot price stable across place/return]")
 	SaveData.reset_for_test()
 	SaveData.banked_scrap = 1000
+	_fund_currency()
 	var pos := Vector2i(0, 1)  # adjacent to helm(0,0)
 	SaveData.buy_slot(pos)
 	SaveData.buy_room("turret_room")
@@ -287,6 +300,7 @@ func _test_buy_pod_into_inventory() -> void:
 	print("[buy a pod into inventory]")
 	SaveData.reset_for_test()
 	SaveData.banked_scrap = 20
+	_fund_currency()
 	_check(not SaveData.buy_pod("floodlight_pod"),
 		"the floodlight pod can no longer be bought separately")
 	var cost: Dictionary = ModuleCatalog.by_id("floodlight_room").cost_bundle()
@@ -320,6 +334,7 @@ func _test_buy_pod_refused_for_non_pod() -> void:
 ## floodlight pod (M4-9). Its +x face (1,1) is exterior, its -y face (0,0) is
 ## helm (occupied).
 func _setup_floodlight_room() -> void:
+	_fund_currency()
 	SaveData.buy_slot(Vector2i(0, 1))
 	SaveData.buy_room("floodlight_room")
 	SaveData.place_room("floodlight_room", Vector2i(0, 1))
@@ -359,6 +374,7 @@ func _test_place_pod_refused_on_room_that_cant_host_it() -> void:
 	print("[pod refused on a room that can't host it]")
 	SaveData.reset_for_test()
 	SaveData.banked_scrap = 1000
+	_fund_currency()
 	SaveData.buy_room("floodlight_room")  # bundles the pod into inventory
 	# bullet_room(1,0) top face (1,-1) is exterior, but bullet_room can't host a pod.
 	var ok := SaveData.place_pod("floodlight_pod", Vector2i(1, 0), "top")

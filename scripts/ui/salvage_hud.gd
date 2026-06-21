@@ -41,15 +41,25 @@ func _build_debug_controls() -> void:
 	toggle.toggled.connect(_on_debug_toggled)
 	add_child(toggle)
 
-	_debug_buttons.append(_make_debug_button("+100 scrap", -340, SalvageItem.Kind.SCRAP))
-	_debug_buttons.append(_make_debug_button("+100 carcass", -236, SalvageItem.Kind.FISH))
-	_debug_buttons.append(_make_debug_button("+100 med carcass", -132, SalvageItem.Kind.MED_FISH))
+	_debug_buttons.append(_make_scrap_debug_button("+100 scrap", -340))
+	_debug_buttons.append(_make_currency_debug_button("+100 teal", -236, "teal"))
+	_debug_buttons.append(_make_currency_debug_button("+100 gold", -132, "gold"))
 	_apply_debug_visibility()
 
-## Debug shortcut: banks 100 scrap, carcasses, or medium carcasses directly (so
-## a single click affords a room/slot purchase in the dry dock), instead of the
-## normal one-at-a-time storage-pen deposit.
-func _make_debug_button(text: String, left: float, kind: int) -> Button:
+## Debug shortcut: banks 100 scrap or color currency directly (so a single
+## click affords a room/slot purchase in the dry dock), instead of the normal
+## one-at-a-time storage-pen deposit.
+func _make_scrap_debug_button(text: String, left: float) -> Button:
+	var btn := _new_debug_button(text, left)
+	btn.pressed.connect(func(): SaveData.bank(100))
+	return btn
+
+func _make_currency_debug_button(text: String, left: float, color: String) -> Button:
+	var btn := _new_debug_button(text, left)
+	btn.pressed.connect(func(): SaveData.bank(0, {color: 100}))
+	return btn
+
+func _new_debug_button(text: String, left: float) -> Button:
 	var btn := Button.new()
 	btn.focus_mode = Control.FOCUS_NONE  # don't eat Tab (opens the dry dock)
 	btn.text = text
@@ -58,18 +68,8 @@ func _make_debug_button(text: String, left: float, kind: int) -> Button:
 	btn.offset_right = left + 96.0
 	btn.offset_top = 110.0
 	btn.offset_bottom = 136.0
-	btn.pressed.connect(_on_debug_bank.bind(kind))
 	add_child(btn)
 	return btn
-
-func _on_debug_bank(kind: int) -> void:
-	match kind:
-		SalvageItem.Kind.SCRAP:
-			SaveData.bank(100, 0)
-		SalvageItem.Kind.FISH:
-			SaveData.bank(0, 100)
-		SalvageItem.Kind.MED_FISH:
-			SaveData.bank(0, 0, 100)
 
 func _on_debug_toggled(on: bool) -> void:
 	_debug = on
@@ -82,8 +82,10 @@ func _apply_debug_visibility() -> void:
 func _process(_delta: float) -> void:
 	if sub == null:
 		return
-	_label.text = "Storage: %d/%d (%d scrap, %d carcasses, %d med carcasses)\nBanked: %d scrap, %d carcasses, %d med carcasses" % [
-		sub.storage_count(), GameFeel.claw.storage_capacity,
-		sub.storage_scrap, sub.storage_fish, sub.storage_med_carcass,
-		SaveData.banked_scrap, SaveData.banked_fish, SaveData.banked_med_carcass,
-	]
+	var storage_bits: Array[String] = ["%d/%d scrap" % [sub.storage_scrap, GameFeel.claw.storage_capacity]]
+	for code in sub.storage_currency:
+		storage_bits.append("%d %s" % [int(sub.storage_currency[code]), code])
+	var banked_bits: Array[String] = ["%d scrap" % SaveData.banked_scrap]
+	for code in SaveData.banked_currency:
+		banked_bits.append("%d %s" % [int(SaveData.banked_currency[code]), code])
+	_label.text = "Storage: %s\nBanked: %s" % [", ".join(storage_bits), ", ".join(banked_bits)]

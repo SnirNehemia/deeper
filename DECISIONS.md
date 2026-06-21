@@ -1128,3 +1128,70 @@ Snir's 7-part request, scoped via AskUserQuestion:
   `sub.deposit_salvage` (the ship storage pen — the same place a crew
   member carrying a dropped catch already ends up, just skipping that walk).
   Both stay un-banked and lost on implosion like any other un-banked catch.
+
+## Settled (2026-06-21, gen-map pixel clustering -> fish class tiers)
+- **Class tier is derived from hand-painted pixel-blob size, not a separate
+  authoring layer.** Snir's request: a lone territorial/hunter marker pixel
+  in the gen-layer PNG spawns Small, two 8-connected pixels spawn Big, three+
+  spawns Elite. `GenerationLayerParser._cluster_to_spawns` flood-fills each
+  marker color into blobs (BFS over a `Dictionary`-backed remaining-set) and
+  maps blob size -> `EnemyDef.Class` directly — no new per-pixel metadata, no
+  map-author tooling change, just reading the existing brush strokes
+  differently.
+- **8-connectivity (diagonal touches count), not 4.** A hand-painted blob at
+  gen-layer resolution reads as "one clump" to a human eye even where pixels
+  only touch corner-to-corner; 4-connectivity would have split visually-single
+  blobs into multiple smaller spawns, silently changing map authors' intent.
+- **`territorial_fish_spawns`/`hunter_fish_spawns` are now `Array[Dictionary]`
+  (`{"pos": Vector2, "cls": EnemyDef.Class}`), not `Array[Vector2]`.** The
+  class has to travel with the position from parse time through to
+  `World._spawn_entities`'s `_add_fish` call — a parallel array keyed by index
+  would have been one silent off-by-one away from spawning the wrong class at
+  the wrong position.
+
+## Settled (2026-06-21, M8 Module 4 — color currency economy)
+- **The old fixed s_ca/m_ca/l_ca carcass tiers are retired, not extended.**
+  `SalvageItem.Kind` is now just `SCRAP`/`CURRENCY`; a currency drop carries a
+  color (an `EnemyDef.currency_color`, or `"gold"` for the elite premium) plus
+  a denomination value instead of belonging to one of three hardcoded size
+  buckets. This was already a pre-existing gap before this session — the
+  `l_ca` tier had never actually been droppable by anything — so generalizing
+  to an open-ended color ledger (M9 adds species/colors with zero ledger code
+  changes) was preferred over reinforcing a tier system that already had a
+  missing rung.
+- **Color currency is capacity-free in onboard storage; scrap stays
+  capacity-limited.** Scrap is discrete physical crates (`storage_scrap`,
+  gated by `GameFeel.claw.storage_capacity`); currency is now an abstract
+  value total per color (`storage_currency: Dictionary`), not a pile of
+  objects, so there's nothing physical to cap. It still stays **un-banked and
+  at-risk until docked** — lost on implosion exactly like scrap — preserving
+  the push-your-luck stakes regardless of the capacity change.
+- **Every purchasable room costs a flat 4 units of one randomly-chosen
+  color**, picked once per room id and cached for the process's lifetime
+  (`ModuleCatalog._flat_room_cost`/`_room_price_color_cache`). Needed because
+  `ModuleCatalog.all()` rebuilds fresh `ModuleDef` instances on every call (no
+  caching upstream) — without the cache, a room's quoted price would flicker
+  to a different random color on every menu redraw. Per Snir: "the
+  price/balance is not so crucial to me as I will balance the sub build in
+  later milestone" — this is a deliberate placeholder, not a tuned economy.
+  `ROOM_SYSTEM.md` §4.2/§6 keep their old worked-example prices as historical
+  design notes (now flagged superseded) rather than being rewritten to match,
+  since the real tuning pass is explicitly deferred.
+- **The resource-code ledger pattern (`"sc"` vs. an open-ended color code) is
+  now shared verbatim across `ModuleDef.cost`, `SaveData.banked_currency`, and
+  `Sub.storage_currency`.** One `resource_balance(code)`/`can_afford_cost(cost)`
+  pair in `SaveData` already worked for "sc" vs. anything else before this
+  change (it was written that way for forward-compatibility); the carcass
+  retirement just removed the only caller still feeding it the old fixed
+  tier codes instead of a real color.
+- **Two of MILESTONE_8.md's four "ask Snir" open items for Module 4 were
+  resolved by taking the milestone doc's own suggested default, not by a
+  fresh round-trip with Snir** (the other two — the color→room mapping and
+  the denomination-split rule — were effectively answered by Snir's "every
+  room costs 4 random colored currency" instruction, which sidesteps a
+  per-color soft-gate entirely): the elite premium is named `"gold"` (the
+  doc's own assumption, "confirm vs. `pearl`" left unconfirmed) and
+  `CurrencyFeel.split()` uses greedy largest-denomination-first (the doc's
+  first-listed option over "a spread"). Both are cheap to rename/reorder
+  later if Snir prefers otherwise — flagging here so a future session
+  doesn't mistake "implemented" for "confirmed."

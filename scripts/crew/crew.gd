@@ -178,7 +178,7 @@ func _carry_action() -> void:
 		return
 	if _carrying != null:
 		if sub.near_storage(position):
-			if sub.deposit_salvage(_carrying.kind):
+			if sub.deposit_salvage(_carrying):
 				_carrying.queue_free()
 				_carrying = null
 		else:

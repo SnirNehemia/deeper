@@ -88,10 +88,13 @@ var breaches: Array[Breach] = []
 var _tugs: Dictionary = {}
 
 ## On-board salvage storage (Module B): banked at the dock, lost on implosion.
+## Scrap is a physical, capacity-limited resource (GameFeel.claw.
+## storage_capacity). Color currency (MILESTONE_8.md Module 4, replacing the
+## old per-tier carcass counts) is capacity-free — it's a running value total
+## per color, not discrete physical objects — but still un-banked/at-risk
+## until docked, same as scrap.
 var storage_scrap: int = 0
-var storage_fish: int = 0
-## M5: medium carcasses, dropped by basic_chasers.
-var storage_med_carcass: int = 0
+var storage_currency: Dictionary = {}
 
 signal salvage_collected(kind: int)
 signal breach_spawned(breach: Breach)
@@ -697,8 +700,7 @@ func reset_state() -> void:
 		breach.queue_free()
 	breaches.clear()
 	storage_scrap = 0
-	storage_fish = 0
-	storage_med_carcass = 0
+	storage_currency.clear()
 	for ts in _telescope_stations:
 		ts.reset_cages()
 	# MILESTONE_8.md Module 2: a held-but-not-yet-delivered catch was never
@@ -725,29 +727,32 @@ func storage_pen_center() -> Vector2:
 func near_storage(local_pos: Vector2) -> bool:
 	return local_pos.distance_to(storage_pen_center()) <= 1.6 * PPM
 
+## Scrap is the only thing that counts against capacity — color currency is
+## capacity-free (MILESTONE_8.md Module 4, see storage_currency above).
 func storage_count() -> int:
-	return storage_scrap + storage_fish + storage_med_carcass
+	return storage_scrap
 
 func storage_full() -> bool:
 	return storage_count() >= GameFeel.claw.storage_capacity
 
-func deposit_salvage(kind: int) -> bool:
-	if storage_full():
-		return false
-	match kind:
-		SalvageItem.Kind.SCRAP:
-			storage_scrap += 1
-		SalvageItem.Kind.FISH:
-			storage_fish += 1
-		SalvageItem.Kind.MED_FISH:
-			storage_med_carcass += 1
-	salvage_collected.emit(kind)
+## Deposits a piece of salvage into ship storage. Scrap is capacity-gated and
+## refuses when full; a currency pickup always succeeds (adds its value to
+## the running total for its color).
+func deposit_salvage(item: SalvageItem) -> bool:
+	if item.kind == SalvageItem.Kind.SCRAP:
+		if storage_full():
+			return false
+		storage_scrap += 1
+	else:
+		storage_currency[item.currency_color] = \
+			int(storage_currency.get(item.currency_color, 0)) + item.currency_value
+	salvage_collected.emit(item.kind)
 	return true
 
 func try_bank(dock_pos: Vector2, radius: float) -> bool:
 	if global_position.distance_to(dock_pos) > radius:
 		return false
-	var has_claw_storage := storage_scrap > 0 or storage_fish > 0 or storage_med_carcass > 0
+	var has_claw_storage := storage_scrap > 0 or not storage_currency.is_empty()
 	var has_telescope := false
 	for ts in _telescope_stations:
 		if ts.cage_count() > 0:
@@ -755,10 +760,9 @@ func try_bank(dock_pos: Vector2, radius: float) -> bool:
 			break
 	if not has_claw_storage and not has_telescope:
 		return false
-	SaveData.bank(storage_scrap, storage_fish, storage_med_carcass)
+	SaveData.bank(storage_scrap, storage_currency)
 	storage_scrap = 0
-	storage_fish = 0
-	storage_med_carcass = 0
+	storage_currency.clear()
 	for ts in _telescope_stations:
 		ts.bank_cages()
 	return true

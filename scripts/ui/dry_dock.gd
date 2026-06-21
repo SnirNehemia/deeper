@@ -516,6 +516,16 @@ static func _cost_string(cost: Dictionary) -> String:
 		parts.append("%d %s" % [int(cost[code]), code])
 	return ", ".join(parts)
 
+## The header wallet readout: scrap plus every color currency banked so far
+## (MILESTONE_8.md Module 4 — an open-ended set, not a fixed handful of
+## fields, so this can't be a hardcoded format string like the old
+## scrap/carcass-tiers version was).
+static func _wallet_string() -> String:
+	var parts: Array[String] = ["Scrap: %d" % SaveData.banked_scrap]
+	for code in SaveData.banked_currency:
+		parts.append("%s: %d" % [code.capitalize(), int(SaveData.banked_currency[code])])
+	return "   ".join(parts)
+
 ## True if the helm is currently placed on the hull (not sitting in
 ## inventory, e.g. mid-relocation). The dry dock refuses to close otherwise
 ## (2026-06-15) — the helm is the one core room a player can pick up, so this
@@ -550,10 +560,7 @@ class _View extends Control:
 		# Title.
 		f.draw_string(get_canvas_item(), Vector2(80, 70), "DRY DOCK",
 			HORIZONTAL_ALIGNMENT_LEFT, -1, 44, Color("e0c060"))
-		f.draw_string(get_canvas_item(), Vector2(80, 110),
-			"Scrap: %d   Small carcass: %d   Medium carcass: %d   Large carcass: %d" % [
-				SaveData.banked_scrap, SaveData.banked_fish,
-				SaveData.banked_med_carcass, SaveData.banked_large_carcass],
+		f.draw_string(get_canvas_item(), Vector2(80, 110), DryDock._wallet_string(),
 			HORIZONTAL_ALIGNMENT_LEFT, -1, 24, Color.WHITE)
 
 		match dock._mode:

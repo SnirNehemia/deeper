@@ -23,7 +23,7 @@ load-bearing changes:
    cell, every room is one cell. The handful of **larger rooms** that will exist
    later are the rare exception, deferred until we actually design one (§7).
    *(Supersedes `MODULAR_SUB_IMPLEMENTATION.md` §2 "Room sizes" and §2.1's
-   2×1/1×1 deltas. The cell also **widens to 3.75m** (5 × 0.75m sections); height
+   2×1/1×1 deltas. The cell also **widens to 5m** (5 × 1m sections); height
    stays 3m — see §2.)*
 
 2. **Sections (s1–s5) are a pure authoring layer.** A room is divided — *only
@@ -44,9 +44,9 @@ refit, the §10 invariants) still holds.
 ## 2. The cell and the five sections
 
 A room is one grid cell. Its interior width is divided into **five equal
-sections, left to right: s1, s2, s3, s4, s5**, each **1m wide → the cell is 3.75m
-wide** (was 2.5m in the M4 draft — this is the resolved widening, see the note
-below). Sections are an authoring coordinate system, nothing more — "s3" means
+sections, left to right: s1, s2, s3, s4, s5**, each **1m wide → the cell is 5m
+wide** (settled at Checkpoint 1 playtest 2026-06-13; tried 3.75m too narrow, 7.5m
+too wide). Sections are an authoring coordinate system, nothing more — "s3" means
 "the centre 1m of this room's interior width," and it compiles to a local
 x-offset at room-build time.
 
@@ -75,14 +75,10 @@ x-offset at room-build time.
   (the exterior). The section still authors *where along the room* they mount;
   the wall side is the right/left choice.
 
-> **Resolved (cell width):** the cell is **3.75m wide (5 × 0.75m sections)**, widened
-> from the M4-draft 2.5m so a station + ladder + gun read clearly at 1m each. This
-> is **one grid constant**, but it ripples through every existing test, the hull
-> generator, water-cell volumes, and the starting-layout geometry — update those
-> constants, don't special-case them. **The wider sub is a playtest point:** add
-> "does the 3.75m-wide sub still feel right (framing, heft, room legibility)?" to the
-> verify-by-playing notes at the M4 checkpoint where generated geometry first runs
-> (`MILESTONE_4_v2.md` Checkpoint 1). Cell *height* is unchanged (3m).
+> **Settled (cell width):** the cell is **5m wide (5 × 1m sections)**. Tried 3.75m
+> (too narrow) and 7.5m (too wide) at Checkpoint 1 playtest 2026-06-13; 5m settled
+> it, making each section exactly 1m. `SubGrid.CELL_W_M = 5.0`, `SECTION_W_M = 1.0`.
+> Cell *height* is unchanged (3m).
 
 ---
 
@@ -135,25 +131,31 @@ pay for *size* and *contents* as distinct decisions.
 ### 4.2 Costs and resources
 Costs are written in **square brackets**. Resources:
 
-- `sc` — scrap
-- `s_ca` — small carcass
-- `m_ca` — medium carcass
-- `l_ca` — large carcass
+- `sc` — scrap (the one fixed physical resource; capacity-limited on board)
+- any other code — a **color currency** (e.g. `teal`, `gold`): an open-ended
+  resource-code → amount ledger, not a fixed enum. A species drops its own
+  color (`EnemyDef.currency_color`); elites also drop a `gold` premium.
+  Capacity-free on board (it's a value total, not discrete physical objects),
+  but still un-banked/at-risk until docked, same as scrap.
 
-Example: `[2 sc, 3 s_ca, m_ca]` = 2 scrap + 3 small carcasses + 1 medium carcass
-(a bare resource code with no number means 1). `[-]` marks a **starting room**
-(owned from the first run, not purchased).
+Example: `[2 sc, 3 teal]` = 2 scrap + 3 teal currency (a bare resource code
+with no number means 1). `[-]` marks a **starting room** (owned from the
+first run, not purchased).
 
-> Reconcile with M3/M4: today scrap is the only spend currency and carcasses are
-> a trophy count with **no spend path** (`DECISIONS.md`, M3 Module D: "no sink
-> yet"). Two separate things, one easy and one not:
-> - **Easy (automatic with content):** the s/m/l tiers just drop from s/m/l
->   enemies. Today only small fish exist, so only `s_ca` drops; bigger enemies
->   later fill `m_ca`/`l_ca` for free. No work needed now beyond defining the tiers.
-> - **The real task:** the dock must **accept carcasses (and bundles) as
->   payment** — a multi-resource cost check replacing scrap-only spend. The room
->   catalog below is already priced in these tiers, so this spend mechanism has to
->   exist for any purchasable room. Schedule it with the M4 shop.
+> **Superseded 2026-06-21 (MILESTONE_8.md Module 4, see `DECISIONS.md`):** the
+> old `s_ca`/`m_ca`/`l_ca` carcass tiers below never got a spend path built and
+> are retired in code — `SalvageItem.Kind` is now just `SCRAP`/`CURRENCY`,
+> generic color currency replaces the size-tiered carcasses entirely.
+> **Room purchase prices** (the bracketed cost right after each room's name in
+> §6) are superseded too: every purchasable room currently costs a **flat 4
+> units of one random color**, picked once per room id and stable for the
+> process's lifetime (`ModuleCatalog._flat_room_cost`) — not the specific
+> amounts written below. This is a deliberate placeholder; Snir said balance
+> isn't a priority yet (the sub build gets tuned in a later milestone). The
+> **upgrade-tree costs** further down in §6 (fire rate, damage, etc.) are
+> still just aspirational design notes — no spend path exists for them yet,
+> same as before this change; when that's built, retag them in `teal`/`gold`-
+> style codes rather than the retired carcass tiers.
 
 ---
 

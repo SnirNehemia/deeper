@@ -28,8 +28,9 @@ extends Resource
 @export var price: int = 0
 
 ## Multi-resource price bundle (ROOM_SYSTEM.md §4.2): resource code -> amount,
-## e.g. {"sc": 4} or {"sc": 2, "s_ca": 3, "m_ca": 1}. Codes: sc = scrap,
-## s_ca/m_ca/l_ca = small/medium/large carcass. Empty means "use `price` scrap".
+## e.g. {"sc": 4} or {"teal": 4}. Codes: "sc" = scrap, any other code is a
+## color-currency code (MILESTONE_8.md Module 4 — see GameFeel.currency /
+## ModuleCatalog._flat_room_cost). Empty means "use `price` scrap".
 @export var cost: Dictionary = {}
 
 ## The resource bundle to charge for this module — `cost` if set, else `price`

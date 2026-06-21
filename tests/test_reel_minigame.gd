@@ -56,8 +56,10 @@ func _hook_fish(t: TelescopeStation, sub: Sub, room_weight: float) -> Fish:
 	var stats := EnemyClassStats.new()
 	stats.room_weight = room_weight
 	stats.move_speed = 3.5
+	stats.currency_drop_total = 5  # exactly one denomination pickup on death
 	var def := EnemyDef.new()
 	def.species_name = "test_reel_fish"
+	def.currency_color = "teal"
 	def.grabbable = true
 	def.class_small = stats
 	def.class_big = stats
@@ -134,9 +136,12 @@ func _test_reaching_home_finishes_the_catch() -> void:
 	_check(fish.is_dead, "a catch reeled fully home is finished off")
 	_check(not t.has_grabbed_fish(), "the station drops its reference once finished")
 	_check(t.cage_s2().size() == 1 or t.cage_s4().size() == 1,
-		"the carcass is auto-collected straight into an onboard cage")
-	_check(not is_instance_valid(fish.last_carcass) or fish.last_carcass.is_queued_for_deletion(),
-		"no loose carcass is left floating to re-grab")
+		"the currency drop is auto-collected straight into an onboard cage")
+	var still_floating := false
+	for drop in fish.last_drops:
+		if is_instance_valid(drop) and not drop.is_queued_for_deletion():
+			still_floating = true
+	_check(not still_floating, "no loose drop is left floating to re-grab")
 
 	sub.queue_free()
 

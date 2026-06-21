@@ -10,22 +10,30 @@ extends Area2D
 ##             can pick it up and carry it.
 ##   CARRIED — being carried by a crew member to the storage cage.
 ##
-## Placeholder visuals only: scrap = a bobbing crate, carcass = a faded fish
-## blob that sinks toward the seafloor before settling.
+## Placeholder visuals only: scrap = a bobbing crate, currency = a colored
+## gem that sinks toward the seafloor before settling.
+##
+## MILESTONE_8.md Module 4: the old carcass tiers (FISH/MED_FISH) are retired
+## in favor of a generic CURRENCY kind carrying a color name + denomination
+## value (an enemy's currency_color, or "gold" for the elite premium —
+## see GameFeel.currency / Fish.die()).
 
-enum Kind { SCRAP, FISH, MED_FISH }
+enum Kind { SCRAP, CURRENCY }
 enum State { WATER, CAGED, LOOSE, CARRIED }
 
 const RADIUS_PX := 14.0
 
 @export var kind: Kind = Kind.SCRAP
+## Only meaningful when kind == CURRENCY.
+@export var currency_color: String = ""
+@export var currency_value: int = 0
 
 var state: State = State.WATER
 ## The crew node carrying this item (only while CARRIED).
 var carried_by: Node2D = null
 
 var _wobble: float = randf() * TAU
-# Carcasses sink at this speed (px/s), decaying to a stop so they "settle".
+# Currency pickups sink at this speed (px/s), decaying to a stop so they "settle".
 var _sink_speed: float = 0.0
 
 static func make_scrap(world_pos: Vector2) -> SalvageItem:
@@ -34,12 +42,14 @@ static func make_scrap(world_pos: Vector2) -> SalvageItem:
 	item.position = world_pos
 	return item
 
-## A fish carcass: spawns at the kill site and slowly sinks before settling.
-## `kind` is FISH (small, purple) or MED_FISH (medium, green — from a
-## basic_chaser).
-static func make_carcass(world_pos: Vector2, kind: Kind = Kind.FISH) -> SalvageItem:
+## A colored-currency pickup: spawns at the kill site and slowly sinks before
+## settling. `color` is a species' currency_color or "gold" (elite premium);
+## `value` is its denomination (see GameFeel.currency.split).
+static func make_currency(world_pos: Vector2, color: String, value: int) -> SalvageItem:
 	var item := SalvageItem.new()
-	item.kind = kind
+	item.kind = Kind.CURRENCY
+	item.currency_color = color
+	item.currency_value = value
 	item.position = world_pos
 	item._sink_speed = 1.0 * GameFeel.PIXELS_PER_METER
 	item.add_to_group("salvage_carcass")
@@ -129,7 +139,7 @@ func _draw() -> void:
 			draw_rect(r, c.darkened(0.35), false, 2.0)
 			draw_line(r.position, r.position + r.size, c.darkened(0.35), 2.0)
 			draw_line(r.position + Vector2(r.size.x, 0), r.position + Vector2(0, r.size.y), c.darkened(0.35), 2.0)
-		Kind.FISH, Kind.MED_FISH:
-			var c := PlaceholderArt.CARCASS_MED_COLOR if kind == Kind.MED_FISH else PlaceholderArt.CARCASS_COLOR
+		Kind.CURRENCY:
+			var c := PlaceholderArt.currency_color(currency_color)
 			draw_circle(Vector2(0, bob), RADIUS_PX, c)
 			draw_circle(Vector2(0, bob), RADIUS_PX * 0.4, c.darkened(0.3))
