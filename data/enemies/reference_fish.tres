@@ -1,0 +1,48 @@
+[gd_resource type="Resource" script_class="EnemyDef" load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://data/enemies/enemy_def.gd" id="1"]
+[ext_resource type="Script" path="res://data/enemies/enemy_class_stats.gd" id="2"]
+
+[sub_resource type="Resource" id="1"]
+script = ExtResource("2")
+damage = 1.0
+hp = 5.0
+room_weight = 1.0
+size_scale = 1.0
+move_speed = 3.5
+currency_drop_total = 0
+gold_drop = 0
+elite_ability = "none"
+
+[sub_resource type="Resource" id="2"]
+script = ExtResource("2")
+damage = 1.0
+hp = 8.0
+room_weight = 2.0
+size_scale = 1.3
+move_speed = 5.0
+currency_drop_total = 0
+gold_drop = 0
+elite_ability = "none"
+
+[sub_resource type="Resource" id="3"]
+script = ExtResource("2")
+damage = 2.0
+hp = 15.0
+room_weight = 3.0
+size_scale = 1.6
+move_speed = 6.0
+currency_drop_total = 0
+gold_drop = 5
+elite_ability = "none"
+
+[resource]
+script = ExtResource("1")
+species_name = "Reef Fish"
+body_color = Color(0.478431, 0.290196, 0.909804, 1)
+currency_color = "teal"
+ranged = false
+grabbable = true
+class_small = SubResource("1")
+class_big = SubResource("2")
+class_elite = SubResource("3")

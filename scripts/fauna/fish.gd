@@ -12,23 +12,36 @@ extends Area2D
 
 enum State { PATROL, CHASE, RECOVER, RETURN, HUNT }
 
+## MILESTONE_8.md Module 0: the AI pattern, independent of the EnemyDef class
+## tier below. TERRITORIAL = M2 behaviour (chase trigger only inside
+## territory, always breaks off and swims home). HUNTER (design doc §7): once
+## locked on (from hunter_detect_m), chases anywhere, giving up only after
+## hunter_lose_time spent beyond hunter_lose_m. CHASER ("basic_chaser"):
+## relentless once locked on (from chaser_detect_m) — never gives up; only a
+## successful bite earns the crew a chaser_backoff_time breather.
+enum Behavior { TERRITORIAL, HUNTER, CHASER }
+
+const DEFAULT_ENEMY_DEF_PATH := "res://data/enemies/reference_fish.tres"
+## Loaded lazily (not preloaded as a const) — preloading a custom-scripted
+## .tres at fish.gd's own parse time raced the engine's global-class
+## registration in headless runs and silently produced a scriptless Resource.
+static var _default_enemy_def: EnemyDef = null
+
 ## The sub it guards against (set at placement).
 var sub: Sub = null
 ## Territory center; the fish spawns here and always swims back here.
 var home: Vector2
 
-## M5-C2 (design doc §7, placement data): if true, this fish detects the sub
-## from hunter_detect_m and chases it anywhere on the map (no territory
-## leash), only giving up after hunter_lose_time spent beyond hunter_lose_m.
-## Default false = territorial (M2 behaviour, unchanged).
-var is_hunter: bool = false
+## Placement data: which AI pattern this fish runs (see Behavior above).
+var behavior: Behavior = Behavior.TERRITORIAL
 
-## "basic_chaser" (placement data): green, elongated, open-water fauna. Once
-## it spots the sub (from chaser_detect_m) it chases relentlessly and never
-## gives up — only a successful bite earns the crew a chaser_backoff_time
-## breather before it presses the attack again. Higher HP (8) than the
-## ordinary fish.
-var is_chaser: bool = false
+## MILESTONE_8.md Module 0: per-species stats live in an EnemyDef resource,
+## selected by class tier (Small/Big/Elite) — not hard-coded here. Defaults to
+## the promoted reference fish; placement data assigns both independently of
+## `behavior` (today's chaser spawns happen to use the Big tier for its
+## higher HP, but that's a calling convention, not a rule baked in here).
+var enemy_def: EnemyDef = null
+var current_class: EnemyDef.Class = EnemyDef.Class.SMALL
 
 ## Sky zones from the map (pocket zones only) and the global water surface y.
 ## Fish stay below water_surface_y and cannot enter cave air pockets.
@@ -40,8 +53,9 @@ var is_dead: bool = false
 var _hunter_lose_timer: float = 0.0
 
 ## M5: HP. Torpedo damage == hp_max (one-shot); bullet needs a burst. Set in
-## _ready (after `is_chaser` is assigned by the placer) since chasers have more.
-var hp_max: float = GameFeel.fish.hp_max
+## _ready (after `enemy_def`/`current_class` are assigned by the placer) from
+## the active class block's `hp`.
+var hp_max: float = 5.0
 var hp: float = hp_max
 
 var _facing: float = 1.0
@@ -65,10 +79,13 @@ func _ready() -> void:
 	collision_mask = Layers.PROJECTILE | Layers.SUB_HULL
 	monitoring = true
 	monitorable = true
-	if is_chaser:
-		hp_max = GameFeel.fish.chaser_hp_max
-		hp = hp_max
-	var length_m := PlaceholderArt.CHASER_LENGTH_M if is_chaser else PlaceholderArt.FISH_LENGTH_M
+	if enemy_def == null:
+		if _default_enemy_def == null:
+			_default_enemy_def = load(DEFAULT_ENEMY_DEF_PATH)
+		enemy_def = _default_enemy_def
+	hp_max = _class_stats().hp
+	hp = hp_max
+	var length_m := PlaceholderArt.CHASER_LENGTH_M if behavior == Behavior.CHASER else PlaceholderArt.FISH_LENGTH_M
 	var shape := CollisionShape2D.new()
 	var circle := CircleShape2D.new()
 	circle.radius = length_m * GameFeel.PIXELS_PER_METER * 0.5
@@ -108,14 +125,14 @@ func _physics_process(delta: float) -> void:
 
 	# Hunters lock on from farther away, in PATROL/CHASE/RETURN, regardless of
 	# territory (design doc §7).
-	if is_hunter and state != State.HUNT and state != State.RECOVER \
+	if behavior == Behavior.HUNTER and state != State.HUNT and state != State.RECOVER \
 			and dist_to_sub <= feel.hunter_detect_m * ppm:
 		state = State.HUNT
 		_has_spotted = true
 		_hunter_lose_timer = 0.0
 
 	# Basic chasers lock on from chaser_detect_m and never let go.
-	if is_chaser and state != State.HUNT and state != State.RECOVER \
+	if behavior == Behavior.CHASER and state != State.HUNT and state != State.RECOVER \
 			and dist_to_sub <= feel.chaser_detect_m * ppm:
 		state = State.HUNT
 		_has_spotted = true
@@ -134,14 +151,14 @@ func _physics_process(delta: float) -> void:
 		State.HUNT:
 			# Basic chasers never give up. Hunters chase anywhere, only
 			# giving up after a sustained spell beyond hunter_lose_m.
-			if not is_chaser:
+			if behavior != Behavior.CHASER:
 				if dist_to_sub > feel.hunter_lose_m * ppm:
 					_hunter_lose_timer += delta
 					if _hunter_lose_timer >= feel.hunter_lose_time:
 						state = State.RETURN
 				else:
 					_hunter_lose_timer = 0.0
-			var speed := feel.chaser_speed if is_chaser else feel.hunt_speed
+			var speed := feel.chaser_speed if behavior == Behavior.CHASER else feel.hunt_speed
 			_swim_toward(sub.global_position, speed * ppm, delta)
 			_try_bite()
 		State.RECOVER:
@@ -154,7 +171,7 @@ func _physics_process(delta: float) -> void:
 				if not _terrain_cast.is_colliding():
 					global_position = recover_new
 			if _bite_cooldown <= 0.0:
-				if is_hunter or is_chaser:
+				if behavior == Behavior.HUNTER or behavior == Behavior.CHASER:
 					state = State.HUNT
 					_has_spotted = true
 				else:
@@ -228,8 +245,8 @@ func _try_bite() -> void:
 	if not touching:
 		return
 	var local := sub.to_local(global_position)
-	sub.breach_from_hit(sub.nearest_room(local), GameFeel.breach.bite_severity, local)
-	_bite_cooldown = GameFeel.fish.chaser_backoff_time if is_chaser else GameFeel.fish.bite_interval
+	sub.breach_from_hit(sub.nearest_room(local), _class_stats().damage, local)
+	_bite_cooldown = GameFeel.fish.chaser_backoff_time if behavior == Behavior.CHASER else GameFeel.fish.bite_interval
 	# Circle away: mostly back the way it came, with some sideways drift.
 	var away := sub.global_position.direction_to(global_position)
 	_recover_dir = (away + Vector2(0, -0.5)).normalized()
@@ -271,7 +288,7 @@ func die() -> void:
 	var pop := Torpedo.Puff.new()
 	pop.global_position = global_position
 	get_parent().add_child(pop)
-	var carcass_kind := SalvageItem.Kind.MED_FISH if is_chaser else SalvageItem.Kind.FISH
+	var carcass_kind := SalvageItem.Kind.MED_FISH if behavior == Behavior.CHASER else SalvageItem.Kind.FISH
 	get_parent().add_child(SalvageItem.make_carcass(global_position, carcass_kind))
 
 ## Back home, alive — the world's run reset calls this on the "fish" group.
@@ -284,7 +301,7 @@ func reset_fish() -> void:
 	_patrol_target = home
 	_bite_cooldown = 0.0
 	state = State.PATROL
-	hp_max = GameFeel.fish.chaser_hp_max if is_chaser else GameFeel.fish.hp_max
+	hp_max = _class_stats().hp
 	hp = hp_max
 	_hit_flash = 0.0
 	_knockback = Vector2.ZERO
@@ -296,14 +313,20 @@ func reset_fish() -> void:
 func _detect_radius_px() -> float:
 	var ppm := GameFeel.PIXELS_PER_METER
 	var feel := GameFeel.fish
-	if is_chaser:
+	if behavior == Behavior.CHASER:
 		return feel.chaser_detect_m * ppm
-	if is_hunter:
+	if behavior == Behavior.HUNTER:
 		return feel.hunter_detect_m * ppm
 	return feel.territory_radius_m * ppm
 
+## The active EnemyDef class block (Small/Big/Elite) this fish reads its
+## stats from (MILESTONE_8.md Module 0).
+func _class_stats() -> EnemyClassStats:
+	return enemy_def.stats_for(current_class)
+
 func _draw() -> void:
 	var ppm: float = GameFeel.PIXELS_PER_METER
+	var is_chaser := behavior == Behavior.CHASER
 	var length_m := PlaceholderArt.CHASER_LENGTH_M if is_chaser else PlaceholderArt.FISH_LENGTH_M
 	var len_px := length_m * ppm
 	var half := len_px * 0.5

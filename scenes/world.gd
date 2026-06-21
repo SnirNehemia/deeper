@@ -94,7 +94,7 @@ func _spawn_entities() -> void:
 		for pos in _map_loader.territorial_fish_spawns:
 			_add_fish(pos)
 		for pos in _map_loader.hunter_fish_spawns:
-			_add_fish(pos, false, true)  # green gen-layer pixels → green chasers
+			_add_fish(pos, Fish.Behavior.CHASER)  # green gen-layer pixels → green chasers
 		for pos in _map_loader.wreck_spawns:
 			_add_wreck(pos)
 	else:
@@ -103,8 +103,8 @@ func _spawn_entities() -> void:
 		_add_fish(Vector2(85.0 * M, 47.0 * M))
 		_add_fish(Vector2(115.0 * M, 100.0 * M))
 		_add_fish(Vector2(148.0 * M, 54.0 * M))
-		_add_fish(Vector2(99.0 * M, 50.0 * M), false, true)
-		_add_fish(Vector2(132.0 * M, 48.0 * M), false, true)
+		_add_fish(Vector2(99.0 * M, 50.0 * M), Fish.Behavior.CHASER)
+		_add_fish(Vector2(132.0 * M, 48.0 * M), Fish.Behavior.CHASER)
 
 ## Build the sub from the saved loadout and seat the two crew inside it.
 func _spawn_sub_and_crew() -> void:
@@ -179,12 +179,15 @@ func reset_run() -> void:
 	get_tree().call_group("carryable", "queue_free")
 	_cam.reset_smoothing()
 
-func _add_fish(pos: Vector2, is_hunter := false, is_chaser := false) -> void:
+func _add_fish(pos: Vector2, behavior: Fish.Behavior = Fish.Behavior.TERRITORIAL) -> void:
 	var fish := Fish.new()
 	fish.sub = _sub
 	fish.position = pos
-	fish.is_hunter = is_hunter
-	fish.is_chaser = is_chaser
+	fish.behavior = behavior
+	# Chasers use the EnemyDef Big tier for their higher HP — a calling
+	# convention (MILESTONE_8.md Module 0), not a rule baked into Fish itself.
+	fish.current_class = EnemyDef.Class.BIG if behavior == Fish.Behavior.CHASER \
+		else EnemyDef.Class.SMALL
 	fish.sky_zones = _map_loader.sky_zones if _map_loader != null else []
 	fish.water_surface_y = _map_loader.water_surface_y if _map_loader != null else 0.0
 	add_child(fish)

@@ -1,8 +1,63 @@
 # STATUS — DEEPER
 
-_Read this at session start. Last updated: 2026-06-21 — **M7-3 polish done (7 telescope improvements). Next: M7-4.**_
+_Read this at session start. Last updated: 2026-06-21 — **M8 Module 0 done (EnemyDef data spine). Next: M8 Module 1 (weight + bump-back knockback).**_
 
-**Milestone 7 — Hands on the Deep — in progress.**
+**Milestone 8 — The Fauna Pass — in progress (Module 0 of 5 done).**
+M7-4 (bank telescope cages at the dock + cage-fill console readout) is still
+pending — parked, not dropped — while M8's infrastructure work runs. See
+`MILESTONE_8.md` for the full module breakdown.
+
+**M8 Module 0 — Enemy data spine (2026-06-21):** the existing fish is now a
+data-driven `EnemyDef` consumer with no behaviour change.
+- New `res://data/enemies/` folder: `enemy_def.gd` (`class_name EnemyDef
+  extends Resource` — species_name, body_color, currency_color, ranged,
+  grabbable, and three `EnemyClassStats` blocks: class_small/class_big/
+  class_elite) and `enemy_class_stats.gd` (`class_name EnemyClassStats extends
+  Resource` — damage, hp, room_weight, size_scale, move_speed,
+  currency_drop_total, gold_drop, elite_ability). Schema matches
+  `MILESTONE_8.md`'s sketch exactly.
+- `reference_fish.tres` reproduces the current fish's stats: Small block =
+  hp 5 / damage 1.0 (the old `bite_severity`) / move_speed 3.5 (the old
+  `chase_speed`) — the territorial/hunter configuration; Big block = hp 8 /
+  move_speed 5.0 (the old `chaser_speed`) / size_scale 1.3 (matches the
+  existing chaser visual stretch) — the chaser configuration. Elite block is
+  plausible placeholder numbers (hp 15, gold_drop 5), unused until M9.
+  `currency_color = "teal"` (a placeholder non-reserved hue — Elemental
+  reserves yellow/light-grey/cyan/red/purple, per `ELEMENTAL_UPDATE.md` §2).
+- `scripts/fauna/fish.gd`: the `is_hunter`/`is_chaser` bool flag-soup is
+  replaced by a single `behavior: Behavior` enum (`TERRITORIAL`/`HUNTER`/
+  `CHASER`) — the three AI state-machine patterns are unchanged, just
+  expressed as one field instead of two overlapping bools. A new orthogonal
+  `current_class: EnemyDef.Class` field (`SMALL`/`BIG`/`ELITE`) selects which
+  `EnemyClassStats` block an `enemy_def` resource is read from; HP and bite
+  damage (the breach severity passed to `breach_from_hit`) now come from
+  that block instead of `GameFeel.fish.hp_max`/`chaser_hp_max` and
+  `GameFeel.breach.bite_severity` (all three removed from `GameFeel` — that's
+  per-species content now, not a spine tunable). `behavior` and
+  `current_class` are independently settable; `_add_fish()` in `scenes/
+  world.gd` is the only place that currently pairs `CHASER` with `BIG` (a
+  calling convention to keep the chaser's existing higher HP, not a rule
+  inside `Fish` itself) — a future spawn could pair any behavior with any
+  class.
+- Per-behavior pacing (patrol/chase/return/hunt speeds, detection/leash
+  ranges, knockback, hit-flash) stays in `GameFeel.FishFeel` — those are
+  spine constants shared by whichever species runs that AI pattern, not
+  per-species data.
+- `enemy_def` defaults lazily (via `load()`, not `preload()` — preloading a
+  custom-scripted `.tres` as a top-level const raced the engine's global-class
+  registration in headless test runs and silently produced a scriptless
+  `Resource`; see the comment above `Fish._default_enemy_def`) to
+  `reference_fish.tres` if a placer doesn't assign one.
+- Headless-verified: `test_fish.tscn` — same single pre-existing failure as
+  on `HEAD` before this change (`territorial fish ignores a sub beyond its
+  territory radius` — confirmed via `git stash` to predate M8, unrelated; a
+  latent hull-width/territory-radius mismatch from the M7 sub layout, not
+  enemy data). `test_world.tscn` and `test_physical_layer.tscn` fully green.
+  Project boots clean headless.
+- **Commit:** `M8-0: EnemyDef/EnemyClassStats data spine; fish reads
+  stats from reference_fish.tres instead of hard-coded numbers`.
+
+**Milestone 7 — Hands on the Deep — in progress (M7-4 pending, see above).**
 M7-0 through M7-3 are complete and committed. The starting sub is a 4-room hull: `telescope_room(-1,0,"left")`, `helm(0,0)`, `bullet_room(1,0,"right")`, `tower(0,-1)`.
 
 **M7-3 polish (2026-06-21, 7 items):**

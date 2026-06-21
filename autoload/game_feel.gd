@@ -154,8 +154,6 @@ class BreachFeel:
 	var inflow_at_min: float = 1.0 / 120.0
 	## Inflow rate (level-fraction/s) at severity_max — a gushing breach.
 	var inflow_at_max: float = 1.0 / 20.0
-	## Severity of a fish bite (small but real leak).
-	var bite_severity: float = 1.0
 	## Severity added per m/s of impact speed above breach_speed_threshold,
 	## so a full-speed ram lands near severity_max while a graze stays near severity_min.
 	var ram_severity_per_speed: float = 1.0
@@ -236,16 +234,13 @@ class FishFeel:
 	var chase_speed: float = 3.5          ## m/s chasing the sub
 	var return_speed: float = 2.0         ## m/s swimming home after breaking off
 	var bite_interval: float = 3.0        ## s between bites per fish
-	## M5: HP. Torpedo damage equals this, so one torpedo still one-shots a
-	## fish; the bullet gun (1 dmg) needs a ~5-round burst.
-	var hp_max: float = 5.0
 	## Knockback speed (m/s) applied away from a non-lethal hit, decaying
 	## quickly — a flinch, not a launch.
 	var hit_knockback_mps: float = 4.0
 	var hit_knockback_decay: float = 8.0
 	## Brief white flash duration (s) on a non-lethal hit.
 	var hit_flash_time: float = 0.15
-	## M5-C2: hunter aggression (design doc §7). A hunter fish (is_hunter=true)
+	## M5-C2: hunter aggression (design doc §7). A hunter-behavior fish
 	## detects the sub from farther than its territorial chase range and
 	## pursues it anywhere on the map.
 	var hunter_detect_m: float = 16.0
@@ -255,15 +250,16 @@ class FishFeel:
 	var hunter_lose_time: float = 5.0
 	## m/s while hunting — faster than the territorial chase_speed.
 	var hunt_speed: float = 4.5
-	## "basic_chaser" fish (is_chaser=true): green, elongated, open-water
-	## fauna. Once they spot the sub from this far, they never give up —
-	## relentless pursuit until they die. After a successful bite they back
-	## off for chaser_backoff_time before pressing the attack again, giving
-	## the crew a window to land a hit.
+	## "basic_chaser" behavior: green, elongated, open-water fauna. Once they
+	## spot the sub from this far, they never give up — relentless pursuit
+	## until they die. After a successful bite they back off for
+	## chaser_backoff_time before pressing the attack again, giving the crew a
+	## window to land a hit.
 	var chaser_detect_m: float = 22.0
 	var chaser_speed: float = 5.0
-	var chaser_hp_max: float = 8.0
 	var chaser_backoff_time: float = 5.0
+	## MILESTONE_8.md Module 0: HP and bite damage moved to per-species
+	## EnemyDef/.tres data (res://data/enemies/) — no longer hard-coded here.
 
 var fish: FishFeel = FishFeel.new()
 

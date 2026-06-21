@@ -107,7 +107,8 @@ func _test_bite() -> void:
 	_check(not sub.breaches.is_empty(), "hull contact produces a bite breach")
 	if not sub.breaches.is_empty():
 		var breach: Breach = sub.breaches[0]
-		_check(absf(breach.leak_rate - GameFeel.breach.severity_to_inflow(GameFeel.breach.bite_severity)) < 0.0001,
+		var expected_severity: float = fish.enemy_def.class_small.damage
+		_check(absf(breach.leak_rate - GameFeel.breach.severity_to_inflow(expected_severity)) < 0.0001,
 			"bite breach is drip-tier")
 		_check(breach.room == 2, "bow bite breaches the helm (bow) room")
 	var bites_after_first: int = sub.breaches.size()
@@ -203,7 +204,7 @@ func _test_hunter_chases_and_gives_up() -> void:
 
 	var fish := Fish.new()
 	fish.sub = sub
-	fish.is_hunter = true
+	fish.behavior = Fish.Behavior.HUNTER
 	fish.position = Vector2.ZERO
 	add_child(fish)
 	await _frames(5)
@@ -243,7 +244,7 @@ func _test_territorial_unaffected_by_hunt_path() -> void:
 
 	var fish := Fish.new()
 	fish.sub = sub
-	fish.is_hunter = false
+	fish.behavior = Fish.Behavior.TERRITORIAL
 	fish.position = Vector2.ZERO
 	add_child(fish)
 	await _frames(5)
@@ -267,12 +268,13 @@ func _test_chaser_locks_on_and_never_gives_up() -> void:
 
 	var fish := Fish.new()
 	fish.sub = sub
-	fish.is_chaser = true
+	fish.behavior = Fish.Behavior.CHASER
+	fish.current_class = EnemyDef.Class.BIG
 	fish.position = Vector2.ZERO
 	add_child(fish)
 	await _frames(5)
 
-	_check(fish.hp_max == GameFeel.fish.chaser_hp_max, "chaser has the higher chaser HP")
+	_check(fish.hp_max == fish.enemy_def.class_big.hp, "chaser has the higher Big-class HP")
 
 	# Within chaser_detect_m (18m) but beyond the territorial leash (10m).
 	sub.global_position = fish.home + Vector2(15.0 * _ppm(), 0)

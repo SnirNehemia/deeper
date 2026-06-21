@@ -910,3 +910,44 @@ Snir's 7-part request, scoped via AskUserQuestion:
 - **`SubVisual` draws**: straight arm tube + base mount + tip jaw + two cage outlines
   with stacked scrap/fish icons. All drawn in hull-local space so the arm tilts with
   the hull's pitch, identical to the claw.
+
+## Settled (2026-06-21, M8 Module 0 — enemy data spine)
+
+- **Per-species enemy data lives in `.tres` Resources under
+  `res://data/enemies/`**, typed by `EnemyDef` (`enemy_def.gd`) and
+  `EnemyClassStats` (`enemy_class_stats.gd`), exactly per the schema in
+  `MILESTONE_8.md`. Global tunables (AI-pacing speeds, detection/leash
+  ranges, knockback, hit-flash) stay in `GameFeel.FishFeel` as spine
+  constants shared by whichever species runs a given AI pattern; only what
+  varies species-to-species (HP, bite damage, future weight/size/drops) moved
+  to the `.tres`. `GameFeel.fish.hp_max`/`chaser_hp_max` and
+  `GameFeel.breach.bite_severity` are removed (superseded by
+  `reference_fish.tres`'s class blocks).
+- **AI behavior (territorial/hunter/chaser) is orthogonal to the EnemyDef
+  class tier (Small/Big/Elite).** `Fish.is_hunter`/`is_chaser` bools are
+  replaced by one `behavior: Behavior` enum; a new, independent
+  `current_class: EnemyDef.Class` field selects the stat block. Today's only
+  pairing in use — chaser behavior + Big class tier, to preserve the
+  chaser's existing higher HP (8, was `chaser_hp_max`) — is a calling
+  convention in `scenes/world.gd._add_fish()`, not a rule inside `Fish`
+  itself; a future spawn can pair any behavior with any class (e.g. a hunter
+  authored as Elite).
+- **`reference_fish.tres`'s `currency_color = "teal"`** — a placeholder
+  non-reserved hue. Reserved Elemental hues (yellow, light-grey, cyan, red,
+  purple per `ELEMENTAL_UPDATE.md` §2) are off-limits for currency colors;
+  body color stays independent of currency color per `MILESTONE_8.md`'s
+  reversal #3.
+- **Resource defaults must be `load()`ed lazily, not `preload()`ed as a
+  top-level `const`, when the resource is a custom-scripted `.tres`
+  referencing a `class_name` script.** Preloading `reference_fish.tres` as a
+  const in `fish.gd` raced the engine's global-class registration in
+  headless test runs and silently produced a scriptless `Resource` (no
+  error, just `is EnemyDef == false` and every method call failing at
+  runtime). `Fish` now lazily `load()`s a cached `static var` the first time
+  `_ready()` needs a default. Watch for this pattern anywhere else a
+  `class_name`-scripted `.tres` is preloaded by another script.
+- **Module 0 acceptance confirmed**: `test_fish.tscn` passes with the same
+  single pre-existing failure as on `HEAD` before this change (confirmed via
+  `git stash` — a latent hull-width/territory-radius mismatch from the M7 sub
+  layout, unrelated to enemy data); `test_world.tscn` and
+  `test_physical_layer.tscn` fully green; project boots clean headless.
