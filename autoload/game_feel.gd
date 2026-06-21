@@ -262,6 +262,31 @@ class ReelFeel:
 
 var reel: ReelFeel = ReelFeel.new()
 
+## MILESTONE_8.md Module 3: ranged enemy fire. `ranged=true` (EnemyDef, a
+## per-species base trait) or the Elite-only `ranged_spit` ability lets a fish
+## fire a slow projectile at the sub instead of relying on contact alone. The
+## shot damages the sub through the same `breach_from_hit` spine a bite uses —
+## no second damage path. Per-species on/off lives in the `.tres`; this block
+## is purely the shared base behavior (speed, cadence, severity).
+class EnemyRangedFeel:
+	## Range (m) within which a ranged-capable enemy will fire.
+	var fire_range_m: float = 12.0
+	## Seconds between shots.
+	var fire_cooldown_s: float = 2.5
+	## Shot travel speed (m/s) — slow and dodgeable, not a hitscan.
+	var projectile_speed_mps: float = 5.0
+	## Seconds before an unspent shot fizzles out.
+	var projectile_lifetime_s: float = 6.0
+	## Severity (GameFeel.breach scale) applied via breach_from_hit on a hit —
+	## same scale as Fish bite damage, not a separate hp number.
+	var damage: float = 1.0
+	## An Elite with the `ranged_spit` ability AND the species' base `ranged`
+	## trait already true "intensifies" rather than merely "gains" — its
+	## cooldown is multiplied by this (so it fires roughly twice as often).
+	var intensify_cooldown_mult: float = 0.5
+
+var enemy_ranged: EnemyRangedFeel = EnemyRangedFeel.new()
+
 ## Turret / torpedo feel (Milestone 2). Torpedoes are slow and weighty like
 ## the sub — leading a moving fish is the skill.
 class TurretFeel:

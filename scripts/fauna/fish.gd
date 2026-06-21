@@ -67,6 +67,7 @@ var hp: float = hp_max
 var _facing: float = 1.0
 var _patrol_target: Vector2
 var _bite_cooldown: float = 0.0
+var _ranged_cooldown: float = 0.0
 var _recover_dir: Vector2 = Vector2.ZERO
 var _wobble: float = 0.0
 var _hit_flash: float = 0.0
@@ -91,7 +92,11 @@ func _ready() -> void:
 		enemy_def = _default_enemy_def
 	hp_max = class_stats().hp
 	hp = hp_max
-	var length_m := PlaceholderArt.CHASER_LENGTH_M if behavior == Behavior.CHASER else PlaceholderArt.FISH_LENGTH_M
+	# MILESTONE_8.md Module 3: class tier visibly changes size (the Module 0
+	# `size_scale` field's first real consumer) — art stays identical at every
+	# tier (ART-PASS FLAG), just scaled.
+	var length_m := (PlaceholderArt.CHASER_LENGTH_M if behavior == Behavior.CHASER else PlaceholderArt.FISH_LENGTH_M) \
+		* class_stats().size_scale
 	var shape := CollisionShape2D.new()
 	var circle := CircleShape2D.new()
 	circle.radius = length_m * GameFeel.PIXELS_PER_METER * 0.5
@@ -106,6 +111,7 @@ func _ready() -> void:
 	_terrain_cast.enabled = true
 	add_child(_terrain_cast)
 	area_entered.connect(_on_area_entered)
+	_check_elite_ability()
 
 func _physics_process(delta: float) -> void:
 	if is_dead:
@@ -159,6 +165,7 @@ func _physics_process(delta: float) -> void:
 			else:
 				_swim_toward(sub.global_position, feel.chase_speed * ppm, delta)
 				_try_bite(feel.chase_speed)
+				_try_ranged_fire(delta)
 		State.HUNT:
 			# Basic chasers never give up. Hunters chase anywhere, only
 			# giving up after a sustained spell beyond hunter_lose_m.
@@ -172,6 +179,7 @@ func _physics_process(delta: float) -> void:
 			var speed := feel.chaser_speed if behavior == Behavior.CHASER else feel.hunt_speed
 			_swim_toward(sub.global_position, speed * ppm, delta)
 			_try_bite(speed)
+			_try_ranged_fire(delta)
 		State.RECOVER:
 			# Circle off after a bite, then come back for another pass.
 			var recover_step := _recover_dir * feel.return_speed * ppm * delta
@@ -266,6 +274,59 @@ func _try_bite(impact_speed_mps: float) -> void:
 	# Circle away: mostly back the way it came, with some sideways drift.
 	var away := sub.global_position.direction_to(global_position)
 	_recover_dir = (away + Vector2(0, -0.5)).normalized()
+
+## MILESTONE_8.md Module 3: `ranged=true` is a per-species base trait, on top
+## of (never instead of) the existing bite — independent of the Elite-only
+## `ranged_spit` ability below, which also grants it (or, on an
+## already-ranged species, "intensifies" it with a shorter cooldown).
+func _wants_ranged() -> bool:
+	return enemy_def.ranged or (current_class == EnemyDef.Class.ELITE \
+		and class_stats().elite_ability == "ranged_spit")
+
+func _ranged_intensified() -> bool:
+	return enemy_def.ranged and current_class == EnemyDef.Class.ELITE \
+		and class_stats().elite_ability == "ranged_spit"
+
+## Fires a slow EnemySpit at the sub's current position when in range and off
+## cooldown. Damages the sub through breach_from_hit on hit (the same M5
+## spine a bite uses) — see scripts/fauna/enemy_spit.gd.
+func _try_ranged_fire(delta: float) -> void:
+	if not _wants_ranged():
+		return
+	_ranged_cooldown = maxf(0.0, _ranged_cooldown - delta)
+	if _ranged_cooldown > 0.0:
+		return
+	var feel := GameFeel.enemy_ranged
+	if global_position.distance_to(sub.global_position) > feel.fire_range_m * GameFeel.PIXELS_PER_METER:
+		return
+	var spit := EnemySpit.new()
+	spit.global_position = global_position
+	spit.damage = feel.damage
+	spit.lifetime = feel.projectile_lifetime_s
+	spit.velocity = global_position.direction_to(sub.global_position) \
+		* feel.projectile_speed_mps * GameFeel.PIXELS_PER_METER
+	get_parent().add_child(spit)
+	_ranged_cooldown = feel.fire_cooldown_s * (feel.intensify_cooldown_mult if _ranged_intensified() else 1.0)
+
+## MILESTONE_8.md Module 3: the Elite block's elite_ability hook. `ranged_spit`
+## is wired end-to-end above (via _wants_ranged/_try_ranged_fire) — nothing
+## else to do here for it. `brief_shield`/`speed_burst` are recognized common-
+## menu choices not yet implemented, and `NOVEL_HANDCODE` means this species
+## needs a hand-coded mechanic that doesn't exist yet (MILESTONE_8.md Module
+## 5). Both log loudly at spawn rather than silently doing nothing, so a
+## misconfigured species is caught immediately instead of just quietly not
+## working.
+func _check_elite_ability() -> void:
+	if current_class != EnemyDef.Class.ELITE:
+		return
+	var ability := class_stats().elite_ability
+	match ability:
+		"none", "ranged_spit":
+			pass
+		"NOVEL_HANDCODE":
+			push_warning("%s's elite_ability is NOVEL_HANDCODE -- needs a hand-coded mechanic, see MILESTONE_8.md Module 5" % enemy_def.species_name)
+		_:
+			push_warning("%s's elite_ability '%s' is not implemented yet" % [enemy_def.species_name, ability])
 	state = State.RECOVER
 
 func _on_area_entered(area: Area2D) -> void:
@@ -327,7 +388,11 @@ func struggle_direction() -> Vector2:
 
 ## Cartoon pop + bubbles; the fish stays gone until reset_fish(). Leaves
 ## behind a sinking carcass (Module B: a "fish" salvage currency) at the kill
-## site for the sub to collect.
+## site for the sub to collect. `last_carcass` lets a caller that already knows
+## it owns this kill (the reel minigame's finishing blow) grab a reference to
+## the carcass it just created and auto-collect it, without a group search.
+var last_carcass: SalvageItem = null
+
 func die() -> void:
 	is_dead = true
 	grabbed = false
@@ -338,7 +403,9 @@ func die() -> void:
 	pop.global_position = global_position
 	get_parent().add_child(pop)
 	var carcass_kind := SalvageItem.Kind.MED_FISH if behavior == Behavior.CHASER else SalvageItem.Kind.FISH
-	get_parent().add_child(SalvageItem.make_carcass(global_position, carcass_kind))
+	var carcass := SalvageItem.make_carcass(global_position, carcass_kind)
+	get_parent().add_child(carcass)
+	last_carcass = carcass
 
 ## Back home, alive — the world's run reset calls this on the "fish" group.
 ## Unconditionally releases a grab too — whatever order this runs in versus
@@ -354,6 +421,7 @@ func reset_fish() -> void:
 	global_position = home
 	_patrol_target = home
 	_bite_cooldown = 0.0
+	_ranged_cooldown = 0.0
 	state = State.PATROL
 	hp_max = class_stats().hp
 	hp = hp_max
@@ -362,6 +430,7 @@ func reset_fish() -> void:
 	_stun_timer = 0.0
 	_hunter_lose_timer = 0.0
 	_has_spotted = false
+	last_carcass = null
 
 ## Radius (px) of the detection zone shown as the attention circle.
 func _detect_radius_px() -> float:
@@ -382,7 +451,11 @@ func class_stats() -> EnemyClassStats:
 func _draw() -> void:
 	var ppm: float = GameFeel.PIXELS_PER_METER
 	var is_chaser := behavior == Behavior.CHASER
-	var length_m := PlaceholderArt.CHASER_LENGTH_M if is_chaser else PlaceholderArt.FISH_LENGTH_M
+	# MILESTONE_8.md Module 3: class tier scales the drawn size too, matching
+	# the collision circle set in _ready() — art stays identical at every
+	# tier (ART-PASS FLAG), just scaled.
+	var length_m := (PlaceholderArt.CHASER_LENGTH_M if is_chaser else PlaceholderArt.FISH_LENGTH_M) \
+		* class_stats().size_scale
 	var len_px := length_m * ppm
 	var half := len_px * 0.5
 	var base_color := PlaceholderArt.CHASER_COLOR if is_chaser else PlaceholderArt.FISH_COLOR

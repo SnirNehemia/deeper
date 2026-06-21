@@ -94,7 +94,7 @@ func _spawn_entities() -> void:
 		for pos in _map_loader.territorial_fish_spawns:
 			_add_fish(pos)
 		for pos in _map_loader.hunter_fish_spawns:
-			_add_fish(pos, Fish.Behavior.CHASER)  # green gen-layer pixels → green chasers
+			_add_fish(pos, Fish.Behavior.CHASER, EnemyDef.Class.BIG)  # green gen-layer pixels → green chasers
 		for pos in _map_loader.wreck_spawns:
 			_add_wreck(pos)
 	else:
@@ -103,8 +103,13 @@ func _spawn_entities() -> void:
 		_add_fish(Vector2(85.0 * M, 47.0 * M))
 		_add_fish(Vector2(115.0 * M, 100.0 * M))
 		_add_fish(Vector2(148.0 * M, 54.0 * M))
-		_add_fish(Vector2(99.0 * M, 50.0 * M), Fish.Behavior.CHASER)
-		_add_fish(Vector2(132.0 * M, 48.0 * M), Fish.Behavior.CHASER)
+		_add_fish(Vector2(99.0 * M, 50.0 * M), Fish.Behavior.CHASER, EnemyDef.Class.BIG)
+		_add_fish(Vector2(132.0 * M, 48.0 * M), Fish.Behavior.CHASER, EnemyDef.Class.BIG)
+		# MILESTONE_8.md Module 3 demo: an Elite-tier, ranged variant of the
+		# reference fish, so the new class/ranged systems are feel-testable
+		# without authoring a new species.
+		_add_fish(Vector2(160.0 * M, 60.0 * M), Fish.Behavior.HUNTER,
+			EnemyDef.Class.ELITE, _ranged_demo_def())
 
 ## Build the sub from the saved loadout and seat the two crew inside it.
 func _spawn_sub_and_crew() -> void:
@@ -179,18 +184,36 @@ func reset_run() -> void:
 	get_tree().call_group("carryable", "queue_free")
 	_cam.reset_smoothing()
 
-func _add_fish(pos: Vector2, behavior: Fish.Behavior = Fish.Behavior.TERRITORIAL) -> void:
+## MILESTONE_8.md Module 3: `cls` is an explicit spawn-time request, independent
+## of `behavior` — a map/spawn can ask for any class on any behavior. Existing
+## call sites keep the old "chasers are Big" convention by passing it
+## explicitly now, rather than `_add_fish` inferring it from `behavior`.
+## `custom_def` lets a spawn override the species data entirely (used below to
+## demo a ranged variant of the reference fish without touching its `.tres`).
+func _add_fish(pos: Vector2, behavior: Fish.Behavior = Fish.Behavior.TERRITORIAL,
+		cls: EnemyDef.Class = EnemyDef.Class.SMALL, custom_def: EnemyDef = null) -> void:
 	var fish := Fish.new()
 	fish.sub = _sub
 	fish.position = pos
 	fish.behavior = behavior
-	# Chasers use the EnemyDef Big tier for their higher HP — a calling
-	# convention (MILESTONE_8.md Module 0), not a rule baked into Fish itself.
-	fish.current_class = EnemyDef.Class.BIG if behavior == Fish.Behavior.CHASER \
-		else EnemyDef.Class.SMALL
+	fish.current_class = cls
+	if custom_def != null:
+		fish.enemy_def = custom_def
 	fish.sky_zones = _map_loader.sky_zones if _map_loader != null else []
 	fish.water_surface_y = _map_loader.water_surface_y if _map_loader != null else 0.0
 	add_child(fish)
+
+## A duplicate of the reference fish's EnemyDef with the base `ranged` trait
+## flipped on, for demo/feel-test spawns (MILESTONE_8.md Module 3) — kept out
+## of reference_fish.tres itself so the default species' established melee
+## feel and existing tests stay untouched. `duplicate(true)` deep-copies the
+## class blocks too, so mutating `ranged` here never touches the shared
+## original resource other fish load.
+func _ranged_demo_def() -> EnemyDef:
+	var base: EnemyDef = load(Fish.DEFAULT_ENEMY_DEF_PATH)
+	var def: EnemyDef = base.duplicate(true)
+	def.ranged = true
+	return def
 
 func _add_wreck(pos: Vector2) -> void:
 	var wreck := Wreck.new()

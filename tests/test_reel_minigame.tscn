@@ -1,4 +1,4 @@
-[gd_scene load_steps=2 format=3 uid="uid://dreelminigame01"]
+[gd_scene load_steps=2 format=3 uid="uid://dshfvj4oxv1me"]
 
 [ext_resource type="Script" path="res://tests/test_reel_minigame.gd" id="1_reelmg"]
 

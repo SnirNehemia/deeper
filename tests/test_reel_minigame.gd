@@ -133,6 +133,10 @@ func _test_reaching_home_finishes_the_catch() -> void:
 
 	_check(fish.is_dead, "a catch reeled fully home is finished off")
 	_check(not t.has_grabbed_fish(), "the station drops its reference once finished")
+	_check(t.cage_s2().size() == 1 or t.cage_s4().size() == 1,
+		"the carcass is auto-collected straight into an onboard cage")
+	_check(not is_instance_valid(fish.last_carcass) or fish.last_carcass.is_queued_for_deletion(),
+		"no loose carcass is left floating to re-grab")
 
 	sub.queue_free()
 

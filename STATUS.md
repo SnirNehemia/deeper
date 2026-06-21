@@ -1,8 +1,81 @@
 # STATUS — DEEPER
 
-_Read this at session start. Last updated: 2026-06-21 — **Grab-tug follow-up done (reel-in minigame + tug/auto-fold polish). Next: M8 Module 3 (ranged attacks + difficulty classes).**_
+_Read this at session start. Last updated: 2026-06-21 — **M8 Module 3 done (ranged attacks + difficulty classes) + reeled-in loot now auto-collects. Next: M8 Module 4 (color currency — needs a Snir Q&A first) or Module 5 (the add-enemy skill).**_
 
-**Milestone 8 — The Fauna Pass — in progress (Modules 0-2 of 5 done, plus a grab-tug follow-up below).**
+**Milestone 8 — The Fauna Pass — in progress (Modules 0-3 of 5 done, plus a grab-tug follow-up below).**
+
+**M8 Module 3 — Ranged attacks + the three difficulty classes (2026-06-21):**
+any species can now be spawned at any class tier independent of its AI
+behavior, classes are visibly different sizes, and enemies can fire at range.
+- **Spawn-time class selector:** `World._add_fish(pos, behavior, cls,
+  custom_def)` (`scenes/world.gd`) takes an explicit `cls: EnemyDef.Class`,
+  no longer inferring it from `behavior`. Existing call sites now pass
+  `EnemyDef.Class.BIG` explicitly for chasers (the same convention as before,
+  just spelled out at the call site instead of guessed inside the function).
+  A new `custom_def` param lets a spawn override the species data entirely
+  without touching the shared `.tres` — used by the demo spawn below.
+- **Class tier now visibly changes size**, not just stats: `Fish._ready()`
+  and `Fish._draw()` both scale the fish's length by `class_stats().
+  size_scale` (Module 0 authored this field; this is its first real
+  consumer — same pattern as Module 1/2 lighting up `move_speed`/
+  `room_weight`). Art stays identical at every tier, just scaled (ART-PASS
+  FLAG, per the milestone doc) — the collision circle, the terrain
+  shapecast, and the drawn body all scale together.
+- **Ranged base trait:** `EnemyDef.ranged = true` (Module 0 field, first
+  consumer here) lets a fish fire a slow projectile at the sub from range,
+  on top of (never instead of) its existing bite — new `GameFeel.
+  enemy_ranged` (`EnemyRangedFeel`: fire range/cooldown/projectile speed/
+  lifetime/severity) and new `scripts/fauna/enemy_spit.gd`
+  (`class_name EnemySpit extends Area2D`, modeled on `Torpedo` — straight
+  flight, fizzles on terrain or timeout). A hit damages the sub through
+  `breach_from_hit` — the same M5 spine a bite or ram already uses, no
+  second damage path. New `Layers.ENEMY_PROJECTILE` collision layer (an
+  enemy shot must hit the hull, unlike a player torpedo which must *not* —
+  reusing `Layers.PROJECTILE` would have been semantically backwards).
+- **Elite ability hook wired for `ranged_spit`** (one of the three
+  common-menu abilities, per the milestone's "ship ONE end-to-end" scope):
+  `Fish._wants_ranged()` returns true if the species' base `ranged` trait is
+  set OR this fish is an Elite with `elite_ability == "ranged_spit"` — so the
+  ability *grants* ranged fire to an otherwise-melee species. If the species
+  is already `ranged=true` AND has the ability, `_ranged_intensified()` is
+  also true and the fire cooldown is multiplied down
+  (`intensify_cooldown_mult`, 0.5) — *intensifies* rather than merely grants.
+  `Fish._check_elite_ability()` runs once at spawn: `brief_shield`/
+  `speed_burst` (recognized common-menu choices, not yet implemented) and
+  `NOVEL_HANDCODE` both log a clear `push_warning` instead of silently doing
+  nothing, so a misconfigured species is caught immediately.
+- **Demo spawn:** the ShoreShelf fallback map now also spawns one Elite-tier,
+  ranged variant of the reference fish (`World._ranged_demo_def()` — a deep
+  `duplicate()` of the reference `.tres` with `ranged` flipped on, so the
+  shared default resource and every existing test stay untouched) so the new
+  systems are feel-testable without authoring a new species (still out of
+  scope for M8).
+- Headless-verified: new `tests/test_enemy_ranged.gd` (4 functions) — class
+  tier changes both stats and visible/collision size; the base `ranged`
+  trait fires a shot that breaches the sub exactly like a bite does; an
+  Elite's `ranged_spit` grants fire to a non-ranged species and intensifies
+  it on an already-ranged one; an unimplemented common ability and
+  `NOVEL_HANDCODE` both spawn fine (warn, don't crash). Full regression
+  sweep (`test_claw`, `test_telescope`, `test_grab_tug`, `test_fish`,
+  `test_sub`, `test_dock_shop_ui`, `test_validate`, `test_world`,
+  `test_reel_minigame`) shows zero new failures beyond the same pre-existing
+  set as every prior entry in this milestone. Project boots clean headless.
+- **Commit:** `M8-3: ranged attacks + difficulty classes -- class selector,
+  size scaling, EnemySpit, elite ranged_spit`.
+
+**Reeled-in loot now auto-collects (2026-06-21):** finishing a grab-tug catch
+via the reel minigame used to drop a normal carcass that still had to be
+manually re-grabbed off the tip — busywork right after the minigame that
+delivered it. `Fish.die()` now exposes the carcass it just created as
+`last_carcass`; `ClawStation`/`TelescopeStation._finalize_fish_catch()` read
+it immediately and deposit it straight into the same at-risk, un-banked
+container a manual delivery of that arm's normal salvage would reach (the
+telescope's onboard cage; the claw's ship storage pen) — skipping the
+re-collection step without bypassing the implosion-risk/banking rules either
+kind of catch is already subject to. If that container happens to be full,
+the carcass is left floating, collectible the normal way. Headless-verified
+via two new checks in `tests/test_reel_minigame.gd`'s finish-catch test.
+- **Commit:** folded into the M8-3 commit above (touches the same files).
 
 **Grab-tug follow-up — reel-in minigame + polish (2026-06-21):** four fixes/
 additions to M8 Module 2's grab-tug physics, requested after playing with it.

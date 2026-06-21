@@ -261,7 +261,9 @@ func _attempt_pull() -> void:
 ## Delivered home alive: finished off through the normal damage pipeline
 ## (always lethal — see Fish.finish_catch), reusing the same carcass-drop hook
 ## `die()` already provides (MILESTONE_8.md Module 4 will later change what
-## die() drops — zero rework needed here).
+## die() drops — zero rework needed here). The resulting carcass is then
+## auto-collected (2026-06-21) — you already did the hard part reeling it in,
+## re-snapping the cage on the carcass it just dropped would be busywork.
 func _finalize_fish_catch() -> void:
 	if not is_instance_valid(_grabbed_fish):
 		return
@@ -270,6 +272,18 @@ func _finalize_fish_catch() -> void:
 	_grabbed_fish = null
 	_reel = null
 	fish.finish_catch(GameFeel.reel.finish_damage)
+	_auto_collect_loot(fish.last_carcass)
+
+## Deposits a just-finished catch's carcass straight into ship storage — the
+## same place a normal catch ends up once a crew member carries it to the
+## pen — skipping that carry step. Still un-banked/at-risk until docked, same
+## as any other catch; if storage happens to be full, it's left floating,
+## collectible the normal way.
+func _auto_collect_loot(carcass: SalvageItem) -> void:
+	if not is_instance_valid(carcass):
+		return
+	if sub.deposit_salvage(carcass.kind):
+		carcass.queue_free()
 
 ## Called by Sub.reset_state() on implosion: an undelivered catch was never
 ## banked, so it's lost — released back to the wild alive, not killed.

@@ -1071,3 +1071,60 @@ Snir's 7-part request, scoped via AskUserQuestion:
   per-species numbers — requested explicitly so future tuning passes don't
   require re-deriving "which file has this number" each time.
   firing first.
+
+## Settled (2026-06-21, M8 Module 3 — ranged attacks + difficulty classes)
+- **The spawn-time class selector is an explicit caller-supplied argument,
+  not an inference from AI behavior.** `World._add_fish` used to derive
+  Small-vs-Big from `behavior == CHASER` internally. MILESTONE_8.md Module 3
+  asks for "any species at any class tier" — keeping that derivation inside
+  `_add_fish` would mean a future spawn that wants, say, a territorial Elite
+  could never ask for one. Existing call sites now pass `EnemyDef.Class.BIG`
+  explicitly for chasers — same outcome, just an explicit choice at the call
+  site instead of a guess inside the function.
+- **`ranged_spit` is the one common-menu elite ability shipped end-to-end
+  this module** (per the milestone's explicit "M8 ships the common-menu
+  abilities only... ship ONE end-to-end" scope) — `brief_shield`/
+  `speed_burst` are left as recognized-but-inert menu entries. An inert
+  ability and `NOVEL_HANDCODE` both log a `push_warning` at spawn rather than
+  silently doing nothing — a misconfigured/unfinished species should be
+  loud, not quietly broken.
+- **`ranged_spit` makes ranged "a base trait you can also earn," not a
+  separate elite-only attack type.** Both an Elite that gains it from the
+  ability and a species that has it natively call the exact same
+  `_try_ranged_fire` path — `Fish._wants_ranged()` is just an OR of "species
+  base trait" and "Elite + this ability." The only behavioral difference for
+  an Elite that has *both* is a shorter cooldown ("intensifies"), via
+  `_ranged_intensified()` — deliberately not a second damage number or a
+  different projectile, to keep one attack implementation instead of two.
+- **A new `Layers.ENEMY_PROJECTILE` collision layer, not reuse of
+  `Layers.PROJECTILE`.** `PROJECTILE`'s own doc comment is "torpedoes (hit
+  terrain and fish, never the own hull)" — exactly backwards for an enemy
+  shot, which must hit the hull and must not hit fish. Reusing it would have
+  meant either contradicting that comment or quietly breaking the player
+  torpedo's "never hits own hull" guarantee.
+- **Ranged fire still routes through `breach_from_hit`, same as a bite or a
+  ram.** Per the milestone's explicit guardrail ("reuse the M5 hook; do not
+  invent a second damage path") — `EnemySpit` does nothing on hit except
+  call the existing spine with a severity number, exactly like `Fish.
+  _try_bite` already does.
+- **Class tier visibly changing size was a bug fix, not new scope.** Module 0
+  authored `EnemyClassStats.size_scale` per tier but nothing ever read it —
+  `Fish._ready()`/`_draw()` only checked `behavior == CHASER` for length.
+  Module 3's acceptance criterion ("visibly different size... by class")
+  can't be satisfied without wiring this, so it's wired here rather than
+  deferred — same "Module N lights up a decorative field Module 0 already
+  authored" pattern as `move_speed` (Module 1) and `room_weight` (Module 2).
+- **The Elite/ranged demo fish lives in `World._ranged_demo_def()`, not in
+  `reference_fish.tres`.** Flipping `ranged` on the shared `.tres` would
+  change the default species' established melee identity and every test
+  that loads it. A `duplicate(true)`d copy with `ranged` flipped, used only
+  by one demo spawn, exercises the new systems in actual play without
+  touching the shared resource or its established feel.
+- **Reeled-in catches auto-collect into the same at-risk container a manual
+  delivery would reach — never straight into banked/safe storage.** The ask
+  was to remove the busywork of re-grabbing a carcass the reel minigame
+  itself just produced, not to grant a stronger reward than a normal catch.
+  Telescope: the onboard cage (`_try_deposit`'s own destination). Claw:
+  `sub.deposit_salvage` (the ship storage pen — the same place a crew
+  member carrying a dropped catch already ends up, just skipping that walk).
+  Both stay un-banked and lost on implosion like any other un-banked catch.

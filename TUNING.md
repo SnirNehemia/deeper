@@ -21,6 +21,7 @@ file and search for the class name below to find the actual numbers.
 | Bullet gun | `BulletFeel` (`GameFeel.bullet`) | Bullet speed/damage/cooldown — fast chip-damage alternative to the torpedo. |
 | Floodlight | `FloodlightFeel` (`GameFeel.floodlight`) | Beam reach/rotate speed, cone shape, light falloff/brightness. |
 | Fish AI | `FishFeel` (`GameFeel.fish`) | Territory radius, patrol/chase/hunt/return speeds, bite interval, hunter/chaser detection and give-up ranges. (Per-species HP/damage/weight is NOT here — see "Per-species data" below.) |
+| Ranged enemy fire | `EnemyRangedFeel` (`GameFeel.enemy_ranged`) | Fire range, cooldown, projectile speed/lifetime, hit severity, and the cooldown multiplier an Elite's `ranged_spit` ability gets when "intensifying" an already-ranged species. Per-species ranged on/off is the `.tres`'s `ranged` flag, not here. |
 | Wreck | `WreckFeel` (`GameFeel.wreck`) | Wreck hp. |
 | Hull station (conning tower) | `HullStationFeel` (`GameFeel.hull_station`) | Remote-patch range and speed. |
 | Salvage claw arm | `ClawFeel` (`GameFeel.claw`) | Arm segment lengths, joint sweep speeds/limits, grab radius, cage/storage capacity. |

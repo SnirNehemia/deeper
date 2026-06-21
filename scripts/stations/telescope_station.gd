@@ -242,7 +242,9 @@ func _attempt_pull() -> void:
 ## Delivered home alive: finished off through the normal damage pipeline
 ## (always lethal — see Fish.finish_catch), reusing the same carcass-drop hook
 ## `die()` already provides (MILESTONE_8.md Module 4 will later change what
-## die() drops — zero rework needed here).
+## die() drops — zero rework needed here). The resulting carcass is then
+## auto-collected (2026-06-21) — you already did the hard part reeling it in,
+## re-grabbing the carcass it just dropped at your own feet would be busywork.
 func _finalize_fish_catch() -> void:
 	if not is_instance_valid(_grabbed_fish):
 		return
@@ -251,6 +253,24 @@ func _finalize_fish_catch() -> void:
 	_grabbed_fish = null
 	_reel = null
 	fish.finish_catch(GameFeel.reel.finish_damage)
+	_auto_collect_loot(fish.last_carcass)
+
+## Deposits a just-finished catch's carcass straight into the onboard cage —
+## the same place a normal manual grab+retract would land it — skipping the
+## "snap it up off the tip again" step. Still un-banked/at-risk until docked,
+## same as any other catch; if both cages happen to be full, it's left
+## floating, collectible the normal way once one frees up.
+func _auto_collect_loot(carcass: SalvageItem) -> void:
+	if not is_instance_valid(carcass):
+		return
+	var cap := GameFeel.telescope.cage_capacity
+	if _cage_s2.size() < cap:
+		_cage_s2.append(carcass.kind)
+	elif _cage_s4.size() < cap:
+		_cage_s4.append(carcass.kind)
+	else:
+		return
+	carcass.queue_free()
 
 ## Transfer the tip item into the s2 cage (then s4) and free the node.
 func _try_deposit() -> void:
