@@ -1024,4 +1024,50 @@ Snir's 7-part request, scoped via AskUserQuestion:
   `grabbed` itself, regardless of call order against the station's own
   reset — the station re-validates `_grabbed_fish.grabbed` every frame and
   drops a stale reference on its own, so neither side depends on the other
+
+## Settled (2026-06-21, grab-tug follow-up)
+- **The reel-in minigame's failure consequence is deferred to the bead's
+  arrival at the sub, not applied instantly on a bad press.** Snir's request:
+  "every time the bead hits the sub, leak — unless the fish was successfully
+  pulled in the last back-and-forth." This means mashing the action key
+  outside the green zone is harmless mid-sweep; only an entire sweep passing
+  with zero landed pull triggers the leak, and at most once per sweep. This
+  also makes an "impossible" catch (green zone width 0) leak automatically
+  and repeatedly for as long as it's held, with zero player input — a real,
+  escalating cost for refusing to let go, rather than a harmless stalemate.
+  This was a deliberate choice over the alternative (impossible = harmless,
+  just unwinnable): it gives "this one's too big" actual teeth.
+- **The claw did NOT get the telescope's auto-fold-on-leave fix.** The
+  telescope already auto-retracted while seated-and-idle; the bug was only
+  that it stopped retracting at all once unseated (handle_input simply never
+  ran). The claw has never had any auto-fold — "There is no auto-return —
+  you fold it back yourself" is the room's own documented design, and
+  extending the fix there would have been an undocumented design change
+  beyond what was asked. Worth revisiting explicitly with Snir later if it
+  turns out to feel inconsistent in practice, but not assumed here.
+- **Auto-fold detection uses a frame-index timestamp
+  (`Engine.get_physics_frames()`), not `Station.occupant`.** Tests call
+  `handle_input()` directly to simulate a seated player and never bother to
+  call `Station.enter()`, so `occupant` stays null throughout — gating
+  passive-retract on `occupant == null` would have made every existing
+  frame-yielding telescope/claw test fight its own auto-fold mid-test. A
+  "was handle_input called in the last frame or this one" timestamp check
+  works regardless of whether real `Crew` occupancy is involved, with a
+  harmless one-frame grace window on either edge.
+- **The finishing blow goes through `take_damage()`, not a direct `die()`
+  call.** Functionally identical today (the damage number is large enough to
+  always be lethal), but routing it through the normal pipeline means a
+  future elite ability (shield, damage reduction) that hooks `take_damage`
+  doesn't need a second special case bolted on later for "but what if it was
+  reeled in instead of shot."
+- **Medium tug scalar split from Heavy's, not just lowered globally.** Snir's
+  feedback was specifically about Medium feeling too strong; Heavy is
+  *meant* to be dominant (a real "you probably shouldn't have grabbed that"
+  moment) and was left untouched. `GameFeel.enemy_impact.tug_scalar_for()`
+  picks the right one from `room_weight` so callers (`Sub.set_tug`) don't
+  need to know about bands at all.
+- **`TUNING.md` added as a standing reference doc**, indexing every
+  `GameFeel` class and pointing at `res://data/enemies/*.tres` for
+  per-species numbers — requested explicitly so future tuning passes don't
+  require re-deriving "which file has this number" each time.
   firing first.

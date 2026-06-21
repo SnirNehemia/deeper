@@ -303,6 +303,16 @@ func is_grabbable() -> bool:
 func grab() -> void:
 	grabbed = true
 
+## The finishing blow once a catch is fully reeled home (2026-06-21 reel
+## minigame follow-up to MILESTONE_8.md Module 2): always lethal, regardless
+## of remaining hp -- the reel-in itself is the kill, not a separate hp
+## check. Lifts the `grabbed` no-damage guard first since the catch is still
+## technically "held" at this instant; take_damage's normal death handling
+## (die() -> carcass drop) takes it from there.
+func finish_catch(amount: float) -> void:
+	grabbed = false
+	take_damage(amount, global_position)
+
 ## Let go — escaped (implosion before being delivered) rather than caught.
 ## Resumes AI from wherever the arm left it, heading home.
 func release() -> void:

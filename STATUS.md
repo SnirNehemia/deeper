@@ -1,8 +1,75 @@
 # STATUS — DEEPER
 
-_Read this at session start. Last updated: 2026-06-21 — **M8 Module 2 done (grab-tug physics). Next: M8 Module 3 (ranged attacks + difficulty classes).**_
+_Read this at session start. Last updated: 2026-06-21 — **Grab-tug follow-up done (reel-in minigame + tug/auto-fold polish). Next: M8 Module 3 (ranged attacks + difficulty classes).**_
 
-**Milestone 8 — The Fauna Pass — in progress (Modules 0-2 of 5 done).**
+**Milestone 8 — The Fauna Pass — in progress (Modules 0-2 of 5 done, plus a grab-tug follow-up below).**
+
+**Grab-tug follow-up — reel-in minigame + polish (2026-06-21):** four fixes/
+additions to M8 Module 2's grab-tug physics, requested after playing with it.
+- **Medium tug eased:** `GameFeel.enemy_impact.tug_force_scalar` split into
+  `tug_force_scalar_medium` (0.18, was 0.35) / `tug_force_scalar_heavy`
+  (unchanged at 0.35) — a Medium-band catch (e.g. the green chaser) pulled
+  the sub harder than the helm could comfortably fight; Heavy stays
+  intentionally dominant. `Sub.set_tug` now picks the right scalar itself via
+  `GameFeel.enemy_impact.tug_scalar_for(room_weight)`.
+- **Telescope auto-fold bug fixed:** leaving the telescope console used to
+  leave an extended arm frozen in place forever (the existing auto-retract-
+  when-idle logic only ever ran inside `handle_input`, which stops being
+  called the instant nobody's seated). `TelescopeStation` now tracks the last
+  physics frame it was actually driven (`_last_driven_frame`, compared via
+  `Engine.get_physics_frames()` rather than `Station.occupant` — headless
+  tests call `handle_input` directly without ever entering a station, so an
+  occupant-based check would have made every direct-call test trigger
+  passive retraction mid-test) and folds itself home on its own once nobody's
+  driven it for more than a frame. The claw was deliberately left untouched
+  here — it has no auto-return by design ("you fold it back yourself," per
+  its own header comment) and extending that to the claw would have
+  contradicted that.
+- **Reel-in timing minigame** (new `scripts/fauna/reel_minigame.gd`,
+  `class_name ReelMinigame extends RefCounted`, shared by both arms): once a
+  fish is hooked, manual joint/extend control is replaced by a tug-rope
+  minigame. A bead sweeps back and forth along a rope from the arm's base to
+  the catch (period scaled by `GameFeel.reel`, see `TUNING.md`); press `use`
+  while the bead sits in the green zone near the sub end to land a pull
+  (`pull_distance_m` closer); land nothing by the time the bead arrives back
+  at the sub and the hull takes a small leak at the arm's base
+  (`miss_leak_severity`, routed through the same `breach_from_hit` spine
+  every other hit uses). The green zone shrinks with `room_weight` and
+  collapses to nothing at `impossible_weight_min` (4.0 — above every species
+  today) — a catch that heavy can only ever leak, never be landed, by design.
+  `TelescopeStation` drives this via its existing `extension` scalar;
+  `ClawStation` (which has no single linear "extension") freezes its joint
+  angles at the moment of the grab and lerps them toward the folded-home pose
+  by the fraction reeled in so far. Reaching home auto-finalizes the catch on
+  its own (no extra `use` press needed) via the new `Fish.finish_catch()`
+  hook below.
+- **Finishing blow goes through the real damage pipeline:** new
+  `Fish.finish_catch(amount)` lifts the `grabbed` no-damage guard and calls
+  `take_damage(amount, ...)` with `GameFeel.reel.finish_damage` (9999, always
+  lethal) instead of calling `die()` directly — so a future elite with a
+  damage-reduction/shield mechanic would still have to go through the normal
+  rules, even though today the result (instant death + carcass drop) is
+  identical either way.
+- **Visual:** `SubVisual._draw_reel_rope()` (new, shared by `_draw_claw`/
+  `_draw_telescope`) draws the rope (red by default = miss), a yellow band
+  near the sub end (visual-only "close" feedback), a nested green band
+  (the actual landable zone, drawn at zero width and so invisible once a
+  catch is unlandable), and a bead sliding along it.
+- **Where the new numbers live:** all in `GameFeel.reel` — see the new
+  `TUNING.md` for a full index of every tunable system in the game, added at
+  Snir's request as a standing reference (no more hunting through code for
+  "where's the dial for X").
+- Headless-verified: new `tests/test_reel_minigame.gd` (4 functions) covers a
+  landed pull shortening progress, a fully-missed sweep opening a leak in the
+  arm's own room, reaching home finishing the catch, and an impossible-weight
+  catch never landing a pull no matter how it's timed (only ever leaking).
+  Full regression sweep (`test_claw`, `test_telescope`, `test_grab_tug`,
+  `test_fish`, `test_sub`, `test_dock_shop_ui`, `test_validate`) shows zero
+  new failures — the exact same pre-existing failures as before this session
+  (confirmed via `git stash`: `test_claw` ×1, `test_fish` ×1, `test_sub` ×2,
+  `test_dock_shop_ui` ×4, all predating this work). Project boots clean
+  headless.
+- **Commit:** `M8 follow-up: reel-in tug-rope minigame + tug/auto-fold polish`.
 
 **M8 Module 2 — Grab-tug physics (2026-06-21):** the claw and telescope can
 now catch a live, struggling fish (not just dead salvage) — it tugs the sub

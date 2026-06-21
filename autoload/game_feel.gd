@@ -190,7 +190,11 @@ class EnemyImpactFeel:
 	## shift (not a raw velocity add) settles at a bounded drift speed instead
 	## of accelerating forever — the same accel/decel feel the helm already
 	## fights against just chases a pulled-on target instead of a clean one.
-	var tug_force_scalar: float = 0.35
+	## Split per band (2026-06-21: Snir found Medium too strong relative to
+	## the helm's ability to fight it) — Heavy keeps the original, intentionally
+	## dominant value.
+	var tug_force_scalar_medium: float = 0.18
+	var tug_force_scalar_heavy: float = 0.35
 
 	enum WeightBand { LIGHT, MEDIUM, HEAVY }
 
@@ -201,7 +205,62 @@ class EnemyImpactFeel:
 			return WeightBand.HEAVY
 		return WeightBand.MEDIUM
 
+	## The tug scalar to use for a catch of this room_weight (Light never
+	## calls set_tug at all, so it never reaches here in practice).
+	func tug_scalar_for(room_weight: float) -> float:
+		if weight_band(room_weight) == WeightBand.HEAVY:
+			return tug_force_scalar_heavy
+		return tug_force_scalar_medium
+
 var enemy_impact: EnemyImpactFeel = EnemyImpactFeel.new()
+
+## Reel-in timing minigame (2026-06-21 follow-up to MILESTONE_8.md Module 2):
+## once a live fish is hooked, a taut rope runs from the arm's base to the
+## catch and a bead sweeps back and forth along it (period scaled by weight).
+## Press the action key while the bead is in the green zone, close to the sub
+## end, to land a pull — the catch comes pull_distance_m closer. Land nothing
+## by the time the bead swings back to the sub and the hull takes a small
+## leak at the arm's base. See TUNING.md for where this fits among the other
+## game-feel knobs.
+class ReelFeel:
+	## Full back-and-forth sweep period (s) at the easiest (near-zero weight)
+	## and hardest (at impossible_weight_min) ends of the difficulty curve.
+	var sweep_period_easy_s: float = 1.6
+	var sweep_period_hard_s: float = 0.6
+	## Half-width of the green "success" zone, as a fraction of the rope's
+	## length, at the easiest and hardest ends. Shrinks to nothing at the
+	## hardest end — see impossible_weight_min below.
+	var success_zone_easy_frac: float = 0.35
+	var success_zone_hard_frac: float = 0.0
+	## Extra width (flat, regardless of difficulty) of the yellow "close"
+	## band shown beyond the green zone — visual feedback only, no separate
+	## mechanical effect (any press outside green simply doesn't land).
+	var near_zone_margin_frac: float = 0.15
+	## room_weight at/above which the green zone has shrunk to exactly zero —
+	## the catch can never be landed, only released. Above every species in
+	## today's reference data (Elite tops out at 3.0): reserved headroom for
+	## a future "too big to land" enemy class.
+	var impossible_weight_min: float = 4.0
+	## Progress (m) the catch comes closer to home per landed pull.
+	var pull_distance_m: float = 2.0
+	## Breach severity (GameFeel.breach scale) opened at the arm's base when
+	## a full sweep passes without landing a pull.
+	var miss_leak_severity: float = 1.5
+	## Damage dealt the instant a catch is fully reeled home — always lethal
+	## regardless of remaining hp; the reel-in itself is the kill, not a
+	## separate hp check.
+	var finish_damage: float = 9999.0
+
+	func _difficulty_t(room_weight: float) -> float:
+		return clampf(room_weight / impossible_weight_min, 0.0, 1.0)
+	func sweep_period_s(room_weight: float) -> float:
+		return lerpf(sweep_period_easy_s, sweep_period_hard_s, _difficulty_t(room_weight))
+	func success_zone_frac(room_weight: float) -> float:
+		return lerpf(success_zone_easy_frac, success_zone_hard_frac, _difficulty_t(room_weight))
+	func near_zone_frac(room_weight: float) -> float:
+		return success_zone_frac(room_weight) + near_zone_margin_frac
+
+var reel: ReelFeel = ReelFeel.new()
 
 ## Turret / torpedo feel (Milestone 2). Torpedoes are slow and weighty like
 ## the sub — leading a moving fish is the skill.

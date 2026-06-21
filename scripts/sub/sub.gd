@@ -651,7 +651,7 @@ func set_tug(source: Object, direction: Vector2, room_weight: float, speed_mps: 
 		_tugs.erase(source)
 		return
 	_tugs[source] = direction.normalized() * room_weight * speed_mps \
-		* GameFeel.enemy_impact.tug_force_scalar
+		* GameFeel.enemy_impact.tug_scalar_for(room_weight)
 
 ## Stop a station's tug (released, deposited, or reset).
 func clear_tug(source: Object) -> void:

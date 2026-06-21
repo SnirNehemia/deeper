@@ -113,6 +113,8 @@ func _draw_claw() -> void:
 	draw_circle(anchor, 6.0, PlaceholderArt.HULL_COLOR)
 	draw_circle(joint, 6.0, PlaceholderArt.HULL_COLOR)
 	_draw_cage(joint, tip)
+	if claw.has_grabbed_fish():
+		_draw_reel_rope(anchor, tip, claw.reel_minigame())
 
 ## A basket cage at the arm tip, opening outward, with a hinged hatch that
 ## closes (clamp_amount -> 1) when holding salvage.
@@ -286,6 +288,28 @@ func _draw_telescope(t: TelescopeStation) -> void:
 	draw_circle(tip, 5.0, PlaceholderArt.HULL_COLOR)
 	# Onboard cages
 	_draw_telescope_cages(t)
+	if t.has_grabbed_fish():
+		_draw_reel_rope(base, tip, t.reel_minigame())
+
+## 2026-06-21 reel-in minigame: a taut rope from the arm's base to a hooked
+## catch, with red/yellow/green timing zones near the sub end (see
+## ReelMinigame / GameFeel.reel) and a bead sliding along it. Shared by the
+## claw and telescope, which otherwise have nothing in common to draw it from.
+func _draw_reel_rope(base: Vector2, catch_point: Vector2, reel: ReelMinigame) -> void:
+	if reel == null:
+		return
+	# Whole rope reads as the "miss" zone by default; yellow/green overlay
+	# nested bands near the sub end.
+	draw_line(base, catch_point, Color(0.85, 0.25, 0.25, 0.55), 3.0)
+	var near_point := base.lerp(catch_point, reel.near_zone_frac())
+	draw_line(base, near_point, Color(0.95, 0.85, 0.2, 0.85), 4.0)
+	var succ_frac := reel.success_zone_frac()
+	if succ_frac > 0.0:
+		var succ_point := base.lerp(catch_point, succ_frac)
+		draw_line(base, succ_point, Color(0.25, 0.95, 0.35, 0.9), 4.0)
+	var bead_pos := catch_point.lerp(base, reel.bead_t())
+	draw_circle(bead_pos, 7.0, Color(0.1, 0.1, 0.1, 0.9))
+	draw_circle(bead_pos, 5.0, Color.WHITE)
 
 ## Two onboard cage outlines on the room floor (s2 and s4), filling from bottom
 ## up as catches auto-deposit. Scrap = small square, fish/carcass = small circle.

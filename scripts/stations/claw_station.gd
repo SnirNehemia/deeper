@@ -45,6 +45,18 @@ var _snap_timer: float = 0.0
 ## struggling catch is processed into a normal carcass on delivery instead).
 var _grabbed_fish: Fish = null
 
+## 2026-06-21 reel-in minigame: non-null exactly while `_grabbed_fish` is set.
+## See scripts/fauna/reel_minigame.gd and GameFeel.reel (TUNING.md). Since the
+## claw has no single "extension" scalar like the telescope, progress is
+## tracked as distance-reeled-in (m) against the distance at the moment of
+## the grab; the joints are frozen at their grabbed pose and lerped toward
+## the folded-home pose (shoulder 0 / elbow at its limit) by that fraction.
+var _reel: ReelMinigame = null
+var _reel_progress_m: float = 0.0
+var _reel_total_m: float = 0.0
+var _reel_grab_shoulder: float = 0.0
+var _reel_grab_elbow: float = 0.0
+
 func _ready() -> void:
 	super._ready()
 	elbow_angle = deg_to_rad(GameFeel.claw.elbow_limit_deg)
@@ -52,28 +64,33 @@ func _ready() -> void:
 func _physics_process(delta: float) -> void:
 	_snap_timer = maxf(0.0, _snap_timer - delta)
 	_carry_caught()
-	_carry_and_tug_fish()
+	_carry_and_tug_fish(delta)
 
 func handle_input(input: PlayerInput) -> void:
 	var c: GameFeel.ClawFeel = GameFeel.claw
 	var delta := get_physics_process_delta_time()
 	# Excavator control: each axis drives one joint; you can move both at once.
-	var s_lim := deg_to_rad(c.shoulder_limit_deg)
-	var e_lim := deg_to_rad(c.elbow_limit_deg)
-	shoulder_angle = clampf(
-		shoulder_angle + input.move.x * deg_to_rad(c.shoulder_speed_deg) * delta,
-		-s_lim, s_lim)
-	elbow_angle = clampf(
-		elbow_angle + input.move.y * deg_to_rad(c.elbow_speed_deg) * delta,
-		-e_lim, e_lim)
-	# `use` is the context action: when the cage is folded home and holding,
-	# open it to drop the catch through the keel hatch into the hold (and
-	# finalize any live fish caught alongside it); otherwise snap the cage
-	# shut on whatever salvage/fish it's over.
+	# Once a live fish is hooked, normal joint control is replaced by the
+	# reel-in minigame (see _attempt_pull) — the joints follow landed pulls,
+	# not the joystick, until it's delivered.
+	if not is_instance_valid(_grabbed_fish):
+		var s_lim := deg_to_rad(c.shoulder_limit_deg)
+		var e_lim := deg_to_rad(c.elbow_limit_deg)
+		shoulder_angle = clampf(
+			shoulder_angle + input.move.x * deg_to_rad(c.shoulder_speed_deg) * delta,
+			-s_lim, s_lim)
+		elbow_angle = clampf(
+			elbow_angle + input.move.y * deg_to_rad(c.elbow_speed_deg) * delta,
+			-e_lim, e_lim)
+	# `use` is the context action: reel a pull attempt if a fish is hooked;
+	# otherwise, when the cage is folded home and holding, open it to drop the
+	# catch through the keel hatch into the hold; otherwise snap the cage shut
+	# on whatever salvage/fish it's over.
 	if input.use_pressed:
-		if is_home() and (not _caught.is_empty() or is_instance_valid(_grabbed_fish)):
+		if is_instance_valid(_grabbed_fish):
+			_attempt_pull()
+		elif is_home() and not _caught.is_empty():
 			_drop_into_hold()
-			_finalize_fish_catch()
 		else:
 			_snap()
 
@@ -110,6 +127,11 @@ func cage_full() -> bool:
 
 func has_grabbed_fish() -> bool:
 	return is_instance_valid(_grabbed_fish)
+
+## The active reel-in minigame, or null if nothing's hooked (read by
+## SubVisual to draw the tug-rope + bead).
+func reel_minigame() -> ReelMinigame:
+	return _reel
 
 ## True when the cage is folded back near the keel anchor, ready to dump.
 func is_home() -> bool:
@@ -192,34 +214,62 @@ func _try_grab_fish() -> void:
 		return
 	nearest.grab()
 	_grabbed_fish = nearest
+	_reel = ReelMinigame.new(nearest.class_stats().room_weight)
+	_reel_grab_shoulder = shoulder_angle
+	_reel_grab_elbow = elbow_angle
+	_reel_total_m = tip_local().distance_to(anchor_local) / Sub.PPM
+	_reel_progress_m = 0.0
 
-## MILESTONE_8.md Module 2: keep a held fish riding the tip and, while its
-## weight band is Medium/Heavy, tug the sub via its struggle direction.
-## Light is hard-pinned — never calls set_tug at all (the approved cheap
-## path: "no tug calc"). Self-corrects if the fish was released/died/reset
-## elsewhere (e.g. Fish.reset_fish() during a run reset).
-func _carry_and_tug_fish() -> void:
+## MILESTONE_8.md Module 2 (+ 2026-06-21 reel minigame): keep a held fish
+## riding the tip and, while its weight band is Medium/Heavy, tug the sub via
+## its struggle direction. Light is hard-pinned — never calls set_tug at all
+## (the approved cheap path: "no tug calc"). Self-corrects if the fish was
+## released/died/reset elsewhere (e.g. Fish.reset_fish() during a run reset).
+## Advances the reel-in sweep (a full sweep landing nothing opens a small
+## leak at the anchor) and lerps the frozen grab pose toward the folded-home
+## pose by the fraction reeled in so far; reaching home finalizes the catch.
+func _carry_and_tug_fish(delta: float) -> void:
 	if not is_instance_valid(_grabbed_fish) or not _grabbed_fish.grabbed:
 		if _grabbed_fish != null:
 			sub.clear_tug(self)
 			_grabbed_fish = null
+			_reel = null
 		return
+	var t := clampf(_reel_progress_m / maxf(_reel_total_m, 0.01), 0.0, 1.0)
+	shoulder_angle = lerpf(_reel_grab_shoulder, 0.0, t)
+	elbow_angle = lerpf(_reel_grab_elbow, deg_to_rad(GameFeel.claw.elbow_limit_deg), t)
 	_grabbed_fish.global_position = _tip_global()
 	var stats := _grabbed_fish.class_stats()
 	if GameFeel.enemy_impact.weight_band(stats.room_weight) == GameFeel.EnemyImpactFeel.WeightBand.LIGHT:
 		sub.clear_tug(self)
 	else:
 		sub.set_tug(self, _grabbed_fish.struggle_direction(), stats.room_weight, stats.move_speed)
+	if _reel.tick(delta):
+		sub.breach_from_hit(room_index, GameFeel.reel.miss_leak_severity, anchor_local)
+	if t >= 1.0:
+		_finalize_fish_catch()
 
-## Delivered home alive: processed exactly like a weapon kill, reusing the
-## same carcass-drop hook `die()` already provides (MILESTONE_8.md Module 4
-## will later change what die() drops — zero rework needed here).
+## A pull attempt on the reel minigame's bead (see GameFeel.reel). Landing it
+## brings the catch pull_distance_m closer (as a fraction of the distance at
+## the moment it was grabbed); reaching home finalizes it.
+func _attempt_pull() -> void:
+	if _reel == null:
+		return
+	if _reel.attempt_pull():
+		_reel_progress_m = minf(_reel_progress_m + GameFeel.reel.pull_distance_m, _reel_total_m)
+
+## Delivered home alive: finished off through the normal damage pipeline
+## (always lethal — see Fish.finish_catch), reusing the same carcass-drop hook
+## `die()` already provides (MILESTONE_8.md Module 4 will later change what
+## die() drops — zero rework needed here).
 func _finalize_fish_catch() -> void:
 	if not is_instance_valid(_grabbed_fish):
 		return
 	sub.clear_tug(self)
-	_grabbed_fish.die()
+	var fish := _grabbed_fish
 	_grabbed_fish = null
+	_reel = null
+	fish.finish_catch(GameFeel.reel.finish_damage)
 
 ## Called by Sub.reset_state() on implosion: an undelivered catch was never
 ## banked, so it's lost — released back to the wild alive, not killed.
@@ -228,6 +278,7 @@ func release_held_fish() -> void:
 	if is_instance_valid(_grabbed_fish):
 		_grabbed_fish.release()
 	_grabbed_fish = null
+	_reel = null
 
 ## Open the cage at home: drop each catch through the keel hatch onto the claw
 ## room floor as a loose, carryable item. From there a crew member ferries it
