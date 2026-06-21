@@ -1,8 +1,38 @@
 # STATUS — DEEPER
 
-_Read this at session start. Last updated: 2026-06-21 — **M8 Module 0 done (EnemyDef data spine). Next: M8 Module 1 (weight + bump-back knockback).**_
+_Read this at session start. Last updated: 2026-06-21 — **M8 Module 1 done (weight + bump-back knockback). Next: M8 Module 2 (grab-tug physics).**_
 
-**Milestone 8 — The Fauna Pass — in progress (Module 0 of 5 done).**
+**Milestone 8 — The Fauna Pass — in progress (Modules 0-1 of 5 done).**
+
+**M8 Module 1 — Weight + bump-back knockback (2026-06-21):** rams now have
+physical consequence, on top of (never instead of) the existing
+`breach_from_hit` flooding damage.
+- New `Sub.apply_ram_knockback(direction, room_weight, impact_speed_mps)`
+  (`scripts/sub/sub.gd`): a one-time velocity impulse —
+  `room_weight x impact_speed_mps x GameFeel.enemy_impact.ram_knockback_scalar`
+  — added straight into `Sub.velocity`. No separate decay timer needed: the
+  sub's existing accel/decel feel (`SubFeel`) naturally pulls the velocity
+  back toward whatever the helm currently wants over the next several
+  frames, so a shove is visibly resisted/recovered exactly like steering
+  itself. A zero-length direction is a safe no-op (guards the case where an
+  enemy is exactly on top of the sub).
+- New `GameFeel.enemy_impact` (`EnemyImpactFeel`) block: the single spine
+  tunable, `ram_knockback_scalar` (0.4). Per-species weight stays where M8
+  Module 0 put it — `EnemyClassStats.room_weight` — never duplicated into
+  GameFeel.
+- `Fish._try_bite()` now also calls `apply_ram_knockback` right after
+  `breach_from_hit`, using the active class block's `room_weight` and
+  whatever speed the fish was swimming at when it landed the bite (the same
+  `chase_speed`/`hunt_speed`/`chaser_speed` value already used to move it
+  that frame — no new speed concept introduced). Push direction is fish →
+  sub (continuing the fish's own momentum into the hull).
+- Headless-verified: new `test_sub.gd` cases (`_test_ram_knockback`) confirm
+  the impulse scales with weight×speed, points along the given direction,
+  and no-ops on a zero direction. `test_fish.gd`'s bite test now also checks
+  the sub gets shoved stern-ward off a bow bite. Same single pre-existing
+  `test_fish` failure as before (confirmed unrelated to M8). Project boots
+  clean headless.
+- **Commit:** `M8-1: ram knockback — weight x speed shoves the sub on a bite`.
 M7-4 (bank telescope cages at the dock + cage-fill console readout) is still
 pending — parked, not dropped — while M8's infrastructure work runs. See
 `MILESTONE_8.md` for the full module breakdown.

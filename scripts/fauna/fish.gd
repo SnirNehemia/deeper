@@ -147,7 +147,7 @@ func _physics_process(delta: float) -> void:
 				state = State.RETURN
 			else:
 				_swim_toward(sub.global_position, feel.chase_speed * ppm, delta)
-				_try_bite()
+				_try_bite(feel.chase_speed)
 		State.HUNT:
 			# Basic chasers never give up. Hunters chase anywhere, only
 			# giving up after a sustained spell beyond hunter_lose_m.
@@ -160,7 +160,7 @@ func _physics_process(delta: float) -> void:
 					_hunter_lose_timer = 0.0
 			var speed := feel.chaser_speed if behavior == Behavior.CHASER else feel.hunt_speed
 			_swim_toward(sub.global_position, speed * ppm, delta)
-			_try_bite()
+			_try_bite(speed)
 		State.RECOVER:
 			# Circle off after a bite, then come back for another pass.
 			var recover_step := _recover_dir * feel.return_speed * ppm * delta
@@ -233,8 +233,10 @@ func _is_blocked_by_sky(pos: Vector2) -> bool:
 	return false
 
 ## On hull contact (and off cooldown): lunge-bite — a small drip-tier breach
-## at the bite point — then circle away for another pass.
-func _try_bite() -> void:
+## at the bite point, plus a ram-knockback shove (MILESTONE_8.md Module 1)
+## scaled by this class's weight and how fast the fish was moving — then
+## circle away for another pass.
+func _try_bite(impact_speed_mps: float) -> void:
 	if _bite_cooldown > 0.0:
 		return
 	var touching := false
@@ -245,7 +247,10 @@ func _try_bite() -> void:
 	if not touching:
 		return
 	var local := sub.to_local(global_position)
-	sub.breach_from_hit(sub.nearest_room(local), _class_stats().damage, local)
+	var stats := _class_stats()
+	sub.breach_from_hit(sub.nearest_room(local), stats.damage, local)
+	sub.apply_ram_knockback(global_position.direction_to(sub.global_position),
+		stats.room_weight, impact_speed_mps)
 	_bite_cooldown = GameFeel.fish.chaser_backoff_time if behavior == Behavior.CHASER else GameFeel.fish.bite_interval
 	# Circle away: mostly back the way it came, with some sideways drift.
 	var away := sub.global_position.direction_to(global_position)

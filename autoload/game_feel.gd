@@ -167,6 +167,18 @@ class BreachFeel:
 
 var breach: BreachFeel = BreachFeel.new()
 
+## MILESTONE_8.md Module 1: rams have physical consequence, on top of (never
+## instead of) the breach_from_hit damage spine above. Sub.apply_ram_knockback
+## adds a one-time velocity impulse; the sub's existing accel/decel feel
+## (SubFeel) naturally pulls it back toward the helm's intended speed over the
+## next few frames, so no separate decay timer is needed here. Per-species
+## weight lives in EnemyClassStats.room_weight (data), not here (spine).
+class EnemyImpactFeel:
+	## Sub velocity (m/s) added per (1 room_weight unit x 1 m/s impact speed).
+	var ram_knockback_scalar: float = 0.4
+
+var enemy_impact: EnemyImpactFeel = EnemyImpactFeel.new()
+
 ## Turret / torpedo feel (Milestone 2). Torpedoes are slow and weighty like
 ## the sub — leading a moving fish is the skill.
 class TurretFeel:

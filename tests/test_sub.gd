@@ -16,6 +16,7 @@ func _ready() -> void:
 	await _test_traversal_and_ladder()
 	await _test_crew_collision()
 	await _test_hatch()
+	_test_ram_knockback()
 
 	if _failures == 0:
 		print("SUB TESTS PASSED")
@@ -137,6 +138,42 @@ func _test_crew_collision() -> void:
 
 	sub.queue_free()
 	await _frames(2)
+
+## MILESTONE_8.md Module 1: a heavier/faster ram shoves the sub harder, on
+## top of (never instead of) the breach damage spine. apply_ram_knockback is
+## a one-time velocity impulse; SubFeel's own accel/decel naturally pulls it
+## back, so this just checks the impulse itself scales correctly.
+func _test_ram_knockback() -> void:
+	print("[ram knockback]")
+	var light := _new_sub()
+	light.velocity = Vector2.ZERO
+	light.apply_ram_knockback(Vector2.RIGHT, 1.0, 3.5)  # reference fish: Small tier
+	var light_speed := light.velocity.length()
+	_check(light_speed > 0.0, "a light ram still nudges the sub")
+
+	var heavy := _new_sub()
+	heavy.velocity = Vector2.ZERO
+	heavy.apply_ram_knockback(Vector2.RIGHT, 2.0, 5.0)  # reference fish: Big tier
+	var heavy_speed := heavy.velocity.length()
+	_check(heavy_speed > light_speed, "a heavier/faster ram shoves harder than a lighter one")
+
+	var same_dir := _new_sub()
+	same_dir.velocity = Vector2.ZERO
+	same_dir.apply_ram_knockback(Vector2.RIGHT, 1.0, 3.5)
+	_check(is_equal_approx(same_dir.velocity.y, 0.0) and same_dir.velocity.x > 0.0,
+		"knockback pushes along the given direction")
+
+	# A no-op direction (e.g. a fish exactly on top of the sub) is a safe no-op,
+	# not a divide-by-zero.
+	var zero_dir := _new_sub()
+	zero_dir.velocity = Vector2.ZERO
+	zero_dir.apply_ram_knockback(Vector2.ZERO, 2.0, 5.0)
+	_check(zero_dir.velocity == Vector2.ZERO, "a zero push direction is a no-op")
+
+	light.queue_free()
+	heavy.queue_free()
+	same_dir.queue_free()
+	zero_dir.queue_free()
 
 func _test_hatch() -> void:
 	print("[conning hatch]")

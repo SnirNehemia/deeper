@@ -102,7 +102,12 @@ func _test_bite() -> void:
 	# Just off the helm room's bow wall, mid-height (within the hull margin).
 	fish.position = Vector2(sub.room_rect(2).end.x + 30.0, -72.0)
 	add_child(fish)
-	await _frames(30)  # overlap registers; chase + bite
+	# Poll instead of a blind wait so the knockback check below sees the
+	# impulse fresh (it decays back over the next several frames).
+	for i in 30:
+		await get_tree().physics_frame
+		if not sub.breaches.is_empty():
+			break
 
 	_check(not sub.breaches.is_empty(), "hull contact produces a bite breach")
 	if not sub.breaches.is_empty():
@@ -111,6 +116,9 @@ func _test_bite() -> void:
 		_check(absf(breach.leak_rate - GameFeel.breach.severity_to_inflow(expected_severity)) < 0.0001,
 			"bite breach is drip-tier")
 		_check(breach.room == 2, "bow bite breaches the helm (bow) room")
+		# MILESTONE_8.md Module 1: the bite also shoves the sub (stern-ward,
+		# away from the bow-mounted fish), on top of the breach above.
+		_check(sub.velocity.x < 0.0, "bite also shoves the sub away from the fish")
 	var bites_after_first: int = sub.breaches.size()
 	_check(bites_after_first == 1, "no rapid-fire bites (one per pass)")
 

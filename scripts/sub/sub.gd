@@ -615,6 +615,19 @@ func breach_from_hit(room: int, severity: float, world_point: Vector2) -> Breach
 	var rate := GameFeel.breach.severity_to_inflow(severity)
 	return spawn_breach(room, rate, world_point)
 
+## MILESTONE_8.md Module 1: a ram's physical shove, on top of (never instead
+## of) breach_from_hit's flooding damage. `direction` is the world-space push
+## direction (normalized internally); `room_weight` comes from the enemy's
+## active EnemyClassStats block; `impact_speed_mps` is how fast it was moving
+## when it hit. A heavier/faster enemy adds a bigger one-time velocity
+## impulse; the sub's own accel/decel feel pulls it back toward the helm's
+## intended speed over the next few frames — no separate decay needed.
+func apply_ram_knockback(direction: Vector2, room_weight: float, impact_speed_mps: float) -> void:
+	if direction == Vector2.ZERO:
+		return
+	var impulse_mps := room_weight * impact_speed_mps * GameFeel.enemy_impact.ram_knockback_scalar
+	velocity += direction.normalized() * impulse_mps * PPM
+
 ## Open a breach leaking into `room` at `rate`. Also used by fish bites.
 func spawn_breach(room: int, rate: float, local_pos := Vector2.INF) -> Breach:
 	var breach := Breach.new()

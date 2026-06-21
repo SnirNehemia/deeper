@@ -951,3 +951,27 @@ Snir's 7-part request, scoped via AskUserQuestion:
   `git stash` — a latent hull-width/territory-radius mismatch from the M7 sub
   layout, unrelated to enemy data); `test_world.tscn` and
   `test_physical_layer.tscn` fully green; project boots clean headless.
+
+## Settled (2026-06-21, M8 Module 1 — weight + bump-back knockback)
+
+- **Ram knockback is a one-time velocity impulse on `Sub.velocity`, not a
+  separate decaying offset vector (unlike `Fish`'s own hit-knockback).**
+  Because the sub's existing accel/decel feel (`SubFeel`) already pulls
+  `velocity` toward whatever the helm currently wants every frame, a single
+  `velocity += push` at the moment of impact is naturally fought back over
+  the next several frames — no second decay timer needed, and it composes
+  with player input for free (a shove while you're driving away from it
+  recovers faster than one while you're drifting). `Sub.apply_ram_knockback
+  (direction, room_weight, impact_speed_mps)` is the single entry point,
+  called alongside (never instead of) `breach_from_hit`.
+- **The knockback magnitude lives in exactly one `GameFeel` key**
+  (`GameFeel.enemy_impact.ram_knockback_scalar`), per `MILESTONE_8.md`
+  Module 1's acceptance criterion. `room_weight` (per-species, per-class)
+  stays in `EnemyClassStats` from Module 0 — never duplicated into
+  `GameFeel`.
+- **A bite's "impact speed" is whatever AI-state speed constant was already
+  driving the fish that frame** (`chase_speed`/`hunt_speed`/`chaser_speed`)
+  — no new per-fish velocity tracking was introduced; `Fish._try_bite()` just
+  takes that value as a parameter from its two call sites.
+- **Push direction is fish → sub** (continuing the fish's own momentum into
+  the hull), computed at the bite point already used for the breach.
