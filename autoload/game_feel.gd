@@ -177,6 +177,30 @@ class EnemyImpactFeel:
 	## Sub velocity (m/s) added per (1 room_weight unit x 1 m/s impact speed).
 	var ram_knockback_scalar: float = 0.4
 
+	## MILESTONE_8.md Module 2: grab-tug weight bands. room_weight at/below
+	## this is Light — hard-pinned by the holding arm, no tug calc at all (the
+	## approved cheap-path optimization). At/above heavy_weight_min is Heavy —
+	## a dominant drag. Between the two is Medium — a real tug-of-war. The
+	## reference fish's three EnemyClassStats tiers (Small 1.0 / Big 2.0 /
+	## Elite 3.0) land one per band by design.
+	var light_weight_max: float = 1.5
+	var heavy_weight_min: float = 2.5
+	## Sub *target*-velocity (m/s) shifted per (1 room_weight unit x 1 m/s of
+	## the held enemy's struggle speed), for Medium/Heavy bands only. A target
+	## shift (not a raw velocity add) settles at a bounded drift speed instead
+	## of accelerating forever — the same accel/decel feel the helm already
+	## fights against just chases a pulled-on target instead of a clean one.
+	var tug_force_scalar: float = 0.35
+
+	enum WeightBand { LIGHT, MEDIUM, HEAVY }
+
+	func weight_band(room_weight: float) -> WeightBand:
+		if room_weight <= light_weight_max:
+			return WeightBand.LIGHT
+		if room_weight >= heavy_weight_min:
+			return WeightBand.HEAVY
+		return WeightBand.MEDIUM
+
 var enemy_impact: EnemyImpactFeel = EnemyImpactFeel.new()
 
 ## Turret / torpedo feel (Milestone 2). Torpedoes are slow and weighty like

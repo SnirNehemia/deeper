@@ -37,12 +37,18 @@ var _tip_item: SalvageItem = null
 var _cage_s2: Array[int] = []
 var _cage_s4: Array[int] = []
 
+## MILESTONE_8.md Module 2: a live fish caught by the tip, held separately
+## from `_tip_item` (it doesn't take a cage-capacity slot — a struggling
+## catch is processed into a normal carcass on delivery instead).
+var _grabbed_fish: Fish = null
+
 func _physics_process(_delta: float) -> void:
 	# Keep tip item locked to the tip as the arm moves (and prune stale refs).
 	if is_instance_valid(_tip_item) and not _tip_item.is_queued_for_deletion():
 		_tip_item.global_position = _tip_global()
 	elif _tip_item != null:
 		_tip_item = null
+	_carry_and_tug_fish()
 
 func handle_input(input: PlayerInput) -> void:
 	var feel := GameFeel.telescope
@@ -63,17 +69,21 @@ func handle_input(input: PlayerInput) -> void:
 	elif zoom < 0.0:
 		extension = clampf(extension - feel.retract_speed * Sub.PPM * delta, 0.0, max_ext)
 	else:
-		var auto_speed := feel.auto_retract_speed_carrying if is_instance_valid(_tip_item) \
-			else feel.auto_retract_speed
+		var carrying := is_instance_valid(_tip_item) or is_instance_valid(_grabbed_fish)
+		var auto_speed := feel.auto_retract_speed_carrying if carrying else feel.auto_retract_speed
 		extension = clampf(extension - auto_speed * Sub.PPM * delta, 0.0, max_ext)
 
 	# Auto-deposit when the arm returns home.
-	if is_home() and is_instance_valid(_tip_item):
-		_try_deposit()
+	if is_home():
+		if is_instance_valid(_tip_item):
+			_try_deposit()
+		if is_instance_valid(_grabbed_fish):
+			_finalize_fish_catch()
 
 	# Grab on Q.
 	if input.use_pressed:
 		_grab()
+		_try_grab_fish()
 
 # --- Geometry ---
 
@@ -99,6 +109,9 @@ func cage_s4() -> Array[int]:
 
 func has_tip_item() -> bool:
 	return is_instance_valid(_tip_item)
+
+func has_grabbed_fish() -> bool:
+	return is_instance_valid(_grabbed_fish)
 
 func cage_count() -> int:
 	return _cage_s2.size() + _cage_s4.size()
@@ -132,6 +145,58 @@ func _grab() -> void:
 	nearest.set_deferred("monitoring", false)
 	_tip_item = nearest
 
+## MILESTONE_8.md Module 2: also try to catch a live, grabbable fish near
+## the tip — independent of the salvage above (a held fish doesn't take a
+## cage-capacity slot). Refuses an EnemyDef `grabbable=false` enemy, an
+## already-dead one, and one already held by another arm.
+func _try_grab_fish() -> void:
+	if is_instance_valid(_grabbed_fish):
+		return
+	var tip := _tip_global()
+	var grab_r := GameFeel.telescope.grab_radius_m * Sub.PPM
+	var nearest_fish: Fish = null
+	var nearest_d := INF
+	for node in sub.get_tree().get_nodes_in_group("fish"):
+		var fish := node as Fish
+		if fish == null or not fish.is_grabbable():
+			continue
+		var d := tip.distance_to(fish.global_position)
+		if d <= grab_r and d < nearest_d:
+			nearest_fish = fish
+			nearest_d = d
+	if nearest_fish == null:
+		return
+	nearest_fish.grab()
+	_grabbed_fish = nearest_fish
+
+## MILESTONE_8.md Module 2: keep a held fish riding the tip and, while its
+## weight band is Medium/Heavy, tug the sub via its struggle direction.
+## Light is hard-pinned — never calls set_tug at all (the approved cheap
+## path: "no tug calc"). Self-corrects if the fish was released/died/reset
+## elsewhere (e.g. Fish.reset_fish() during a run reset).
+func _carry_and_tug_fish() -> void:
+	if not is_instance_valid(_grabbed_fish) or not _grabbed_fish.grabbed:
+		if _grabbed_fish != null:
+			sub.clear_tug(self)
+			_grabbed_fish = null
+		return
+	_grabbed_fish.global_position = _tip_global()
+	var stats := _grabbed_fish.class_stats()
+	if GameFeel.enemy_impact.weight_band(stats.room_weight) == GameFeel.EnemyImpactFeel.WeightBand.LIGHT:
+		sub.clear_tug(self)
+	else:
+		sub.set_tug(self, _grabbed_fish.struggle_direction(), stats.room_weight, stats.move_speed)
+
+## Delivered home alive: processed exactly like a weapon kill, reusing the
+## same carcass-drop hook `die()` already provides (MILESTONE_8.md Module 4
+## will later change what die() drops — zero rework needed here).
+func _finalize_fish_catch() -> void:
+	if not is_instance_valid(_grabbed_fish):
+		return
+	sub.clear_tug(self)
+	_grabbed_fish.die()
+	_grabbed_fish = null
+
 ## Transfer the tip item into the s2 cage (then s4) and free the node.
 func _try_deposit() -> void:
 	if not is_instance_valid(_tip_item):
@@ -163,11 +228,17 @@ func bank_cages() -> void:
 	_cage_s4.clear()
 
 ## Called by Sub.reset_state() — lose all un-banked contents on implosion.
+## A held-but-undelivered live fish was never banked either: it's released
+## back to the wild alive, not killed (MILESTONE_8.md Module 2).
 func reset_cages() -> void:
 	_cage_s2.clear()
 	_cage_s4.clear()
 	if is_instance_valid(_tip_item):
 		_tip_item.queue_free()
 	_tip_item = null
+	sub.clear_tug(self)
+	if is_instance_valid(_grabbed_fish):
+		_grabbed_fish.release()
+	_grabbed_fish = null
 	aim_angle = 0.0
 	extension = 0.0

@@ -975,3 +975,53 @@ Snir's 7-part request, scoped via AskUserQuestion:
   takes that value as a parameter from its two call sites.
 - **Push direction is fish → sub** (continuing the fish's own momentum into
   the hull), computed at the bite point already used for the breach.
+
+## Settled (2026-06-21, M8 Module 2 — grab-tug physics)
+
+- **A continuous tug is modeled as a shift to the helm's *target* velocity,
+  not a raw velocity addition.** A raw per-frame `velocity +=` (the Module 1
+  ram-knockback pattern) would accelerate the sub without bound for as long
+  as a Heavy catch is held, since nothing caps it on the X axis. Shifting
+  `target_x` instead lets the *existing* accel/decel feel chase the pulled-on
+  target exactly the way it already chases the player's own input — the sub
+  settles at a bounded drift speed (a real "terminal velocity" under the
+  pull) instead of accelerating forever. The Y axis stays a simple `+=`
+  (matching how buoyancy/water-weight already work there) since it's already
+  hard-clamped to `max_speed_v` at the end of `_physics_process` regardless
+  of source.
+- **The three EnemyClassStats tiers map onto the three weight bands by
+  design, not coincidence**: Small (room_weight 1.0) = Light/pinned, Big
+  (2.0) = Medium/tug, Elite (3.0) = Heavy/drag. `GameFeel.enemy_impact`'s
+  `light_weight_max`/`heavy_weight_min` thresholds were chosen specifically
+  to land the existing reference-fish numbers one per band — a future
+  species authored with an unusual `room_weight` could land in any band
+  regardless of its class tier; the bands classify the *number*, not the
+  tier label.
+- **AI behavior, class tier, and grab state are three independent axes.** A
+  grabbed fish's "struggle direction" is always "swim for home" (the same
+  instinct the un-grabbed RETURN state already has) regardless of what
+  behavior (territorial/hunter/chaser) or class tier it has — grabbing
+  doesn't re-derive a direction from whatever AI state it was in when
+  caught. This was a deliberate simplification, not a oversight: re-deriving
+  CHASE/HUNT intent while grabbed (e.g. "it still wants to bite the sub")
+  would be more flavorful but added a second mechanic this module didn't
+  need.
+- **A live catch never touches the existing salvage cage/capacity system.**
+  `ClawStation`/`TelescopeStation` track a grabbed fish in its own field,
+  entirely separate from `_caught`/`_cage_s2`/`_cage_s4`. Delivered home
+  alive, it's finalized via the *same* `Fish.die()` hook a weapon kill
+  already uses (dropping a normal carcass at the delivery point, collectible
+  the normal way) — deliberately reusing the existing kill-drop pipeline
+  rather than building new currency/storage plumbing in this module. This
+  means M8 Module 4's currency rework (changing what `die()` drops) will
+  apply to grab-tug catches automatically, with zero rework needed here.
+- **Held-but-undelivered catches are released alive on implosion, not
+  killed.** This is the "at risk until docked/banked" pillar applied to a
+  live catch: the player loses the opportunity (no carcass), the fish loses
+  nothing (it swims off). `Sub.reset_state()` now releases the claw's held
+  fish; `TelescopeStation.reset_cages()` releases the telescope's.
+  `Fish.reset_fish()` (the full run-reset path) also unconditionally clears
+  `grabbed` itself, regardless of call order against the station's own
+  reset — the station re-validates `_grabbed_fish.grabbed` every frame and
+  drops a stale reference on its own, so neither side depends on the other
+  firing first.

@@ -81,6 +81,12 @@ var _move_mult: float = 1.0
 ## Live hull breaches, each leaking into its room.
 var breaches: Array[Breach] = []
 
+## MILESTONE_8.md Module 2: continuous pull from currently-grabbed-but-
+## struggling (Medium/Heavy weight band) enemies, keyed by the holding
+## station so multiple arms can each hold one. Light-band catches never
+## appear here at all — they're hard-pinned with zero force.
+var _tugs: Dictionary = {}
+
 ## On-board salvage storage (Module B): banked at the dock, lost on implosion.
 var storage_scrap: int = 0
 var storage_fish: int = 0
@@ -465,8 +471,13 @@ func _physics_process(delta: float) -> void:
 	var feel: GameFeel.SubFeel = GameFeel.sub
 	var ppm: float = GameFeel.PIXELS_PER_METER
 	var mult := _move_mult
+	# MILESTONE_8.md Module 2: a Medium/Heavy grab-tug shifts the target the
+	# helm's own accel/decel chases, instead of adding raw velocity — so a
+	# sustained pull settles at a bounded drift speed rather than
+	# accelerating forever.
+	var tug := _tug_offset_mps()
 
-	var target_x := clampf(drive_input.x, -1.0, 1.0) * feel.max_speed_h * ppm * mult
+	var target_x := clampf(drive_input.x, -1.0, 1.0) * feel.max_speed_h * ppm * mult + tug.x * ppm
 	var rate_x := feel.accel_h() if absf(target_x) > 0.01 else feel.decel_h()
 	velocity.x = move_toward(velocity.x, target_x, rate_x * ppm * mult * delta)
 
@@ -475,6 +486,7 @@ func _physics_process(delta: float) -> void:
 		velocity.y += clampf(drive_input.y, -1.0, 1.0) * feel.accel_v() * ppm * mult * delta
 	else:
 		velocity.y = move_toward(velocity.y, 0.0, feel.decel_v() * ppm * delta)
+	velocity.y += tug.y * ppm * delta
 	if buoyancy_enabled:
 		var surface_y := _local_surface_y()
 		var above := (surface_y + SURFACE_FLOAT_DEPTH) - global_position.y
@@ -628,6 +640,31 @@ func apply_ram_knockback(direction: Vector2, room_weight: float, impact_speed_mp
 	var impulse_mps := room_weight * impact_speed_mps * GameFeel.enemy_impact.ram_knockback_scalar
 	velocity += direction.normalized() * impulse_mps * PPM
 
+## MILESTONE_8.md Module 2: a struggling Medium/Heavy-band held enemy keeps
+## applying its escape intent through the arm holding it. `source` is the
+## holding station (claw/telescope) — called every physics frame it's
+## holding a qualifying catch; `direction` is the enemy's current escape
+## direction, `room_weight`/`speed_mps` from its active EnemyClassStats
+## block. Light-band catches are hard-pinned and must never call this.
+func set_tug(source: Object, direction: Vector2, room_weight: float, speed_mps: float) -> void:
+	if direction == Vector2.ZERO:
+		_tugs.erase(source)
+		return
+	_tugs[source] = direction.normalized() * room_weight * speed_mps \
+		* GameFeel.enemy_impact.tug_force_scalar
+
+## Stop a station's tug (released, deposited, or reset).
+func clear_tug(source: Object) -> void:
+	_tugs.erase(source)
+
+## Summed pull (m/s, target-velocity units) from every currently-tugging
+## catch.
+func _tug_offset_mps() -> Vector2:
+	var total := Vector2.ZERO
+	for v in _tugs.values():
+		total += v
+	return total
+
 ## Open a breach leaking into `room` at `rate`. Also used by fish bites.
 func spawn_breach(room: int, rate: float, local_pos := Vector2.INF) -> Breach:
 	var breach := Breach.new()
@@ -664,6 +701,12 @@ func reset_state() -> void:
 	storage_med_carcass = 0
 	for ts in _telescope_stations:
 		ts.reset_cages()
+	# MILESTONE_8.md Module 2: a held-but-not-yet-delivered catch was never
+	# banked, so it's lost — released back to the wild, not killed (the
+	# player gets nothing, same risk as any other un-banked salvage).
+	if is_instance_valid(_visual.claw):
+		_visual.claw.release_held_fish()
+	_tugs.clear()
 	velocity = Vector2.ZERO
 	drive_input = Vector2.ZERO
 	pitch = 0.0

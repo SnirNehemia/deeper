@@ -1,8 +1,59 @@
 # STATUS — DEEPER
 
-_Read this at session start. Last updated: 2026-06-21 — **M8 Module 1 done (weight + bump-back knockback). Next: M8 Module 2 (grab-tug physics).**_
+_Read this at session start. Last updated: 2026-06-21 — **M8 Module 2 done (grab-tug physics). Next: M8 Module 3 (ranged attacks + difficulty classes).**_
 
-**Milestone 8 — The Fauna Pass — in progress (Modules 0-1 of 5 done).**
+**Milestone 8 — The Fauna Pass — in progress (Modules 0-2 of 5 done).**
+
+**M8 Module 2 — Grab-tug physics (2026-06-21):** the claw and telescope can
+now catch a live, struggling fish (not just dead salvage) — it tugs the sub
+by weight while it keeps trying to swim home.
+- **`Fish` gains a `grabbed` state** (`scripts/fauna/fish.gd`): `grab()`
+  stops it running AI/movement entirely (the holding station now drives its
+  position every frame, exactly like a caught `SalvageItem` riding a tip);
+  `release()` (escaped before delivery — implosion) resumes it heading home;
+  `is_grabbable()` refuses if dead, already held, or the EnemyDef
+  `grabbable` flag is false; `struggle_direction()` (always "swim for home")
+  is what the holding arm reads each frame. `take_damage()` is a no-op while
+  grabbed (a held catch is protected cargo, not still fightable).
+  `class_stats()` (was `_class_stats()`, made public — M8 Module 0's
+  decorative `move_speed` field gets its first real consumer here) exposes
+  `room_weight`/`move_speed` for the arm's tug math.
+- **Three weight bands, one set of thresholds** (`GameFeel.enemy_impact`,
+  extended from Module 1): `light_weight_max` (1.5) / `heavy_weight_min`
+  (2.5) classify `room_weight` into Light/Medium/Heavy. The reference fish's
+  three class tiers (Small 1.0 / Big 2.0 / Elite 3.0) land one per band by
+  design — Small is hard-pinned, Big is a real tug, Elite is a dominant
+  drag, with zero extra authoring.
+- **`Sub.set_tug`/`clear_tug`** (`scripts/sub/sub.gd`): a Medium/Heavy catch
+  shifts the helm's own *target* velocity (not a raw velocity add) by
+  `room_weight x move_speed x tug_force_scalar` — the existing accel/decel
+  feel then chases that shifted target exactly like it chases the player's
+  own input, so a sustained pull settles at a bounded drift speed instead of
+  accelerating forever. Light never calls this at all (the approved "no tug
+  calc" cheap path). Multiple arms each get their own dictionary entry
+  (keyed by station), summed every physics frame.
+- **`ClawStation`/`TelescopeStation`** both gained `_grabbed_fish`, held
+  independently of their existing salvage-cage slots (a live catch doesn't
+  cost cage capacity). Grabbing searches the "fish" group the same way
+  grabbing salvage already searches the "salvage" group. **Delivered home
+  alive, a catch is finalized via `Fish.die()`** — the same carcass-drop
+  hook a weapon kill already uses, so M8 Module 4's currency rework will
+  apply to a grab-tug catch automatically, with zero rework needed here.
+  **Undelivered on implosion, it's released back to the wild alive** (lost
+  opportunity, not killed) — `Sub.reset_state()` now also releases the
+  claw's held fish and clears all tugs; `TelescopeStation.reset_cages()`
+  does the same for the telescope.
+- Headless-verified: new `tests/test_grab_tug.gd` (13 checks) covers weight-
+  band classification, Light/Medium/Heavy behavior (including that the heavy
+  drag settles at a bounded speed rather than accelerating forever), and the
+  `grabbable=false` refusal on both arms. `test_telescope.tscn`,
+  `test_shop.tscn`, `test_validate.tscn` fully green; `test_claw.tscn` and
+  `test_fish.tscn` show the same pre-existing failures as `HEAD` (confirmed
+  via `git stash`); `test_dock_shop_ui.tscn`'s 4 failures also confirmed
+  pre-existing and unrelated (tower-cell/helm Assembly flows). Project boots
+  clean headless.
+- **Commit:** `M8-2: grab-tug physics — claw/telescope can catch a live,
+  struggling fish`.
 
 **M8 Module 1 — Weight + bump-back knockback (2026-06-21):** rams now have
 physical consequence, on top of (never instead of) the existing

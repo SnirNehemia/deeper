@@ -52,6 +52,12 @@ var state: State = State.PATROL
 var is_dead: bool = false
 var _hunter_lose_timer: float = 0.0
 
+## MILESTONE_8.md Module 2: true while held by a claw/telescope arm. A
+## grabbed fish stops running its own AI/movement entirely — the holding
+## station drives its position (riding the tip, like a SalvageItem) and
+## reads `class_stats()`/`struggle_direction()` each frame to tug the sub.
+var grabbed: bool = false
+
 ## M5: HP. Torpedo damage == hp_max (one-shot); bullet needs a burst. Set in
 ## _ready (after `enemy_def`/`current_class` are assigned by the placer) from
 ## the active class block's `hp`.
@@ -83,7 +89,7 @@ func _ready() -> void:
 		if _default_enemy_def == null:
 			_default_enemy_def = load(DEFAULT_ENEMY_DEF_PATH)
 		enemy_def = _default_enemy_def
-	hp_max = _class_stats().hp
+	hp_max = class_stats().hp
 	hp = hp_max
 	var length_m := PlaceholderArt.CHASER_LENGTH_M if behavior == Behavior.CHASER else PlaceholderArt.FISH_LENGTH_M
 	var shape := CollisionShape2D.new()
@@ -103,6 +109,11 @@ func _ready() -> void:
 
 func _physics_process(delta: float) -> void:
 	if is_dead:
+		return
+	if grabbed:
+		# Position/visuals are driven by the holding station each frame
+		# (mirrors how a caught SalvageItem rides the tip); no AI runs.
+		queue_redraw()
 		return
 	var feel: GameFeel.FishFeel = GameFeel.fish
 	var ppm: float = GameFeel.PIXELS_PER_METER
@@ -247,7 +258,7 @@ func _try_bite(impact_speed_mps: float) -> void:
 	if not touching:
 		return
 	var local := sub.to_local(global_position)
-	var stats := _class_stats()
+	var stats := class_stats()
 	sub.breach_from_hit(sub.nearest_room(local), stats.damage, local)
 	sub.apply_ram_knockback(global_position.direction_to(sub.global_position),
 		stats.room_weight, impact_speed_mps)
@@ -269,7 +280,7 @@ func _on_area_entered(area: Area2D) -> void:
 ## -> a brief white flash + small knockback away from the hit point, so a
 ## bullet burst reads as "chipping away" rather than nothing happening.
 func take_damage(amount: float, from_point: Vector2) -> void:
-	if is_dead:
+	if is_dead or grabbed:
 		return
 	hp -= amount
 	if hp <= 0.0:
@@ -282,11 +293,34 @@ func take_damage(amount: float, from_point: Vector2) -> void:
 		away = Vector2(_facing, 0)
 	_knockback = away * GameFeel.fish.hit_knockback_mps * GameFeel.PIXELS_PER_METER
 
+## MILESTONE_8.md Module 2: can a claw/telescope arm pick this fish up right
+## now? Dead, already-grabbed, or `grabbable=false` (EnemyDef) all refuse.
+func is_grabbable() -> bool:
+	return not is_dead and not grabbed and enemy_def.grabbable
+
+## Caught by an arm: stop running AI/movement. The holding station now owns
+## this fish's position every frame until release()/die().
+func grab() -> void:
+	grabbed = true
+
+## Let go — escaped (implosion before being delivered) rather than caught.
+## Resumes AI from wherever the arm left it, heading home.
+func release() -> void:
+	grabbed = false
+	state = State.RETURN
+	_has_spotted = false
+
+## The struggling fish's escape intent (MILESTONE_8.md Module 2): always
+## swims for home, same as the RETURN state's instinct when not held.
+func struggle_direction() -> Vector2:
+	return global_position.direction_to(home)
+
 ## Cartoon pop + bubbles; the fish stays gone until reset_fish(). Leaves
 ## behind a sinking carcass (Module B: a "fish" salvage currency) at the kill
 ## site for the sub to collect.
 func die() -> void:
 	is_dead = true
+	grabbed = false
 	visible = false
 	set_deferred("monitoring", false)
 	set_deferred("monitorable", false)
@@ -297,8 +331,13 @@ func die() -> void:
 	get_parent().add_child(SalvageItem.make_carcass(global_position, carcass_kind))
 
 ## Back home, alive — the world's run reset calls this on the "fish" group.
+## Unconditionally releases a grab too — whatever order this runs in versus
+## the holding station's own reset, a held fish must never survive a full
+## run reset still flagged grabbed (the station re-checks `grabbed` each
+## frame and drops a stale reference on its own).
 func reset_fish() -> void:
 	is_dead = false
+	grabbed = false
 	visible = true
 	set_deferred("monitoring", true)
 	set_deferred("monitorable", true)
@@ -306,7 +345,7 @@ func reset_fish() -> void:
 	_patrol_target = home
 	_bite_cooldown = 0.0
 	state = State.PATROL
-	hp_max = _class_stats().hp
+	hp_max = class_stats().hp
 	hp = hp_max
 	_hit_flash = 0.0
 	_knockback = Vector2.ZERO
@@ -325,8 +364,9 @@ func _detect_radius_px() -> float:
 	return feel.territory_radius_m * ppm
 
 ## The active EnemyDef class block (Small/Big/Elite) this fish reads its
-## stats from (MILESTONE_8.md Module 0).
-func _class_stats() -> EnemyClassStats:
+## stats from (MILESTONE_8.md Module 0). Public — the claw/telescope arms
+## read room_weight/move_speed from this while holding a grab (Module 2).
+func class_stats() -> EnemyClassStats:
 	return enemy_def.stats_for(current_class)
 
 func _draw() -> void:
@@ -342,7 +382,7 @@ func _draw() -> void:
 	# stays round (not affected by the wobble/stretch scale).
 	# Territorial fish: always visible (they can lose you, so it's useful).
 	# Chasers: visible until they've locked on, then it disappears.
-	var show_range := not is_dead and not (is_chaser and _has_spotted)
+	var show_range := not is_dead and not grabbed and not (is_chaser and _has_spotted)
 	if show_range:
 		var ring := Color(base_color.r, base_color.g, base_color.b, 0.05)
 		draw_circle(Vector2.ZERO, _detect_radius_px(), ring)

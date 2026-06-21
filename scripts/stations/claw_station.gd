@@ -40,6 +40,11 @@ var _caught: Array[SalvageItem] = []
 ## Brief "snap" animation timer so the cage hatch visibly clamps shut.
 var _snap_timer: float = 0.0
 
+## MILESTONE_8.md Module 2: a live fish caught by the cage, held separately
+## from `_caught` salvage above (it doesn't take a cage-capacity slot — a
+## struggling catch is processed into a normal carcass on delivery instead).
+var _grabbed_fish: Fish = null
+
 func _ready() -> void:
 	super._ready()
 	elbow_angle = deg_to_rad(GameFeel.claw.elbow_limit_deg)
@@ -47,6 +52,7 @@ func _ready() -> void:
 func _physics_process(delta: float) -> void:
 	_snap_timer = maxf(0.0, _snap_timer - delta)
 	_carry_caught()
+	_carry_and_tug_fish()
 
 func handle_input(input: PlayerInput) -> void:
 	var c: GameFeel.ClawFeel = GameFeel.claw
@@ -61,11 +67,13 @@ func handle_input(input: PlayerInput) -> void:
 		elbow_angle + input.move.y * deg_to_rad(c.elbow_speed_deg) * delta,
 		-e_lim, e_lim)
 	# `use` is the context action: when the cage is folded home and holding,
-	# open it to drop the catch through the keel hatch into the hold; otherwise
-	# snap the cage shut on whatever salvage it's over.
+	# open it to drop the catch through the keel hatch into the hold (and
+	# finalize any live fish caught alongside it); otherwise snap the cage
+	# shut on whatever salvage/fish it's over.
 	if input.use_pressed:
-		if is_home() and not _caught.is_empty():
+		if is_home() and (not _caught.is_empty() or is_instance_valid(_grabbed_fish)):
 			_drop_into_hold()
+			_finalize_fish_catch()
 		else:
 			_snap()
 
@@ -99,6 +107,9 @@ func cage_count() -> int:
 
 func cage_full() -> bool:
 	return _caught.size() >= GameFeel.claw.cage_capacity
+
+func has_grabbed_fish() -> bool:
+	return is_instance_valid(_grabbed_fish)
 
 ## True when the cage is folded back near the keel anchor, ready to dump.
 func is_home() -> bool:
@@ -156,6 +167,67 @@ func _snap() -> void:
 		item.set_deferred("monitoring", false)
 		_caught.append(item)
 	_carry_caught()
+	_try_grab_fish()
+
+## MILESTONE_8.md Module 2: also try to catch a live, grabbable fish near the
+## tip — independent of the salvage cage above (a held fish doesn't take a
+## cage-capacity slot). Refuses an EnemyDef `grabbable=false` enemy, an
+## already-dead one, and one already held by another arm.
+func _try_grab_fish() -> void:
+	if is_instance_valid(_grabbed_fish):
+		return
+	var tip := _tip_global()
+	var grab_r := GameFeel.claw.grab_radius_m * Sub.PPM
+	var nearest: Fish = null
+	var nearest_d := INF
+	for node in sub.get_tree().get_nodes_in_group("fish"):
+		var fish := node as Fish
+		if fish == null or not fish.is_grabbable():
+			continue
+		var d := tip.distance_to(fish.global_position)
+		if d <= grab_r and d < nearest_d:
+			nearest = fish
+			nearest_d = d
+	if nearest == null:
+		return
+	nearest.grab()
+	_grabbed_fish = nearest
+
+## MILESTONE_8.md Module 2: keep a held fish riding the tip and, while its
+## weight band is Medium/Heavy, tug the sub via its struggle direction.
+## Light is hard-pinned — never calls set_tug at all (the approved cheap
+## path: "no tug calc"). Self-corrects if the fish was released/died/reset
+## elsewhere (e.g. Fish.reset_fish() during a run reset).
+func _carry_and_tug_fish() -> void:
+	if not is_instance_valid(_grabbed_fish) or not _grabbed_fish.grabbed:
+		if _grabbed_fish != null:
+			sub.clear_tug(self)
+			_grabbed_fish = null
+		return
+	_grabbed_fish.global_position = _tip_global()
+	var stats := _grabbed_fish.class_stats()
+	if GameFeel.enemy_impact.weight_band(stats.room_weight) == GameFeel.EnemyImpactFeel.WeightBand.LIGHT:
+		sub.clear_tug(self)
+	else:
+		sub.set_tug(self, _grabbed_fish.struggle_direction(), stats.room_weight, stats.move_speed)
+
+## Delivered home alive: processed exactly like a weapon kill, reusing the
+## same carcass-drop hook `die()` already provides (MILESTONE_8.md Module 4
+## will later change what die() drops — zero rework needed here).
+func _finalize_fish_catch() -> void:
+	if not is_instance_valid(_grabbed_fish):
+		return
+	sub.clear_tug(self)
+	_grabbed_fish.die()
+	_grabbed_fish = null
+
+## Called by Sub.reset_state() on implosion: an undelivered catch was never
+## banked, so it's lost — released back to the wild alive, not killed.
+func release_held_fish() -> void:
+	sub.clear_tug(self)
+	if is_instance_valid(_grabbed_fish):
+		_grabbed_fish.release()
+	_grabbed_fish = null
 
 ## Open the cage at home: drop each catch through the keel hatch onto the claw
 ## room floor as a loose, carryable item. From there a crew member ferries it
