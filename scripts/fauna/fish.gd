@@ -163,7 +163,7 @@ func _physics_process(delta: float) -> void:
 			if not sub_in_territory:
 				state = State.RETURN
 			else:
-				_swim_toward(sub.global_position, feel.chase_speed * ppm, delta)
+				_swim_toward(_nearest_hull_point(global_position), feel.chase_speed * ppm, delta)
 				_try_bite(feel.chase_speed)
 				_try_ranged_fire(delta)
 		State.HUNT:
@@ -177,7 +177,7 @@ func _physics_process(delta: float) -> void:
 				else:
 					_hunter_lose_timer = 0.0
 			var speed := feel.chaser_speed if behavior == Behavior.CHASER else feel.hunt_speed
-			_swim_toward(sub.global_position, speed * ppm, delta)
+			_swim_toward(_nearest_hull_point(global_position), speed * ppm, delta)
 			_try_bite(speed)
 			_try_ranged_fire(delta)
 		State.RECOVER:
@@ -207,14 +207,29 @@ func _physics_process(delta: float) -> void:
 ## rects, distance-preserved by sub.to_local). Returns 0 if the point is
 ## inside the hull.
 func _dist_to_sub_hull(world_pos: Vector2) -> float:
+	return world_pos.distance_to(_nearest_hull_point(world_pos))
+
+## The nearest point on the sub's hull to `world_pos`, in world space. Used
+## as the actual swim target in CHASE/HUNT (2026-06-22 fix) instead of the
+## sub's single fixed origin point — every aggroed fish used to beeline for
+## that one exact coordinate (which reads as "the base of the sub" since the
+## sub re-anchors its origin to the helm row's floor), so several fish
+## converging on the sub at once would all stack on top of each other at
+## that one spot. Aiming at the closest hull surface instead spreads them
+## around the hull, approaching from wherever they actually are.
+func _nearest_hull_point(world_pos: Vector2) -> Vector2:
 	var local := sub.to_local(world_pos)
-	var min_dist := INF
+	var best := local
+	var best_dist := INF
 	for rect: Rect2 in sub.hull_rects():
 		var clamped := Vector2(
 			clampf(local.x, rect.position.x, rect.end.x),
 			clampf(local.y, rect.position.y, rect.end.y))
-		min_dist = minf(min_dist, local.distance_to(clamped))
-	return min_dist
+		var d := local.distance_to(clamped)
+		if d < best_dist:
+			best_dist = d
+			best = clamped
+	return sub.to_global(best)
 
 func _patrol(feel: GameFeel.FishFeel, ppm: float, delta: float) -> void:
 	# Drift between random points in the inner half of the territory.
