@@ -289,6 +289,7 @@ func _try_bite(impact_speed_mps: float) -> void:
 	# Circle away: mostly back the way it came, with some sideways drift.
 	var away := sub.global_position.direction_to(global_position)
 	_recover_dir = (away + Vector2(0, -0.5)).normalized()
+	state = State.RECOVER
 
 ## MILESTONE_8.md Module 3: `ranged=true` is a per-species base trait, on top
 ## of (never instead of) the existing bite — independent of the Elite-only
