@@ -2,9 +2,10 @@
 .godot/
 /android/
 
-# Throwaway visual-capture output (see tests/capture_*.tscn)
+# Throwaway visual-capture output (see tests/capture_*.tscn and the capture-gameplay skill)
 /*_capture.png
 /*_capture.png.import
+/captures/
 
 # Stray stderr capture files
 /.e.txt
