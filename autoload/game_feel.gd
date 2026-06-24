@@ -303,11 +303,12 @@ class CurrencyFeel:
 	## purchasable room — first-pass numbers, explicitly provisional until
 	## M9's real species/color faucet exists to balance against.
 	var flat_room_price: int = 4
-	## The pool a room's price color is randomly drawn from. Today only the
-	## reference fish's placeholder color exists; M9 adds real species colors
-	## here. Deliberately excludes "gold" — that's the elite-only premium
-	## currency, not a room-gating color.
-	var room_price_colors: Array[String] = ["teal"]
+	## The pool a room's price color is randomly drawn from. Today the
+	## reference (territorial/hunter) fish drops "orange" and the chaser drops
+	## "teal" — both real, currently-droppable colors; M9 adds more real
+	## species colors here. Deliberately excludes "gold" — that's the
+	## elite-only premium currency, not a room-gating color.
+	var room_price_colors: Array[String] = ["orange", "teal"]
 
 	## Breaks `total` into denomination pickups, e.g. 8 -> [5, 1, 1, 1].
 	func split(total: int) -> Array[int]:

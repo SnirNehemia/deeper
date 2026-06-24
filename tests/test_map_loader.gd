@@ -4,7 +4,7 @@ extends Node
 ##
 ## Run: godot --headless res://tests/test_map_loader.tscn
 ## Verifies: the JSON config loads with the right ratio, and the generation
-## layer's marker pixels (white/purple/green/grey) map to the correct
+## layer's marker pixels (white/orange/green/grey) map to the correct
 ## world-space spawn points and entity buckets.
 
 const M := GameFeel.PIXELS_PER_METER
@@ -49,7 +49,7 @@ func _test_generation_parse() -> void:
 
 	var territorial: Array[Dictionary] = spawns[GenerationLayerParser.KEY_TERRITORIAL_FISH]
 	_check(territorial.size() == 1 and territorial[0]["pos"] == Vector2(5, 2) * M,
-		"territorial fish at purple pixel (5,2)")
+		"territorial fish at orange pixel (5,2)")
 	_check(territorial[0]["cls"] == EnemyDef.Class.SMALL,
 		"a single isolated pixel parses as Small")
 

@@ -22,14 +22,14 @@ func _init() -> void:
 ## 10x10 image, transparent except for four marker pixels (one per spawn
 ## color from MILESTONE_6 Module 2):
 ##   (1,1) white   -> player spawn
-##   (5,2) purple  -> territorial fish
+##   (5,2) orange  -> territorial fish
 ##   (8,8) green   -> hunter fish
 ##   (3,8) grey    -> wreckage
 func _write_generation_layer() -> void:
 	var img := Image.create(10, 10, false, Image.FORMAT_RGBA8)
 	img.fill(Color(0, 0, 0, 0))
 	img.set_pixel(1, 1, Color(1, 1, 1))       # #FFFFFF
-	img.set_pixel(5, 2, Color(0.5, 0, 0.5))   # #800080
+	img.set_pixel(5, 2, Color(0xE8 / 255.0, 0x74 / 255.0, 0x2C / 255.0))   # #E8742C
 	img.set_pixel(8, 8, Color(0, 1, 0))       # #00FF00
 	img.set_pixel(3, 8, Color(0.5, 0.5, 0.5)) # #808080
 	img.save_png(DIR + "/test_map_gen.png")

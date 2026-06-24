@@ -36,6 +36,15 @@ var _wobble: float = randf() * TAU
 # Currency pickups sink at this speed (px/s), decaying to a stop so they "settle".
 var _sink_speed: float = 0.0
 
+## 2026-06-24: sky zones from the map and the global water surface y — same
+## fields Fish carries, set by whoever spawns this drop (e.g. Fish._spawn_drop
+## copies its own). A drop that's airborne (e.g. a kill that happened above
+## the surface) falls under plain gravity instead of using the underwater
+## sink-and-settle behavior below.
+var sky_zones: Array = []
+var water_surface_y: float = 0.0
+var _fall_velocity: float = 0.0
+
 static func make_scrap(world_pos: Vector2) -> SalvageItem:
 	var item := SalvageItem.new()
 	item.kind = Kind.SCRAP
@@ -55,6 +64,8 @@ static func make_currency(world_pos: Vector2, color: String, value: int) -> Salv
 	item.add_to_group("salvage_carcass")
 	return item
 
+var _terrain_cast: ShapeCast2D
+
 func _ready() -> void:
 	# Joined so the claw and crew can find salvage by group.
 	add_to_group("salvage")
@@ -67,6 +78,15 @@ func _ready() -> void:
 	circle.radius = RADIUS_PX
 	shape.shape = circle
 	add_child(shape)
+	# A falling drop (see _in_sky() below) must not clip through rock — same
+	# guard Fish uses for its own gravity fall.
+	_terrain_cast = ShapeCast2D.new()
+	var cast_shape := CircleShape2D.new()
+	cast_shape.radius = RADIUS_PX * 0.85
+	_terrain_cast.shape = cast_shape
+	_terrain_cast.collision_mask = Layers.TERRAIN
+	_terrain_cast.enabled = true
+	add_child(_terrain_cast)
 
 func _physics_process(delta: float) -> void:
 	_wobble += delta
@@ -82,11 +102,39 @@ func _physics_process(delta: float) -> void:
 		State.LOOSE:
 			pass  # sits where it was dropped
 		State.WATER:
-			if _sink_speed > 0.0:
-				position.y += _sink_speed * delta
-				_sink_speed = maxf(0.0,
-					_sink_speed - GameFeel.PIXELS_PER_METER * 0.5 * delta)
+			if _in_sky():
+				var fall_step := Vector2(0, _fall_velocity * delta)
+				_terrain_cast.target_position = fall_step
+				_terrain_cast.force_shapecast_update()
+				if _terrain_cast.is_colliding():
+					_fall_velocity = 0.0
+				else:
+					_fall_velocity += GameFeel.sub.surface_gravity * GameFeel.PIXELS_PER_METER * delta
+					global_position += fall_step
+			else:
+				_fall_velocity = 0.0
+				if _sink_speed > 0.0:
+					position.y += _sink_speed * delta
+					_sink_speed = maxf(0.0,
+						_sink_speed - GameFeel.PIXELS_PER_METER * 0.5 * delta)
 	queue_redraw()
+
+## True if this drop is currently in open air (above the main surface, or
+## inside an air pocket's sky zone) — mirrors Fish._in_sky().
+func _in_sky() -> bool:
+	if water_surface_y > 0.0 and global_position.y < water_surface_y:
+		return true
+	for zone in sky_zones:
+		if not zone.get("is_pocket", false):
+			continue
+		var sz: float = zone["surface_y"]
+		if global_position.y < sz:
+			var rect: Rect2 = zone["rect"]
+			# Bound by the pocket's actual footprint (x AND y), not just x —
+			# mirrors Fish._in_sky()'s same fix.
+			if rect.has_point(global_position):
+				return true
+	return false
 
 func is_water() -> bool:
 	return state == State.WATER
@@ -141,5 +189,26 @@ func _draw() -> void:
 			draw_line(r.position + Vector2(r.size.x, 0), r.position + Vector2(0, r.size.y), c.darkened(0.35), 2.0)
 		Kind.CURRENCY:
 			var c := PlaceholderArt.currency_color(currency_color)
-			draw_circle(Vector2(0, bob), RADIUS_PX, c)
-			draw_circle(Vector2(0, bob), RADIUS_PX * 0.4, c.darkened(0.3))
+			var sides := shape_sides_for(currency_value)
+			_draw_regular_polygon(Vector2(0, bob), RADIUS_PX, sides, c)
+			_draw_regular_polygon(Vector2(0, bob), RADIUS_PX * 0.4, sides, c.darkened(0.3))
+
+## Denomination value -> polygon side count: each rung up GameFeel.currency's
+## denomination ladder adds one edge (1=triangle, 5=square, 10=pentagon,
+## 50=hexagon) so a pickup's worth reads at a glance, not just its color.
+## Reads the ladder from GameFeel rather than hardcoding it, so re-tuning the
+## denominations there keeps the shapes in step automatically.
+static func shape_sides_for(value: int) -> int:
+	var tiers := GameFeel.currency.denominations.duplicate()
+	tiers.sort()
+	var idx := tiers.find(value)
+	if idx == -1:
+		return 8  # an unrecognized value (e.g. a future custom drop): default to circle-ish
+	return 3 + idx
+
+func _draw_regular_polygon(center: Vector2, radius: float, sides: int, color: Color) -> void:
+	var points := PackedVector2Array()
+	for i in range(sides):
+		var angle := TAU * i / sides - PI / 2.0
+		points.append(center + Vector2(cos(angle), sin(angle)) * radius)
+	draw_colored_polygon(points, color)

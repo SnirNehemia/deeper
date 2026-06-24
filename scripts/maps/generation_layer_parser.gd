@@ -6,7 +6,11 @@ extends RefCounted
 ## coordinates (scaled per MapConfig.pixel_scale()).
 
 const PLAYER_SPAWN := Color(1, 1, 1)                                          # #FFFFFF
-const TERRITORIAL_FISH := Color(0x80 / 255.0, 0, 0x80 / 255.0)               # #800080
+## The territorial/hunter fish marker (2026-06-24: recolored purple->orange
+## to match the reference fish's body/currency color exactly — Snir's map art
+## now uses the same E8742C hex as PlaceholderArt.FISH_COLOR/EnemyDef.body_color,
+## not just any orange).
+const TERRITORIAL_FISH := Color(0xE8 / 255.0, 0x74 / 255.0, 0x2C / 255.0)    # #E8742C
 const HUNTER_FISH := Color(0, 1, 0)                                           # #00FF00
 const WRECKAGE := Color(0x80 / 255.0, 0x80 / 255.0, 0x80 / 255.0)            # #808080
 const DOCK_ZONE := Color(0x6E / 255.0, 0x47 / 255.0, 0x3B / 255.0)           # #6E473B

@@ -12,6 +12,7 @@ func _ready() -> void:
 	SaveData.reset_for_test()
 	await _test_storage_counters()
 	await _test_currency_kind()
+	await _test_falls_under_gravity_when_airborne()
 	await _test_dock_banking()
 	_test_save_round_trip()
 	SaveData.reset_for_test()
@@ -67,6 +68,32 @@ func _test_currency_kind() -> void:
 		"a drop carries its color and denomination value")
 	_check(drop.is_in_group("salvage"), "a drop is findable by the claw")
 	_check(drop.is_in_group("salvage_carcass"), "a drop is tagged for run-reset cleanup")
+	drop.queue_free()
+	await _frames(2)
+
+func _test_falls_under_gravity_when_airborne() -> void:
+	print("[a drop stranded above the water surface falls under plain gravity]")
+	var drop := SalvageItem.make_currency(Vector2(0.0, -50.0), "teal", 5)
+	drop.water_surface_y = 1000.0  # the drop's y (-50) is well above this
+	add_child(drop)
+	await _frames(2)
+
+	var y0 := drop.global_position.y
+	await _frames(10)
+	var y1 := drop.global_position.y
+	await _frames(10)
+	var y2 := drop.global_position.y
+	_check((y2 - y1) > (y1 - y0),
+		"an airborne drop's fall speed increases over time like gravity")
+
+	var reached_water := false
+	for i in 300:
+		await get_tree().physics_frame
+		if drop.global_position.y >= drop.water_surface_y:
+			reached_water = true
+			break
+	_check(reached_water, "the drop actually reaches the water, it doesn't fall forever")
+
 	drop.queue_free()
 	await _frames(2)
 

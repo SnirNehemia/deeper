@@ -343,7 +343,19 @@ func _draw_telescope_cages(t: TelescopeStation) -> void:
 			if slot["kind"] == SalvageItem.Kind.SCRAP:
 				draw_rect(Rect2(px - 4.0, py - 4.0, 8.0, 8.0), PlaceholderArt.SCRAP_COLOR)
 			else:
-				draw_circle(Vector2(px, py), 4.0, PlaceholderArt.currency_color(slot["color"]))
+				var sides := SalvageItem.shape_sides_for(int(slot["value"]))
+				_draw_currency_icon(Vector2(px, py), 4.0, sides,
+					PlaceholderArt.currency_color(slot["color"]))
+
+## Mirrors SalvageItem's world-drop shape (1/5/10/50 -> triangle/square/
+## pentagon/hexagon) at icon scale, so a cage slot's denomination reads the
+## same way it did before it was caught.
+func _draw_currency_icon(center: Vector2, radius: float, sides: int, color: Color) -> void:
+	var points := PackedVector2Array()
+	for i in range(sides):
+		var angle := TAU * i / sides - PI / 2.0
+		points.append(center + Vector2(cos(angle), sin(angle)) * radius)
+	draw_colored_polygon(points, color)
 
 func _draw_round_rect(rect: Rect2, radius: float, color: Color) -> void:
 	var r := minf(radius, minf(rect.size.x, rect.size.y) * 0.5)

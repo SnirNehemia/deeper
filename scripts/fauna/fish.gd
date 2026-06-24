@@ -22,10 +22,16 @@ enum State { PATROL, CHASE, RECOVER, RETURN, HUNT }
 enum Behavior { TERRITORIAL, HUNTER, CHASER }
 
 const DEFAULT_ENEMY_DEF_PATH := "res://data/enemies/reference_fish.tres"
+## 2026-06-24: the chaser was always meant to be its own species (it was just
+## sharing the reference fish's Big-class block for convenience) — split out
+## so it can carry its own currency_color independent of the territorial/
+## hunter fish, per Snir's call.
+const CHASER_ENEMY_DEF_PATH := "res://data/enemies/chaser_fish.tres"
 ## Loaded lazily (not preloaded as a const) — preloading a custom-scripted
 ## .tres at fish.gd's own parse time raced the engine's global-class
 ## registration in headless runs and silently produced a scriptless Resource.
 static var _default_enemy_def: EnemyDef = null
+static var _chaser_enemy_def: EnemyDef = null
 
 ## The sub it guards against (set at placement).
 var sub: Sub = null
@@ -72,6 +78,11 @@ var _recover_dir: Vector2 = Vector2.ZERO
 var _wobble: float = 0.0
 var _hit_flash: float = 0.0
 var _knockback: Vector2 = Vector2.ZERO
+## 2026-06-24: a fish stranded in open air (above water_surface_y, or inside
+## an air pocket's sky zone) falls under plain gravity, no AI steering — it
+## cannot swim in open air, only in water. Accumulates while airborne, reset
+## to zero the instant it's back in the water.
+var _fall_velocity: float = 0.0
 var _stun_timer: float = 0.0
 var _terrain_cast: ShapeCast2D
 ## True once a chaser has locked on — keeps the detection ring hidden even
@@ -87,9 +98,14 @@ func _ready() -> void:
 	monitoring = true
 	monitorable = true
 	if enemy_def == null:
-		if _default_enemy_def == null:
-			_default_enemy_def = load(DEFAULT_ENEMY_DEF_PATH)
-		enemy_def = _default_enemy_def
+		if behavior == Behavior.CHASER:
+			if _chaser_enemy_def == null:
+				_chaser_enemy_def = load(CHASER_ENEMY_DEF_PATH)
+			enemy_def = _chaser_enemy_def
+		else:
+			if _default_enemy_def == null:
+				_default_enemy_def = load(DEFAULT_ENEMY_DEF_PATH)
+			enemy_def = _default_enemy_def
 	hp_max = class_stats().hp
 	hp = hp_max
 	# MILESTONE_8.md Module 3: class tier visibly changes size (the Module 0
@@ -121,15 +137,56 @@ func _physics_process(delta: float) -> void:
 		# (mirrors how a caught SalvageItem rides the tip); no AI runs.
 		queue_redraw()
 		return
-	var feel: GameFeel.FishFeel = GameFeel.fish
+	if _try_depenetrate_from_terrain(delta):
+		# Embedded in rock right now (e.g. knocked into a wall) — push back
+		# out along the wall's normal instead of running AI this frame. AI
+		# isn't safe to run here: a per-step terrain block that's bypassed
+		# whenever "we're already stuck" would let an AI still trying to swim
+		# INTO the wall re-trigger that bypass every single frame, walking
+		# straight through it. Depenetrating first guarantees AI below only
+		# ever runs once the fish is actually clear again.
+		queue_redraw()
+		return
 	var ppm: float = GameFeel.PIXELS_PER_METER
+	if _in_sky():
+		var fall_step := Vector2(0, _fall_velocity * delta)
+		_terrain_cast.target_position = fall_step
+		_terrain_cast.force_shapecast_update()
+		if not _terrain_cast.is_colliding():
+			# Still genuinely falling through open air: plain gravity, no
+			# steering, no AI this frame.
+			_fall_velocity += GameFeel.sub.surface_gravity * ppm * delta
+			global_position += fall_step
+			queue_redraw()
+			return
+		# Landed on something solid while still nominally "in the sky" (e.g. a
+		# pocket's own rock floor): DON'T return early here. `_in_sky()` alone
+		# never turns false in this case — the fish is still above the local
+		# water line — so if we kept short-circuiting every frame it would
+		# freeze there motionless forever, looking exactly like a fish stuck
+		# "on top of" the rocks. Fall through to normal AI instead; its own
+		# sky/terrain escape guards below already know how to work it back
+		# toward real water from here (and gravity resumes the instant AI
+		# opens up a path to fall through again).
+	_fall_velocity = 0.0
+	var feel: GameFeel.FishFeel = GameFeel.fish
 	_wobble += delta
 	_bite_cooldown = maxf(0.0, _bite_cooldown - delta)
 	_hit_flash = maxf(0.0, _hit_flash - delta)
 	if _knockback != Vector2.ZERO:
-		global_position += _knockback * delta
-		_knockback = _knockback.move_toward(Vector2.ZERO,
-			feel.hit_knockback_decay * ppm * delta)
+		var knockback_step := _knockback * delta
+		# A hit near a wall used to be able to knock the fish straight into
+		# rock with no terrain check at all, embedding it there — the
+		# _swim_toward guard above stops it from being trapped FOREVER once
+		# embedded, but it's better to just not embed it in the first place.
+		_terrain_cast.target_position = knockback_step
+		_terrain_cast.force_shapecast_update()
+		if _terrain_cast.is_colliding():
+			_knockback = Vector2.ZERO
+		else:
+			global_position += knockback_step
+			_knockback = _knockback.move_toward(Vector2.ZERO,
+				feel.hit_knockback_decay * ppm * delta)
 
 	if _stun_timer > 0.0:
 		_stun_timer -= delta
@@ -141,16 +198,21 @@ func _physics_process(delta: float) -> void:
 	var dist_to_sub := _dist_to_sub_hull(global_position) if sub != null else INF
 
 	# Hunters lock on from farther away, in PATROL/CHASE/RETURN, regardless of
-	# territory (design doc §7).
+	# territory (design doc §7). Gated by line-of-sight: being within range
+	# behind solid rock must not spot the sub (a wall is a wall) — but once
+	# locked on, losing sight again does NOT break the chase, since both
+	# behaviors are defined by how stubbornly they hold on, not by vision.
 	if behavior == Behavior.HUNTER and state != State.HUNT and state != State.RECOVER \
-			and dist_to_sub <= feel.hunter_detect_m * ppm:
+			and dist_to_sub <= feel.hunter_detect_m * ppm \
+			and _has_line_of_sight_to_sub():
 		state = State.HUNT
 		_has_spotted = true
 		_hunter_lose_timer = 0.0
 
 	# Basic chasers lock on from chaser_detect_m and never let go.
 	if behavior == Behavior.CHASER and state != State.HUNT and state != State.RECOVER \
-			and dist_to_sub <= feel.chaser_detect_m * ppm:
+			and dist_to_sub <= feel.chaser_detect_m * ppm \
+			and _has_line_of_sight_to_sub():
 		state = State.HUNT
 		_has_spotted = true
 
@@ -209,6 +271,19 @@ func _physics_process(delta: float) -> void:
 func _dist_to_sub_hull(world_pos: Vector2) -> float:
 	return world_pos.distance_to(_nearest_hull_point(world_pos))
 
+## True if nothing solid sits between the fish and the nearest point of the
+## sub's hull right now — a raycast against the TERRAIN layer only (the sub
+## itself isn't on that layer, so it never blocks its own line of sight).
+## Gates the INITIAL hunter/chaser lock-on only: detection must respect walls,
+## but once locked on, both behaviors are defined by refusing to let go, not
+## by maintaining a clear sightline, so this is never re-checked afterward.
+func _has_line_of_sight_to_sub() -> bool:
+	var target := _nearest_hull_point(global_position)
+	var space_state := get_world_2d().direct_space_state
+	var query := PhysicsRayQueryParameters2D.create(global_position, target, Layers.TERRAIN)
+	var result := space_state.intersect_ray(query)
+	return result.is_empty()
+
 ## The nearest point on the sub's hull to `world_pos`, in world space. Used
 ## as the actual swim target in CHASE/HUNT (2026-06-22 fix) instead of the
 ## sub's single fixed origin point — every aggroed fish used to beeline for
@@ -251,10 +326,34 @@ func _swim_toward(target: Vector2, speed: float, delta: float) -> void:
 	if absf(dir.x) > 0.1:
 		_facing = signf(dir.x)
 
+## If the fish's own shape is currently overlapping terrain right now (e.g.
+## knocked into a wall by a hit), push it back out along the wall's normal
+## and report true so the caller skips AI entirely this frame. Letting AI run
+## while embedded was an earlier, broken fix for this same bug: any per-step
+## terrain block that's bypassed whenever "we're already stuck" gets
+## re-triggered every single frame by an AI still trying to swim INTO the
+## wall, so it just walks straight through. Depenetrating first instead
+## guarantees normal movement only ever resumes once the fish is actually clear.
+func _try_depenetrate_from_terrain(delta: float) -> bool:
+	_terrain_cast.target_position = Vector2.ZERO
+	_terrain_cast.force_shapecast_update()
+	if _terrain_cast.get_collision_count() == 0:
+		return false
+	var normal := _terrain_cast.get_collision_normal(0)
+	if normal != Vector2.ZERO:
+		global_position += normal * GameFeel.fish.return_speed * GameFeel.PIXELS_PER_METER * delta
+	return true
+
 ## True if `pos` would be in open air (above main surface or inside a pocket).
-## Fish are water creatures — they never cross these boundaries.
+## Fish are water creatures — they never cross these boundaries from the water
+## side. But if a fish is somehow already above the surface (e.g. released
+## from a grab while still inside the sub's air interior), this must NOT also
+## block it from moving — every candidate step would still read as "in the
+## sky" until the exact frame it crosses back below the line, trapping it in
+## open air forever. So the block only applies when starting from legal water
+## (mirrors the pocket check below, which already has this guard).
 func _is_blocked_by_sky(pos: Vector2) -> bool:
-	if water_surface_y > 0.0 and pos.y < water_surface_y:
+	if water_surface_y > 0.0 and pos.y < water_surface_y and global_position.y >= water_surface_y:
 		return true
 	for zone in sky_zones:
 		if not zone.get("is_pocket", false):
@@ -262,7 +361,31 @@ func _is_blocked_by_sky(pos: Vector2) -> bool:
 		var sz: float = zone["surface_y"]
 		if pos.y < sz and global_position.y >= sz:
 			var rect: Rect2 = zone["rect"]
-			if pos.x >= rect.position.x and pos.x <= rect.position.x + rect.size.x:
+			# Bound by the pocket's actual footprint (x AND y), not just x —
+			# otherwise any fish sharing an x-range with a pocket, however far
+			# above its real cavity (even fully submerged elsewhere), would
+			# read as "entering that pocket's sky." Mirrors Sub/Torpedo's
+			# rect.has_point()-based zone checks.
+			if rect.has_point(pos):
+				return true
+	return false
+
+## True if the fish's CURRENT position is in open air right now (above the
+## main surface, or inside an air pocket's sky zone) — drives the plain-
+## gravity fall in _physics_process, as opposed to _is_blocked_by_sky's
+## "would this candidate move enter the sky" check.
+func _in_sky() -> bool:
+	if water_surface_y > 0.0 and global_position.y < water_surface_y:
+		return true
+	for zone in sky_zones:
+		if not zone.get("is_pocket", false):
+			continue
+		var sz: float = zone["surface_y"]
+		if global_position.y < sz:
+			var rect: Rect2 = zone["rect"]
+			# See the matching comment in _is_blocked_by_sky: bound by the
+			# pocket's actual footprint, not just its x-range.
+			if rect.has_point(global_position):
 				return true
 	return false
 
@@ -433,6 +556,8 @@ func die() -> void:
 func _spawn_drop(color: String, value: int) -> void:
 	var scatter := Vector2(randf_range(-15.0, 15.0), randf_range(-15.0, 15.0))
 	var drop := SalvageItem.make_currency(global_position + scatter, color, value)
+	drop.sky_zones = sky_zones
+	drop.water_surface_y = water_surface_y
 	get_parent().add_child(drop)
 	last_drops.append(drop)
 

@@ -31,13 +31,26 @@ file and search for the class name below to find the actual numbers.
 ## Per-species enemy data (NOT in GameFeel)
 
 Per-species stats (hp, bite damage, weight, size, move speed, currency drops,
-elite ability) deliberately live OUTSIDE GameFeel, in one `.tres` file per
-species under `res://data/enemies/`. `res://data/enemies/reference_fish.tres`
-is the only one that exists today. Open it in the Godot editor (Inspector
-panel) to tune a species' numbers — no code involved. The split exists so
-"how floaty does combat feel" (GameFeel, shared) stays separate from "how
-tough is THIS fish" (per-species data) — see DECISIONS.md, MILESTONE_8.md
-Module 0.
+elite ability, body color, currency color) deliberately live OUTSIDE GameFeel,
+in one `.tres` file per species under `res://data/enemies/`. Open one in the
+Godot editor (Inspector panel) to tune that species' numbers or colors — no
+code involved. Two exist today:
+
+| Species (file) | AI behavior(s) | Body color | Currency color |
+|---|---|---|---|
+| `reference_fish.tres` ("Reef Fish") | Territorial, Hunter | orange | orange |
+| `chaser_fish.tres` ("Basic Chaser") | Chaser | green | teal |
+
+The split exists so "how floaty does combat feel" (GameFeel, shared) stays
+separate from "how tough is THIS fish" (per-species data) — see DECISIONS.md,
+MILESTONE_8.md Module 0. Which file a fish actually uses is picked by its AI
+behavior in `Fish._ready()` (`scripts/fauna/fish.gd`) — a Chaser-behavior fish
+loads `chaser_fish.tres`, anything else loads `reference_fish.tres` — unless a
+spawn explicitly overrides it with a different `EnemyDef` (the world's one
+ranged-Elite demo spawn does this). The actual on-screen render color is
+`PlaceholderArt.FISH_COLOR`/`CHASER_COLOR` (`scripts/placeholder_art.gd`) —
+kept in sync with each species' `body_color` field by hand, since body color
+isn't wired to read from the `.tres` directly yet (an ART-PASS-flagged gap).
 
 ## Reel minigame, in plain terms
 

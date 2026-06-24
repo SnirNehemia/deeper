@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="EnemyDef" load_steps=6 format=3 uid="uid://odl55gfaqdy0"]
+[gd_resource type="Resource" script_class="EnemyDef" load_steps=6 format=3 uid="uid://c6w84ksqe1gk4"]
 
 [ext_resource type="Script" uid="uid://d4utj3crwggw" path="res://data/enemies/enemy_def.gd" id="1"]
 [ext_resource type="Script" uid="uid://cv4xikrr5v86f" path="res://data/enemies/enemy_class_stats.gd" id="2"]
@@ -38,9 +38,9 @@ elite_ability = "none"
 
 [resource]
 script = ExtResource("1")
-species_name = "Reef Fish"
-body_color = Color(0.909804, 0.454902, 0.172549, 1)
-currency_color = "orange"
+species_name = "Basic Chaser"
+body_color = Color(0.223529, 0.768627, 0.352941, 1)
+currency_color = "teal"
 ranged = false
 grabbable = true
 class_small = SubResource("1")

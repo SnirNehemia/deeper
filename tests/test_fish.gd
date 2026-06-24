@@ -17,6 +17,13 @@ func _ready() -> void:
 	await _test_hunter_chases_and_gives_up()
 	await _test_territorial_unaffected_by_hunt_path()
 	await _test_chaser_locks_on_and_never_gives_up()
+	await _test_chaser_is_its_own_species()
+	await _test_falls_under_gravity_when_stranded()
+	await _test_pocket_sky_check_bounded_by_rect()
+	await _test_escapes_when_embedded_in_terrain()
+	await _test_resumes_ai_after_landing_in_a_pocket()
+	await _test_chaser_does_not_detect_through_walls()
+	await _test_does_not_swim_through_a_wall_while_chasing()
 
 	if _failures == 0:
 		print("FISH TESTS PASSED")
@@ -297,5 +304,248 @@ func _test_chaser_locks_on_and_never_gives_up() -> void:
 	_check(fish.state == Fish.State.HUNT, "chaser never gives up even far out of range")
 
 	fish.queue_free()
+	sub.queue_free()
+	await _frames(2)
+
+func _test_chaser_is_its_own_species() -> void:
+	print("[the chaser is its own species, not a recolored reference fish]")
+	var sub := Sub.new()
+	sub.position = Vector2(-1000.0 * _ppm(), 0)
+	add_child(sub)
+
+	var chaser := Fish.new()
+	chaser.sub = sub
+	chaser.behavior = Fish.Behavior.CHASER
+	add_child(chaser)
+	var territorial := Fish.new()
+	territorial.sub = sub
+	territorial.behavior = Fish.Behavior.TERRITORIAL
+	add_child(territorial)
+	await _frames(2)
+
+	_check(chaser.enemy_def.currency_color == "teal",
+		"an unconfigured chaser defaults to its own teal-currency species")
+	_check(territorial.enemy_def.currency_color == "orange",
+		"an unconfigured territorial fish still defaults to the orange reference species")
+	_check(chaser.enemy_def != territorial.enemy_def,
+		"chaser and territorial fish use two distinct EnemyDef resources")
+
+	chaser.queue_free()
+	territorial.queue_free()
+	sub.queue_free()
+	await _frames(2)
+
+func _test_falls_under_gravity_when_stranded() -> void:
+	print("[a fish stranded above the water surface falls under plain gravity, no steering]")
+	var sub := Sub.new()
+	sub.position = Vector2(-1000.0 * _ppm(), 0)  # far away: fish stays out of CHASE/HUNT
+	add_child(sub)
+
+	var fish := Fish.new()
+	fish.sub = sub
+	add_child(fish)
+	await _frames(2)
+
+	fish.water_surface_y = 1000.0
+	fish.home = Vector2(500.0, 1200.0)  # sideways + underwater: if the fish could
+	                                      # still steer while airborne it would drift toward x=500
+	fish.global_position = Vector2(0.0, -50.0)  # stranded above the surface line
+	fish.state = Fish.State.RETURN
+
+	var x0 := fish.global_position.x
+	var y0 := fish.global_position.y
+	await _frames(10)
+	var y1 := fish.global_position.y
+	await _frames(10)
+	var y2 := fish.global_position.y
+
+	_check(fish.global_position.x == x0,
+		"a falling fish does not steer sideways, even toward home")
+	_check((y2 - y1) > (y1 - y0),
+		"fall speed increases over time like gravity, not a constant drift")
+
+	var reached_water := false
+	for i in 300:
+		await get_tree().physics_frame
+		if fish.global_position.y >= fish.water_surface_y:
+			reached_water = true
+			break
+	_check(reached_water, "the fish actually reaches the water, it doesn't fall forever")
+
+	fish.queue_free()
+	sub.queue_free()
+	await _frames(2)
+
+func _test_pocket_sky_check_bounded_by_rect() -> void:
+	print("[a pocket's sky zone is bounded by its rect, not just its x-range]")
+	var sub := Sub.new()
+	sub.position = Vector2(-1000.0 * _ppm(), 0)
+	add_child(sub)
+
+	var fish := Fish.new()
+	fish.sub = sub
+	add_child(fish)
+	await _frames(2)
+
+	fish.water_surface_y = 0.0  # disabled (default) -- isolates the pocket check below
+	fish.sky_zones = [{
+		"rect": Rect2(100.0, 500.0, 200.0, 100.0),
+		"surface_y": 550.0,
+		"is_pocket": true,
+	}]
+
+	# Shares the pocket's x-range but is far above its actual vertical
+	# footprint (genuinely underwater elsewhere) -- this used to false-positive
+	# as "in that pocket's sky" before bounding the check by the full rect.
+	fish.global_position = Vector2(150.0, 50.0)
+	_check(not fish._in_sky(),
+		"a fish sharing a pocket's x-range but outside its rect is not treated as airborne")
+
+	# Genuinely inside the pocket's footprint and above its local surface IS sky.
+	fish.global_position = Vector2(150.0, 520.0)
+	_check(fish._in_sky(),
+		"a fish actually inside a pocket's rect, above its local surface, is airborne")
+
+	fish.queue_free()
+	sub.queue_free()
+	await _frames(2)
+
+func _test_escapes_when_embedded_in_terrain() -> void:
+	print("[a fish embedded in rock (e.g. knocked into a wall) can still escape]")
+	var sub := Sub.new()
+	sub.position = Vector2(-1000.0 * _ppm(), 0)  # far away: fish stays out of CHASE/HUNT
+	add_child(sub)
+
+	var rock := TerrainBody.new()
+	rock.add_rect(Rect2(-50.0, -50.0, 100.0, 100.0))  # a solid block centered on the origin
+	add_child(rock)
+	await _frames(2)
+
+	var fish := Fish.new()
+	fish.sub = sub
+	add_child(fish)
+	await _frames(2)
+
+	fish.global_position = Vector2.ZERO  # embedded dead-center in the rock
+	fish.home = Vector2(500.0, 0.0)      # a clear target well outside the rock
+	fish.state = Fish.State.RETURN
+
+	var start := fish.global_position
+	await _frames(30)
+
+	_check(fish.global_position.distance_to(start) > 1.0,
+		"a fish embedded in rock can still move toward open water, instead of being frozen forever")
+
+	fish.queue_free()
+	rock.queue_free()
+	sub.queue_free()
+	await _frames(2)
+
+func _test_resumes_ai_after_landing_in_a_pocket() -> void:
+	print("[a fish that lands on rock inside an air pocket resumes AI instead of freezing on top of it forever]")
+	var sub := Sub.new()
+	sub.position = Vector2(-1000.0 * _ppm(), 0)  # far away: fish stays out of CHASE/HUNT
+	add_child(sub)
+
+	# A solid floor a little below the fish's start point, still well within
+	# the pocket's own sky zone -- the fish should land on this, not fall
+	# through it, and the landing itself must not freeze it in place.
+	var rock := TerrainBody.new()
+	rock.add_rect(Rect2(-200.0, 50.0, 400.0, 200.0))
+	add_child(rock)
+	await _frames(2)
+
+	var fish := Fish.new()
+	fish.sub = sub
+	add_child(fish)
+	await _frames(2)
+
+	fish.water_surface_y = 0.0  # disabled (default) -- isolate the pocket case
+	fish.sky_zones = [{
+		"rect": Rect2(-200.0, -200.0, 400.0, 260.0),  # covers the fish's start AND the rock's top
+		"surface_y": 1000.0,  # comfortably above both, so "in this pocket's air" holds throughout
+		"is_pocket": true,
+	}]
+	fish.home = Vector2(900.0, 1000.0)  # a clear target well outside the pocket and the rock
+	fish.global_position = Vector2(0.0, -10.0)  # starts in the pocket's air, just above the floor
+	fish.state = Fish.State.RETURN
+
+	await _frames(20)  # falls and lands on the rock floor
+	var landed := fish.global_position
+	await _frames(90)  # should now be resuming AI, working its way back toward home
+
+	_check(fish.global_position.distance_to(landed) > 1.0,
+		"a fish landed on a pocket's rock floor resumes AI instead of freezing there forever")
+
+	fish.queue_free()
+	rock.queue_free()
+	sub.queue_free()
+	await _frames(2)
+
+func _test_chaser_does_not_detect_through_walls() -> void:
+	print("[a chaser doesn't lock on to a sub hidden behind solid rock, even within range]")
+	var sub := Sub.new()
+	sub.position = Vector2(-100.0 * _ppm(), 0)
+	add_child(sub)
+
+	var fish := Fish.new()
+	fish.sub = sub
+	fish.behavior = Fish.Behavior.CHASER
+	fish.position = Vector2.ZERO
+	add_child(fish)
+	await _frames(2)
+
+	# A solid wall directly between the fish's home and where the sub is about
+	# to move to.
+	var rock := TerrainBody.new()
+	rock.add_rect(Rect2(7.0 * _ppm(), -300.0, 1.0 * _ppm(), 600.0))
+	add_child(rock)
+	await _frames(2)
+
+	# Within chaser_detect_m (18m) but hidden behind the wall.
+	sub.global_position = fish.home + Vector2(15.0 * _ppm(), 0)
+	await _frames(10)
+	_check(fish.state != Fish.State.HUNT,
+		"a chaser doesn't detect a sub hidden behind solid rock, even within range")
+
+	# Remove the wall, same distance: now it should lock on.
+	rock.queue_free()
+	await _frames(2)
+	await _frames(10)
+	_check(fish.state == Fish.State.HUNT,
+		"the same chaser detects the sub once it has a clear line of sight")
+
+	fish.queue_free()
+	sub.queue_free()
+	await _frames(2)
+
+func _test_does_not_swim_through_a_wall_while_chasing() -> void:
+	print("[a fish chasing into a wall stays blocked, doesn't slip through by grazing it]")
+	var sub := Sub.new()
+	add_child(sub)
+
+	var rock := TerrainBody.new()
+	rock.add_rect(Rect2(40.0, -300.0, 40.0, 600.0))
+	add_child(rock)
+	await _frames(2)
+
+	var fish := Fish.new()
+	fish.sub = sub
+	fish.behavior = Fish.Behavior.CHASER
+	fish.global_position = Vector2.ZERO
+	add_child(fish)
+	await _frames(2)
+
+	fish.state = Fish.State.HUNT  # already locked on -- detection/LOS isn't what's under test here
+	sub.global_position = Vector2(200.0, 0.0)  # on the far side of the wall
+
+	for i in 120:
+		await get_tree().physics_frame
+
+	_check(fish.global_position.x < 40.0,
+		"a fish can't cross through solid rock just by repeatedly bumping into it")
+
+	fish.queue_free()
+	rock.queue_free()
 	sub.queue_free()
 	await _frames(2)

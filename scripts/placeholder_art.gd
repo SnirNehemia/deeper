@@ -29,7 +29,7 @@ const BREACH_MED := Color("ff8c3a")       ## steady leak (orange)
 const BREACH_BIG := Color("ff3030")       ## gusher (red)
 
 # --- Fauna ---
-const FISH_COLOR := Color("7a4ae8")       ## chunky territorial fish (purple)
+const FISH_COLOR := Color("e8742c")       ## chunky territorial fish (orange)
 const FISH_LENGTH_M: float = 1.0
 const CHASER_COLOR := Color("39c45a")     ## basic_chaser: green, open-water
 const CHASER_LENGTH_M: float = 1.6        ## more elongated than the territorial fish
@@ -43,6 +43,7 @@ const SCRAP_COLOR := Color("c8a050")      ## scrap crate (warm metal)
 ## registered here) fall back to a neutral grey rather than erroring.
 const CURRENCY_COLORS := {
 	"teal": Color("2ec4b6"),
+	"orange": Color("e8742c"),
 	"gold": Color("d4af37"),
 }
 static func currency_color(name: String) -> Color:
