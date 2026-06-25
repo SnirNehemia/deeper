@@ -10,7 +10,7 @@ extends Area2D
 ## AI is deliberately dumb: distance checks + four states, no pathfinding.
 ## It can't enter the cave interior — avoiding it by piloting is valid play.
 
-enum State { PATROL, CHASE, RECOVER, RETURN, HUNT, LURK, WINDUP, LUNGE }
+enum State { PATROL, CHASE, RECOVER, RETURN, HUNT, LURK, WINDUP, LUNGE, KITE, INFLATE }
 
 ## MILESTONE_8.md Module 0: the AI pattern, independent of the EnemyDef class
 ## tier below. TERRITORIAL = M2 behaviour (chase trigger only inside
@@ -22,8 +22,11 @@ enum State { PATROL, CHASE, RECOVER, RETURN, HUNT, LURK, WINDUP, LUNGE }
 ## (MILESTONE_9.md — the Sand Lurker): lies buried and motionless with an
 ## INVISIBLE detect range; when the sub enters it, a brief tremor windup, then
 ## a fast committed lunge for a single bite, then it darts off and re-buries
-## somewhere new (never the same spot).
-enum Behavior { TERRITORIAL, HUNTER, CHASER, AMBUSHER }
+## somewhere new (never the same spot). SPITTER (MILESTONE_9.md — the Spitter
+## puffer): a kiter that keeps a standoff band, inflates to a full circle, then
+## fires destructible bubbles at the sub (more from bigger ones); juicy and
+## vulnerable while inflated.
+enum Behavior { TERRITORIAL, HUNTER, CHASER, AMBUSHER, SPITTER }
 
 const DEFAULT_ENEMY_DEF_PATH := "res://data/enemies/reference_fish.tres"
 ## 2026-06-24: the chaser was always meant to be its own species (it was just
@@ -35,12 +38,16 @@ const CHASER_ENEMY_DEF_PATH := "res://data/enemies/chaser_fish.tres"
 ## currency), bound to the AMBUSHER behavior the same way the chaser is bound
 ## to CHASER.
 const LURKER_ENEMY_DEF_PATH := "res://data/enemies/lurker_fish.tres"
+## MILESTONE_9.md — the Spitter is its own species (dark-brown body, "brown"
+## currency), bound to the SPITTER behavior.
+const SPITTER_ENEMY_DEF_PATH := "res://data/enemies/spitter_fish.tres"
 ## Loaded lazily (not preloaded as a const) — preloading a custom-scripted
 ## .tres at fish.gd's own parse time raced the engine's global-class
 ## registration in headless runs and silently produced a scriptless Resource.
 static var _default_enemy_def: EnemyDef = null
 static var _chaser_enemy_def: EnemyDef = null
 static var _lurker_enemy_def: EnemyDef = null
+static var _spitter_enemy_def: EnemyDef = null
 
 ## The sub it guards against (set at placement).
 var sub: Sub = null
@@ -106,6 +113,14 @@ var _windup_timer: float = 0.0
 var _lunge_dir: Vector2 = Vector2.ZERO
 var _lunge_origin: Vector2 = Vector2.ZERO
 
+## MILESTONE_9.md — SPITTER (Spitter puffer) state. _inflate_timer ramps the
+## puff-up; _inflate_cooldown gates re-inflation after a volley; _inflated is
+## true through the whole puff-up (the "juicy target" window — extra damage
+## taken + bonus currency if popped before it fires).
+var _inflate_timer: float = 0.0
+var _inflate_cooldown: float = 0.0
+var _inflated: bool = false
+
 func _ready() -> void:
 	add_to_group("fish")
 	home = global_position
@@ -123,6 +138,10 @@ func _ready() -> void:
 			if _lurker_enemy_def == null:
 				_lurker_enemy_def = load(LURKER_ENEMY_DEF_PATH)
 			enemy_def = _lurker_enemy_def
+		elif behavior == Behavior.SPITTER:
+			if _spitter_enemy_def == null:
+				_spitter_enemy_def = load(SPITTER_ENEMY_DEF_PATH)
+			enemy_def = _spitter_enemy_def
 		else:
 			if _default_enemy_def == null:
 				_default_enemy_def = load(DEFAULT_ENEMY_DEF_PATH)
@@ -161,6 +180,8 @@ func _base_length_m() -> float:
 			return PlaceholderArt.CHASER_LENGTH_M
 		Behavior.AMBUSHER:
 			return PlaceholderArt.LURKER_LENGTH_M
+		Behavior.SPITTER:
+			return PlaceholderArt.SPITTER_LENGTH_M
 		_:
 			return PlaceholderArt.FISH_LENGTH_M
 
@@ -207,6 +228,7 @@ func _physics_process(delta: float) -> void:
 	var feel: GameFeel.FishFeel = GameFeel.fish
 	_wobble += delta
 	_bite_cooldown = maxf(0.0, _bite_cooldown - delta)
+	_inflate_cooldown = maxf(0.0, _inflate_cooldown - delta)
 	_hit_flash = maxf(0.0, _hit_flash - delta)
 	if _knockback != Vector2.ZERO:
 		var knockback_step := _knockback * delta
@@ -249,6 +271,15 @@ func _physics_process(delta: float) -> void:
 			and dist_to_sub <= feel.chaser_detect_m * ppm \
 			and _has_line_of_sight_to_sub():
 		state = State.HUNT
+		_has_spotted = true
+
+	# Spitters notice the sub from spit_detect_m (with line of sight) and drop
+	# into their kiting loop. Only from idle states (PATROL/RETURN) — the kite/
+	# inflate cycle drives itself once engaged.
+	if behavior == Behavior.SPITTER and (state == State.PATROL or state == State.RETURN) \
+			and dist_to_sub <= GameFeel.spitter.spit_detect_m * ppm \
+			and _has_line_of_sight_to_sub():
+		state = State.KITE
 		_has_spotted = true
 
 	match state:
@@ -295,10 +326,18 @@ func _physics_process(delta: float) -> void:
 		State.RETURN:
 			_swim_toward(home, feel.return_speed * ppm, delta)
 			if global_position.distance_to(home) < 10.0:
-				# AMBUSHER re-buries at the (new) home; everyone else patrols.
+				# AMBUSHER re-buries at the (new) home; everyone else patrols
+				# (a spitter re-spots from PATROL via the top-of-frame check).
 				state = State.LURK if behavior == Behavior.AMBUSHER else State.PATROL
-			elif behavior != Behavior.AMBUSHER and sub_in_territory:
+			elif behavior == Behavior.TERRITORIAL and sub_in_territory:
+				# Only territorial fish re-engage via CHASE from RETURN; hunter/
+				# chaser re-acquire through the HUNT lock-on above, spitter
+				# through the KITE spot check.
 				state = State.CHASE
+		State.KITE:
+			_spitter_kite(ppm, delta)
+		State.INFLATE:
+			_spitter_inflate(ppm, delta)
 		State.LURK:
 			# Buried and ~motionless: hold at home, run a SILENT detect each
 			# frame (no attention ring is ever drawn — see _draw). Sub inside
@@ -431,6 +470,82 @@ func _pick_rebury_home() -> Vector2:
 			continue
 		return candidate
 	return home
+
+## MILESTONE_9.md — SPITTER kiting loop: keep the standoff band. Too close →
+## back away; too far → approach; lost entirely → break off home; inside the
+## band and off cooldown → start inflating.
+func _spitter_kite(ppm: float, delta: float) -> void:
+	if sub == null:
+		state = State.PATROL
+		return
+	var sp := GameFeel.spitter
+	var d := global_position.distance_to(sub.global_position)
+	var kite_speed := class_stats().move_speed * ppm
+	if d > sp.spit_detect_m * ppm * 1.2:
+		state = State.RETURN
+	elif d < sp.spit_keep_min_m * ppm:
+		var away := sub.global_position.direction_to(global_position)
+		_swim_toward(global_position + away * 5.0 * ppm, kite_speed, delta)
+	elif d > sp.spit_keep_max_m * ppm:
+		_swim_toward(sub.global_position, kite_speed, delta)
+	elif _inflate_cooldown <= 0.0:
+		_inflate_timer = 0.0
+		_inflated = true
+		state = State.INFLATE
+	# else: in the band but cooling down — hold and wait.
+
+## MILESTONE_9.md — SPITTER inflate cycle: puff up over inflate_time_s (juicy &
+## vulnerable the whole time), then fire the tier's bubble count and deflate. The
+## puff-up aborts if the sub breaks the band, so you can pressure it off a shot.
+func _spitter_inflate(ppm: float, delta: float) -> void:
+	if sub == null:
+		_inflated = false
+		state = State.PATROL
+		return
+	var sp := GameFeel.spitter
+	var d := global_position.distance_to(sub.global_position)
+	if d < sp.spit_keep_min_m * ppm or d > sp.spit_detect_m * ppm * 1.2:
+		_inflated = false
+		state = State.KITE
+		return
+	var dx := sub.global_position.x - global_position.x
+	if absf(dx) > 0.1:
+		_facing = signf(dx)
+	_inflate_timer += delta
+	if _inflate_timer >= sp.inflate_time_s:
+		_fire_bubbles(ppm)
+		_inflated = false
+		_inflate_cooldown = sp.inflate_cooldown_s
+		_inflate_timer = 0.0
+		state = State.KITE
+
+## Bubbles fired this volley, by class tier (Small 1, Big 2, Elite a spread).
+func _bubble_count() -> int:
+	match current_class:
+		EnemyDef.Class.BIG:
+			return GameFeel.spitter.big_bubbles
+		EnemyDef.Class.ELITE:
+			return GameFeel.spitter.elite_bubbles
+		_:
+			return GameFeel.spitter.small_bubbles
+
+## Spawn the volley: one bubble straight at the sub, extras jittered within a
+## spread cone. Each is a destructible Bubble (scripts/fauna/bubble.gd).
+func _fire_bubbles(ppm: float) -> void:
+	if sub == null:
+		return
+	var sp := GameFeel.spitter
+	var aim := global_position.direction_to(sub.global_position)
+	var count := _bubble_count()
+	var spread := deg_to_rad(sp.scatter_spread_deg)
+	var muzzle := _base_length_m() * class_stats().size_scale * ppm * 0.6
+	for i in count:
+		var jitter := 0.0 if count <= 1 else randf_range(-spread, spread)
+		var dir := aim.rotated(jitter)
+		var b := Bubble.new()
+		b.velocity = dir * GameFeel.bubble.speed_mps * ppm
+		get_parent().add_child(b)
+		b.global_position = global_position + dir * muzzle
 
 ## If the fish's own shape is currently overlapping terrain right now (e.g.
 ## knocked into a wall by a hit), push it back out along the wall's normal
@@ -588,7 +703,10 @@ func _on_area_entered(area: Area2D) -> void:
 func take_damage(amount: float, from_point: Vector2) -> void:
 	if is_dead or grabbed:
 		return
-	hp -= amount
+	# MILESTONE_9.md — a fully-inflated Spitter is a juicy target: it takes
+	# extra damage (and pays a bonus if it dies inflated — see die()).
+	var dealt := amount * (GameFeel.spitter.inflate_damage_mult if _inflated else 1.0)
+	hp -= dealt
 	if hp <= 0.0:
 		die()
 		return
@@ -656,6 +774,11 @@ func die() -> void:
 	if current_class == EnemyDef.Class.ELITE and stats.gold_drop > 0:
 		for value in GameFeel.currency.split(stats.gold_drop):
 			_spawn_drop("gold", value)
+	# MILESTONE_9.md — popped while inflated: bonus currency in the species'
+	# color (you caught the Spitter juicy, before it could fire).
+	if _inflated and GameFeel.spitter.inflate_pop_bonus > 0:
+		for value in GameFeel.currency.split(GameFeel.spitter.inflate_pop_bonus):
+			_spawn_drop(enemy_def.currency_color, value)
 
 ## One denomination pickup, scattered a little around the kill site so several
 ## drops from one kill don't all stack on the exact same pixel.
@@ -684,6 +807,9 @@ func reset_fish() -> void:
 	_ranged_cooldown = 0.0
 	state = State.LURK if behavior == Behavior.AMBUSHER else State.PATROL
 	_windup_timer = 0.0
+	_inflate_timer = 0.0
+	_inflate_cooldown = 0.0
+	_inflated = false
 	hp_max = class_stats().hp
 	hp = hp_max
 	_hit_flash = 0.0
@@ -716,6 +842,8 @@ func _detect_radius_px() -> float:
 		return feel.chaser_detect_m * ppm
 	if behavior == Behavior.HUNTER:
 		return feel.hunter_detect_m * ppm
+	if behavior == Behavior.SPITTER:
+		return GameFeel.spitter.spit_detect_m * ppm
 	return feel.territory_radius_m * ppm
 
 ## The active EnemyDef class block (Small/Big/Elite) this fish reads its
@@ -728,6 +856,7 @@ func _draw() -> void:
 	var ppm: float = GameFeel.PIXELS_PER_METER
 	var is_chaser := behavior == Behavior.CHASER
 	var is_ambusher := behavior == Behavior.AMBUSHER
+	var is_spitter := behavior == Behavior.SPITTER
 	# MILESTONE_8.md Module 3: class tier scales the drawn size too, matching
 	# the collision circle set in _ready() — art stays identical at every
 	# tier (ART-PASS FLAG), just scaled.
@@ -735,7 +864,8 @@ func _draw() -> void:
 	var len_px := length_m * ppm
 	var half := len_px * 0.5
 	var base_color := PlaceholderArt.CHASER_COLOR if is_chaser \
-		else (PlaceholderArt.LURKER_COLOR if is_ambusher else PlaceholderArt.FISH_COLOR)
+		else (PlaceholderArt.LURKER_COLOR if is_ambusher \
+		else (PlaceholderArt.SPITTER_COLOR if is_spitter else PlaceholderArt.FISH_COLOR))
 	var c := Color.WHITE if _hit_flash > 0.0 else base_color
 
 	# Detection range circle — drawn before the fish-body transform so it
@@ -755,6 +885,9 @@ func _draw() -> void:
 		tremor = sin(_wobble * 70.0) * half * 0.14  # fast shudder = the strike tell
 	draw_set_transform(Vector2(tremor, 0.0), 0.0,
 		Vector2(_facing * stretch, (1.0 + 0.06 * sin(_wobble * 6.0)) * squash))
+	if is_spitter:
+		_draw_puffer(half, c)
+		return
 	# Chunky body.
 	draw_circle(Vector2(0, 0), half * 0.55, c)
 	draw_rect(Rect2(-half * 0.55, -half * 0.4, half * 0.9, half * 0.8), c)
@@ -769,3 +902,28 @@ func _draw() -> void:
 	draw_colored_polygon(PackedVector2Array([
 		Vector2(-half * 0.1, -half * 0.5), Vector2(half * 0.15, -half * 0.5),
 		Vector2(-half * 0.05, -half * 0.8)]), c.darkened(0.2))
+
+## MILESTONE_9.md — the Spitter puffer: a round dark-brown body that swells to a
+## taut circle while inflating, sprouting spikes near full. Local +x faces the
+## sub (mirrored by the _facing applied in the caller's transform).
+func _draw_puffer(half: float, c: Color) -> void:
+	var inflate := 1.0
+	if state == State.INFLATE:
+		var t: float = clampf(_inflate_timer / GameFeel.spitter.inflate_time_s, 0.0, 1.0)
+		inflate = lerpf(1.0, GameFeel.spitter.inflate_full_scale, t)
+	var r := half * 0.6 * inflate
+	# Spikes appear as it nears full inflation.
+	if inflate > 1.25:
+		for i in 12:
+			var ang := i * TAU / 12.0
+			var base := Vector2.from_angle(ang) * r
+			draw_line(base, Vector2.from_angle(ang) * r * 1.22, c.darkened(0.25), 2.0)
+	# Round body.
+	draw_circle(Vector2.ZERO, r, c)
+	# Small tail nub at the back.
+	draw_colored_polygon(PackedVector2Array([
+		Vector2(-r * 0.95, 0), Vector2(-r * 1.35, -r * 0.35),
+		Vector2(-r * 1.35, r * 0.35)]), c.darkened(0.2))
+	# Eye, biased forward.
+	draw_circle(Vector2(r * 0.4, -r * 0.2), r * 0.2, Color.WHITE)
+	draw_circle(Vector2(r * 0.47, -r * 0.2), r * 0.1, Color.BLACK)

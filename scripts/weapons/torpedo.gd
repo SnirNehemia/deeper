@@ -20,6 +20,14 @@ var lifetime: float = GameFeel.turret.torpedo_lifetime
 ## Collision circle radius, px. Overridden by Bullet (M4-12) for a smaller hitbox.
 var radius: float = 8.0
 
+## MILESTONE_9.md — THE SPITTER. The shot's live remaining damage, initialised
+## at spawn from its weapon's GameFeel damage. A spitter Bubble (the game's first
+## destructible projectile) reads this in its "duel" and decrements it when a
+## strong shot pierces through — so carry-over damage is reduced by the hp the
+## bubble soaked. Nothing else reads it; fish/wreck still one-shot off the flat
+## GameFeel damage, so the default one-hit-destroy on terrain/fish is untouched.
+var damage_remaining: float = 0.0
+
 var _life: float = 0.0
 
 func _ready() -> void:
@@ -27,6 +35,7 @@ func _ready() -> void:
 	collision_mask = Layers.TERRAIN | Layers.FISH
 	monitoring = true
 	monitorable = true
+	damage_remaining = damage_value()
 	var shape := CollisionShape2D.new()
 	var circle := CircleShape2D.new()
 	circle.radius = radius
@@ -34,6 +43,22 @@ func _ready() -> void:
 	add_child(shape)
 	body_entered.connect(_on_body_entered)
 	rotation = velocity.angle()
+
+## This shot's hp damage (the same value a Fish/Wreck reads off GameFeel on a
+## hit). Bullet overrides it. Used to seed `damage_remaining` and by the spitter
+## Bubble's duel. Virtual so a Bullet instance reports its own (smaller) damage.
+func damage_value() -> float:
+	return GameFeel.turret.damage
+
+## MILESTONE_9.md — bubble duel helpers (the ONLY additions to the player weapon
+## path). slow(): a bubble always drags a passing shot. consume(): a bubble the
+## shot couldn't burst through eats it. Both are driven by the Bubble, so the
+## shot itself stays a dumb straight-flier and its collision mask never changes.
+func slow(factor: float) -> void:
+	velocity *= factor
+
+func consume() -> void:
+	queue_free()
 
 func _physics_process(delta: float) -> void:
 	_apply_sky_gravity(delta)

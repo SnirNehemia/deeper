@@ -38,6 +38,10 @@ const CHASER_LENGTH_M: float = 1.6        ## more elongated than the territorial
 ## Fish._draw) so it reads as "buried."
 const LURKER_COLOR := Color(0.82, 0.71, 0.48)  ## sandy tan
 const LURKER_LENGTH_M: float = 1.2        ## longer + drawn flat, so it looks half-buried
+## MILESTONE_9.md — THE SPITTER: a round, dark-brown puffer that inflates to a
+## taut circle before firing bubbles.
+const SPITTER_COLOR := Color(0.36, 0.23, 0.13)  ## dark brown
+const SPITTER_LENGTH_M: float = 1.2
 
 # --- Salvage ---
 const SCRAP_COLOR := Color("c8a050")      ## scrap crate (warm metal)
@@ -51,6 +55,7 @@ const CURRENCY_COLORS := {
 	"orange": Color("e8742c"),
 	"gold": Color("d4af37"),
 	"tan": Color("d2b48c"),   ## MILESTONE_9.md — the Lurker's drop
+	"brown": Color("8a5a32"), ## MILESTONE_9.md — the Spitter's drop
 }
 static func currency_color(name: String) -> Color:
 	return CURRENCY_COLORS.get(name, Color("b8b8c0"))

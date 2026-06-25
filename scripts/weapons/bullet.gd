@@ -11,6 +11,11 @@ func _ready() -> void:
 	lifetime = GameFeel.bullet.bullet_lifetime
 	super._ready()
 
+## A bullet deals its own (smaller) damage — so it only chips a 2-HP bubble and
+## takes a second round to pop it, while a turret torpedo bursts one outright.
+func damage_value() -> float:
+	return GameFeel.bullet.damage
+
 func _draw() -> void:
 	# A small bright streak (local +x is the flight direction).
 	draw_rect(Rect2(-10.0, -2.0, 18.0, 4.0), PlaceholderArt.HULL_COLOR)

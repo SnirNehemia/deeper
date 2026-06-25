@@ -118,6 +118,11 @@ func _spawn_entities() -> void:
 		# seabed) so it reads as half-buried. A Small and a Big to show the tiers.
 		_add_fish(Vector2(108.0 * M, 96.0 * M), Fish.Behavior.AMBUSHER, EnemyDef.Class.SMALL)
 		_add_fish(Vector2(140.0 * M, 96.0 * M), Fish.Behavior.AMBUSHER, EnemyDef.Class.BIG)
+		# MILESTONE_9.md demo: the Spitter (SPITTER) — keeps its distance, puffs
+		# up, and fires destructible bubbles. A Small (1 bubble) and an Elite
+		# (a 4-bubble scatter) to show the tiers.
+		_add_fish(Vector2(75.0 * M, 80.0 * M), Fish.Behavior.SPITTER, EnemyDef.Class.SMALL)
+		_add_fish(Vector2(175.0 * M, 80.0 * M), Fish.Behavior.SPITTER, EnemyDef.Class.ELITE)
 
 ## Build the sub from the saved loadout and seat the two crew inside it.
 func _spawn_sub_and_crew() -> void:

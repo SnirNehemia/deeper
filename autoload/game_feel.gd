@@ -287,6 +287,58 @@ class EnemyRangedFeel:
 
 var enemy_ranged: EnemyRangedFeel = EnemyRangedFeel.new()
 
+## MILESTONE_9.md — THE SPITTER's bubble (scripts/fauna/bubble.gd): the game's
+## first DESTRUCTIBLE projectile. Drifts to the hull and breaches it on contact
+## (breach_from_hit, the only death path), but players can shoot it out of the
+## air — it carries hp and runs a duel against a passing shot (see bubble.gd).
+## First-pass numbers; tune in playtest.
+class BubbleFeel:
+	## Shot damage needed to burst it. 2.0 = one turret torpedo (5 dmg) bursts
+	## it outright; a 1-dmg bullet needs two to pop it.
+	var hp: float = 2.0
+	## Drift speed (m/s) toward the sub — slow and shootable, not a hitscan.
+	var speed_mps: float = 4.0
+	## Seconds before an undisturbed bubble fizzles out.
+	var lifetime_s: float = 6.0
+	## Breach severity (GameFeel.breach scale) on a hull hit — same scale as a
+	## bite, not a separate hp number.
+	var damage: float = 1.0
+	## A bubble always drags a passing shot: its velocity is multiplied by this
+	## on contact (whether the shot bursts through or is consumed).
+	var slow_factor: float = 0.6
+
+var bubble: BubbleFeel = BubbleFeel.new()
+
+## MILESTONE_9.md — THE SPITTER (SPITTER behavior): a round puffer that keeps its
+## distance, inflates to a taut circle, and fires bubbles (more from bigger
+## ones). Fully inflated it's a juicy target — extra damage taken + bonus
+## currency if popped before it fires. First-pass numbers; tune in playtest.
+class SpitterFeel:
+	## How far it first notices the sub (and the radius of its drawn ring).
+	var spit_detect_m: float = 16.0
+	## Preferred standoff band: closer than min → back away; farther than max →
+	## approach; inside the band → hold and inflate.
+	var spit_keep_min_m: float = 7.0
+	var spit_keep_max_m: float = 11.0
+	## Seconds to inflate from resting to full before it fires.
+	var inflate_time_s: float = 1.6
+	## Seconds after firing before it can inflate again.
+	var inflate_cooldown_s: float = 2.5
+	## Drawn body scale at full inflation (1.0 = resting size).
+	var inflate_full_scale: float = 1.9
+	## Bubbles fired per tier (Small 1, Big 2, Elite a scatter spread).
+	var small_bubbles: int = 1
+	var big_bubbles: int = 2
+	var elite_bubbles: int = 4
+	## Half-angle (deg) of the random spread cone when firing more than one.
+	var scatter_spread_deg: float = 18.0
+	## Damage multiplier applied to hits taken while inflated (juicy target).
+	var inflate_damage_mult: float = 2.0
+	## Extra currency added to the drop if it's popped while inflated.
+	var inflate_pop_bonus: int = 10
+
+var spitter: SpitterFeel = SpitterFeel.new()
+
 ## MILESTONE_8.md Module 4: color-currency economy. Replaces the retired
 ## carcass tiers (s_ca/m_ca/l_ca) — an enemy drops its species' currency_color
 ## (EnemyDef, per-species) instead, split into these denominations. Room

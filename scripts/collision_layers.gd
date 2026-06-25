@@ -19,3 +19,8 @@ const FISH := 1 << 8       ## enemy fauna bodies
 const SALVAGE := 1 << 9    ## scrap pickups and fish carcasses, collected by the hull
 const WRECK := 1 << 10     ## sunken wrecks, cracked open by a torpedo hit
 const ENEMY_PROJECTILE := 1 << 11 ## ranged-enemy shots (hit terrain and the own hull, never fish)
+## MILESTONE_9.md — THE SPITTER: a destructible bubble. It hits the hull/terrain
+## and is also shootable out of the air by player projectiles, so it masks
+## PROJECTILE too. The bubble owns the duel logic (it mutates/frees the shot),
+## so player projectile masks are unchanged.
+const BUBBLE := 1 << 12     ## spitter bubbles (hit hull/terrain; shootable by player ammo)
