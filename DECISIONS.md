@@ -1195,3 +1195,32 @@ Snir's 7-part request, scoped via AskUserQuestion:
   first-listed option over "a spread"). Both are cheap to rename/reorder
   later if Snir prefers otherwise — flagging here so a future session
   doesn't mistake "implemented" for "confirmed."
+
+## Settled (2026-06-25, M8 Module 5 — the add-enemy skill — Milestone 8 closes)
+- **The fixed elite-ability menu stays exactly `ranged_spit`/`brief_shield`/
+  `speed_burst`** — MILESTONE_8.md's open item #2, confirmed with Snir via
+  structured Q&A before writing the skill, not extended or renamed.
+- **`brief_shield`/`speed_burst` stay mechanically inert stubs** (matching
+  the code already shipped in M8 Module 3 — they `push_warning` and do
+  nothing) rather than being implemented as part of Module 5. Snir's call:
+  Module 5 is scoped to building the skill, not to finishing the ability
+  menu's mechanics; a future species-authoring pass implements either one
+  if/when a species actually needs it.
+- **The skill's mandatory validation pass (re-deriving `reference_fish.tres`
+  to prove the skill works) is run as a scratch-copy-then-diff against the
+  live file, never an in-place overwrite.** Snir's call: `reference_fish.tres`
+  is live data every default fish spawn reads; a throwaway
+  `reference_fish_skill_check.tres` authored by hand-following the skill's
+  own intake/template, diffed field-for-field against the real file, then
+  deleted, proves the skill without ever putting the live species data at
+  risk mid-process. This pattern (scratch-copy validation, not overwrite) is
+  the model for any future skill's self-validation pass too.
+- **Currency-color reservation is enforced by a canonical reject-list**, not
+  just "don't pick yellow/grey/cyan/red/purple" prose: `yellow`, `light_grey`,
+  `lightgrey`, `grey`, `gray`, `cyan`, `light_blue`, `lightblue`, `red`,
+  `purple` (plus `gold`, reserved for a different reason — the elite premium
+  currency name, not an Elemental hue). The skill rejects a case-insensitive
+  substring match against this list and re-asks rather than silently
+  substituting a different color.
+- **This closes Milestone 8** (Modules 0 through 5 all done and
+  headless-verified). `MILESTONE_9.md` is the stub for the next milestone.

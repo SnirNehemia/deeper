@@ -1,6 +1,42 @@
 # STATUS — DEEPER
 
-_Read this at session start. Last updated: 2026-06-24 — **the chaser fish split into its own species (green/teal, was sharing the reference fish's data); fish/dropped currency stranded above the water now fall under plain gravity with zero steering, instead of swimming/drifting freely; reference fish recolored purple->orange end-to-end (body, currency, gen-map marker); currency pickups shape-coded by denomination.** Previous: 2026-06-21 — M8 Module 4 done (color currency economy + flat room pricing), gen-map pixel clustering -> fish class tiers done. Next: Module 5 (the add-enemy skill) — the last remaining piece of Milestone 8._
+_Read this at session start. Last updated: 2026-06-25 — **M8 Module 5 done: the `add-deeper-enemy` skill is written and validated — Milestone 8 is fully closed.** Previous: 2026-06-24 — the chaser fish split into its own species (green/teal, was sharing the reference fish's data); fish/dropped currency stranded above the water now fall under plain gravity with zero steering, instead of swimming/drifting freely; reference fish recolored purple->orange end-to-end (body, currency, gen-map marker); currency pickups shape-coded by denomination. Next: Milestone 9 (the three named fish authored through the skill, plus the economy balance pass) — see `MILESTONE_9.md`._
+
+**M8 Module 5 — the add-enemy skill, built + validated (2026-06-25) — Milestone 8 is closed:**
+`.claude/skills/add-deeper-enemy/SKILL.md` is written, modeled structurally on
+`add-deeper-room`: preconditions citing real files (`EnemyDef`/
+`EnemyClassStats`, `breach_from_hit`, the grab-tug bands, the color-currency
+pipeline, `GameFeel.fish`/`enemy_impact`/`enemy_ranged`/`currency`), a
+"prompt for everything, assume nothing" intake that blocks on every field in
+`MILESTONE_8.md`'s Module 5 list and **rejects reserved currency colors**
+(yellow/light-grey/cyan/red/purple/gold, per `ELEMENTAL_UPDATE.md` §2), the
+fixed three-ability elite menu, a novel-mechanic hand-code path for anything
+outside that menu or outside the three existing AI behaviors, the `.tres`
+authoring template, and a copy-paste test skeleton mirroring
+`tests/test_enemy_ranged.gd`.
+- **Three open items resolved with Snir via structured Q&A before writing:**
+  (1) the fixed elite-ability menu stays exactly `ranged_spit`/`brief_shield`/
+  `speed_burst` as-is — no additions; (2) `brief_shield`/`speed_burst` stay
+  inert stubs (matching today's code) rather than being implemented now —
+  Module 5 is scoped to the skill, not new ability mechanics; (3) the
+  mandatory validation pass (re-deriving `reference_fish.tres` to prove the
+  skill works) was run as a **scratch-copy-then-diff**, not an overwrite —
+  the live file was never at risk.
+- **Validation pass:** authored a throwaway
+  `data/enemies/reference_fish_skill_check.tres` by hand-following the
+  skill's own §1 intake + §3 template against `reference_fish.tres`'s known
+  values; every field (species name, body/currency color, ranged/grabbable,
+  all three Small/Big/Elite class blocks) matched exactly. Scratch file
+  deleted immediately after. This confirms the skill's intake list and
+  `.tres` template are complete and correct against the real reference
+  species — no missing or ambiguous field.
+- Headless boot confirmed clean after the skill file was added (no game code
+  changed — `.claude/skills/` is a Claude Code asset, not a project script).
+- **This closes Milestone 8** (Modules 0-5 all done). `MILESTONE_9.md`
+  created as the stub for the next milestone (the three named fish — sand
+  lurker, silver school, armored grey tank — authored *through* this skill,
+  plus the M8 Module 4b economy balance pass the color faucet was waiting on).
+- **Commit:** pending (this session).
 
 **The chaser is now its own species (2026-06-24):** Snir's call, resolving the open question below — the green chaser was sharing the same `EnemyDef` (the orange "Reef Fish") as the territorial/hunter fish, differing only in AI `behavior` + class tier, not species; per Snir this split was "meant from the start," not a new species. New `data/enemies/chaser_fish.tres` — same Small/Big/Elite numbers as the reference fish (pure identity split, no balance change), `body_color` matching `PlaceholderArt.CHASER_COLOR` (green), `currency_color = "teal"`. `Fish._ready()` (`scripts/fauna/fish.gd`) now picks its default `EnemyDef` by `behavior`: `CHASER` lazily loads `chaser_fish.tres` (new `CHASER_ENEMY_DEF_PATH` const + `_chaser_enemy_def` static cache, mirroring the existing `_default_enemy_def` pattern), everything else still defaults to the reference fish. `GameFeel.currency.room_price_colors` (`autoload/game_feel.gd`) grew from `["orange"]` to `["orange", "teal"]` since both colors now actually drop. New test `_test_chaser_is_its_own_species` in `tests/test_fish.gd`. Headless-verified (test_fish/test_salvage/test_shop/test_claw/test_telescope/test_grab_tug/test_world/test_reel_minigame/test_dock_shop_ui/test_validate/test_map_loader): no new failures.
 
