@@ -1,6 +1,95 @@
 # STATUS — DEEPER
 
-_Read this at session start. Last updated: 2026-06-25 — **M8 Module 5 done: the `add-deeper-enemy` skill is written and validated — Milestone 8 is fully closed.** Previous: 2026-06-24 — the chaser fish split into its own species (green/teal, was sharing the reference fish's data); fish/dropped currency stranded above the water now fall under plain gravity with zero steering, instead of swimming/drifting freely; reference fish recolored purple->orange end-to-end (body, currency, gen-map marker); currency pickups shape-coded by denomination. Next: Milestone 9 (the three named fish authored through the skill, plus the economy balance pass) — see `MILESTONE_9.md`._
+_Read this at session start. Last updated: 2026-06-26 — **M9-1 + M9-2 shipped: the first two real bestiary species — the Sand Lurker (an invisible-range ambusher) and the Spitter (a kiting puffer with destructible bubbles, the game's first shootable projectile).** Previous: 2026-06-25 — the `add-deeper-enemy` skill closed Milestone 8. Next: M10 — the queued deep-area roster (the Shoal + the Discharger, designed in `MILESTONE_9.md`) plus the carried-over economy balance pass._
+
+**M9-1 — THE SAND LURKER (AMBUSHER), shipped (2026-06-26):** the first new AI
+behavior past the M8 "no new AI" freeze. A flat, sand-colored fish that lies
+buried and motionless on the seabed with an **invisible** detect range (no
+attention ring is ever drawn — players find it only by spotting it against the
+sand). When the sub enters its hidden radius it gives a split-second tremor
+windup, then **lunges fast in a committed straight line** for a **single** bite,
+and **darts off to re-bury somewhere new** (never the same spot).
+- **`scripts/fauna/fish.gd`:** new `Behavior.AMBUSHER` + `State.LURK/WINDUP/
+  LUNGE` layered onto the existing state machine. `_pick_rebury_home()` picks a
+  fresh burial spot (downward-biased toward the seabed, validated against
+  terrain + sky, falls back to the old home). Extracted `shows_detection_ring()`
+  (returns false for ambushers — the ring is suppressed, detection logic
+  unaffected) and `_base_length_m()` (used by both the collision shape and the
+  drawn silhouette). The lunge bite reuses `_try_bite()` → `breach_from_hit` —
+  flooding stays the only death path; no new HP pool, no instant-kill.
+- **`autoload/game_feel.gd`:** `FishFeel` gains `ambush_detect_m` (7),
+  `ambush_windup_s` (0.2), `ambush_lunge_speed_mps` (18), `ambush_lurk_drift`
+  (0), `ambush_lunge_reach_m` (12) — all first-pass, `deeper-tuner`-friendly.
+- **`scripts/placeholder_art.gd`:** `LURKER_COLOR` (sand) + `LURKER_LENGTH_M`
+  (drawn flattened to read as half-buried); new `"tan"` currency color.
+- **`data/enemies/lurker_fish.tres`** (new): the Sand Lurker species (Small/Big/
+  Elite, grabbable, melee, tan drop, Elite ability `none` — its identity IS the
+  ambush, per Snir).
+- **`scenes/world.gd`:** two `AMBUSHER` demo spawns in the ShoreShelf fallback
+  (mirroring the M8 ranged demo — see "Known limitation" below).
+- **Tests:** new `tests/test_enemy_lurker` (per-tier load, invisible ring,
+  detect→windup→lunge→bite breach, re-bury-after-strike) — green.
+- **Commit:** `M9-1: sand lurker (AMBUSHER, invisible range, re-bury)`.
+
+**M9-2 — THE SPITTER + destructible bubbles, shipped (2026-06-26):** a kiting,
+dark-brown puffer that keeps a standoff band, inflates to a taut circle, then
+fires bubbles at the sub (Small 1, Big 2, Elite a 4-bubble scatter). Bubbles
+drift in and breach the hull on contact — but they're the **first destructible
+projectile in the game: players can shoot them out of the air.** Fully inflated
+the spitter is a **juicy target** (extra damage + bonus currency if popped before
+it fires).
+- **`scripts/fauna/bubble.gd`** (new, `class_name Bubble extends Area2D`): on the
+  new `Layers.BUBBLE` (`1 << 12`). Breaches the sub via `breach_from_hit` (the
+  same spine as every attack). Owns the **duel** with a player shot: always slows
+  it; if the shot's `damage_remaining ≥ hp` the bubble **bursts and the shot
+  pierces on with damage reduced by the hp it soaked** (carry-over rule confirmed
+  with Snir); otherwise it soaks the hit and **consumes** the shot. So one 1-dmg
+  bullet chips a 2-HP bubble and a second pops it; a 5-dmg turret torpedo bursts
+  straight through and flies on, slowed.
+- **`scripts/weapons/torpedo.gd` / `bullet.gd`:** `damage_value()` (virtual,
+  Bullet overrides), instance `damage_remaining` (seeded at spawn), `slow()`,
+  `consume()` — the **only** change to the player weapon path. Projectile
+  collision masks are unchanged (the bubble drives the duel), so the default
+  one-hit-destroy on terrain/fish is untouched.
+- **`scripts/fauna/fish.gd`:** `Behavior.SPITTER` + `State.KITE/INFLATE`; kite/
+  inflate/fire helpers; inflated-juicy hooks in `take_damage()` (×`inflate_
+  damage_mult`) and `die()` (bonus drop); `_draw_puffer()` (round brown body
+  that swells + sprouts spikes near full inflation).
+- **`autoload/game_feel.gd`:** new `BubbleFeel` (hp 2 / speed 4 / lifetime 6 /
+  damage 1 / slow_factor 0.6) + `SpitterFeel` (detect 16, keep band 7–11,
+  inflate 1.6s + 2.5s cooldown, full scale 1.9, tier bubble counts 1/2/4,
+  scatter 18°, juicy mult 2.0, pop bonus 10). All first-pass.
+- **`scripts/collision_layers.gd`:** `BUBBLE = 1 << 12`.
+- **`scripts/placeholder_art.gd`:** `SPITTER_COLOR`/`SPITTER_LENGTH_M` + `"brown"`
+  currency.
+- **`data/enemies/spitter_fish.tres`** (new): ranged, grabbable, brown drop,
+  Small/Big/Elite (hp 6/10/18 — meaty enough that popping it mid-inflate is a
+  real choice).
+- **`scenes/world.gd`:** Small + Elite `SPITTER` demo spawns in the ShoreShelf
+  fallback.
+- **Tests:** new `tests/test_enemy_spitter` (tiers + bubble counts, inflate→fire,
+  bubble breach, bullet chip-then-pop, torpedo burst+pierce+slow, inflated
+  juicy) — green. **New `class_name Bubble` → ran `--headless --import` once.**
+- **Commit:** `M9-2: spitter puffer + destructible bubbles (shootable projectile)`.
+
+**Full regression (28 suites) shows no new failures** beyond the documented
+pre-existing baseline (test_fish ×1, test_claw ×1, test_dock_shop_ui ×4, test_sub
+×2; plus test_input ×2 and a stale, unparseable `test_dry_dock.tscn` confirmed to
+predate this session — a background cleanup task was filed for the stale test).
+
+**Known limitation (M9 demo spawns):** like the M8 ranged-fish demo, the Lurker
+and Spitter demo spawns live in the **ShoreShelf fallback**, not the live
+cavern_depths_01 map (which spawns fish from painted gen-layer marker pixels, and
+no marker color exists for these two species yet). So they don't appear in a
+normal run. Making them paintable into the real map is a small follow-up: add a
+new marker color to `GenerationLayerParser` + `MapLoader` + `world.gd` for each,
+then Snir paints sandy/open spots — flagged for M10 if he wants them live.
+
+**Still queued for M10 (designed in `MILESTONE_9.md`, not built):** the Shoal
+(flocking swarm with a mass-slam + leader-kill scatter) and the Discharger
+(electric station-jammer — establishes the electrical-type fauna tag the future
+Yellow-Shock rounds will heal), plus the carried-over **economy balance pass**
+(per-room / per-color pricing now that tan + brown are real droppable colors).
 
 **M8 Module 5 — the add-enemy skill, built + validated (2026-06-25) — Milestone 8 is closed:**
 `.claude/skills/add-deeper-enemy/SKILL.md` is written, modeled structurally on

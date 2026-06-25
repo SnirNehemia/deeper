@@ -1224,3 +1224,57 @@ Snir's 7-part request, scoped via AskUserQuestion:
   substituting a different color.
 - **This closes Milestone 8** (Modules 0 through 5 all done and
   headless-verified). `MILESTONE_9.md` is the stub for the next milestone.
+## Settled (2026-06-26, M9-1 + M9-2 — the first real bestiary: Lurker & Spitter)
+- **Roster-lineage supersession (M8 close-out stub → the M9 roster).** The M8
+  stub pencilled M9 as "sand lurker, silver school fish, armored grey tank."
+  M9 as built **keeps the sand lurker** (now THE LURKER / `AMBUSHER`),
+  reshapes the *silver school* into **The Shoal** (designed, queued for M10),
+  replaces the *armored grey tank* with **The Spitter** (a ranged puffer,
+  built), and adds **The Discharger** (designed, queued for M10). The armored
+  tank is **not retired — it's simply not in this roster** and can return in a
+  later slice. Recording this so a future session doesn't treat the dropped
+  "school/tank" names as still-canon.
+- **Lurker currency = `tan`; Spitter currency = `brown`** (both confirmed with
+  Snir during the build, both non-reserved vs. the Elemental namespace). The
+  Lurker's **Elite ability stays `none`** — "its identity IS the ambush"
+  (Snir's call; the optional hand-coded "double-lunge" stretch was declined).
+- **`BUBBLE = 1 << 12` is a new, permanent collision layer** (`scripts/
+  collision_layers.gd`) for the Spitter's bubble. It hits `SUB_HULL | TERRAIN`
+  (breach/pop) AND masks `PROJECTILE` so it can be shot down — the bubble is
+  the first projectile that is itself a target. The bit is spent; don't reuse
+  it.
+- **Player ammo can now PIERCE destructible projectiles — a new precedent, but
+  tightly contained.** Player torpedoes were deliberately one-hit-destroy on
+  everything. The bubble introduces a single exception: a strong enough shot
+  bursts a bubble and **continues with its damage reduced by the hp the bubble
+  soaked** (carry-over rule confirmed with Snir, 2026-06-26 — "reduced by hp
+  spent," not full carry-through), slowed each time. Crucially this lives
+  **entirely in `bubble.gd`** (it mutates/frees the shot via new
+  `Torpedo.slow()/consume()/damage_remaining` helpers); **player projectile
+  collision masks are unchanged**, so the default one-hit-destroy on terrain
+  and fish is untouched. Any future destructible projectile should follow this
+  "the target owns the duel, the shot stays dumb" pattern rather than teaching
+  the weapon about new target types.
+- **All new M9 numeric dials are first-pass, in `GameFeel`** (`FishFeel`
+  ambush_*, new `BubbleFeel` + `SpitterFeel`), never in the `.tres` — the M8
+  spine/content split holds, so everything stays `deeper-tuner`-friendly.
+  Tunable feel items flagged for playtest: the Lurker's windup length
+  (fairness), the Spitter's Elite scatter count/spread, and the bubble
+  hp/slow/standoff-band balance.
+
+## Parked (2026-06-26, M9 carry-overs to M10)
+- **The Shoal and the Discharger are designed but not built** (full specs in
+  `MILESTONE_9.md`) — both are bigger lifts that introduce new sub-systems
+  (boids flocking + a group meta-entity for the Shoal; a station-disable system
+  + the electrical-type fauna tag for the Discharger). Queued for an M10 slice.
+- **The M8 Module 4b economy balance pass is still open** (carried from the M8
+  stub, surfaced to Snir, not silently bundled into M9): whether room prices
+  should gate on a specific currency color per room, whether the flat room
+  price should vary by room, and a re-confirm of the `gold`/`gold_drop` tuning
+  — now that `tan` + `brown` (and later the shoal/discharger colors) are real,
+  droppable colors to balance against. Recommendation stands: run it as its own
+  M10 follow-on so it's balanced against the species that actually exist.
+- **M9 demo spawns are ShoreShelf-fallback only** (Lurker + Spitter), matching
+  the M8 ranged-demo precedent — they don't appear in the live cavern map. A
+  paintable gen-layer marker per species (parser + MapLoader + world wiring) is
+  the clean way to make them live; parked until Snir wants them in the real map.
