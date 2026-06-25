@@ -33,6 +33,11 @@ const FISH_COLOR := Color("e8742c")       ## chunky territorial fish (orange)
 const FISH_LENGTH_M: float = 1.0
 const CHASER_COLOR := Color("39c45a")     ## basic_chaser: green, open-water
 const CHASER_LENGTH_M: float = 1.6        ## more elongated than the territorial fish
+## MILESTONE_9.md — THE LURKER (AMBUSHER): a sand-buried ambusher. Sand-colored
+## so it hides against the seabed; a flattened/low silhouette (drawn in
+## Fish._draw) so it reads as "buried."
+const LURKER_COLOR := Color(0.82, 0.71, 0.48)  ## sandy tan
+const LURKER_LENGTH_M: float = 1.2        ## longer + drawn flat, so it looks half-buried
 
 # --- Salvage ---
 const SCRAP_COLOR := Color("c8a050")      ## scrap crate (warm metal)
@@ -45,6 +50,7 @@ const CURRENCY_COLORS := {
 	"teal": Color("2ec4b6"),
 	"orange": Color("e8742c"),
 	"gold": Color("d4af37"),
+	"tan": Color("d2b48c"),   ## MILESTONE_9.md — the Lurker's drop
 }
 static func currency_color(name: String) -> Color:
 	return CURRENCY_COLORS.get(name, Color("b8b8c0"))

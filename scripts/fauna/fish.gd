@@ -10,7 +10,7 @@ extends Area2D
 ## AI is deliberately dumb: distance checks + four states, no pathfinding.
 ## It can't enter the cave interior — avoiding it by piloting is valid play.
 
-enum State { PATROL, CHASE, RECOVER, RETURN, HUNT }
+enum State { PATROL, CHASE, RECOVER, RETURN, HUNT, LURK, WINDUP, LUNGE }
 
 ## MILESTONE_8.md Module 0: the AI pattern, independent of the EnemyDef class
 ## tier below. TERRITORIAL = M2 behaviour (chase trigger only inside
@@ -18,8 +18,12 @@ enum State { PATROL, CHASE, RECOVER, RETURN, HUNT }
 ## locked on (from hunter_detect_m), chases anywhere, giving up only after
 ## hunter_lose_time spent beyond hunter_lose_m. CHASER ("basic_chaser"):
 ## relentless once locked on (from chaser_detect_m) — never gives up; only a
-## successful bite earns the crew a chaser_backoff_time breather.
-enum Behavior { TERRITORIAL, HUNTER, CHASER }
+## successful bite earns the crew a chaser_backoff_time breather. AMBUSHER
+## (MILESTONE_9.md — the Sand Lurker): lies buried and motionless with an
+## INVISIBLE detect range; when the sub enters it, a brief tremor windup, then
+## a fast committed lunge for a single bite, then it darts off and re-buries
+## somewhere new (never the same spot).
+enum Behavior { TERRITORIAL, HUNTER, CHASER, AMBUSHER }
 
 const DEFAULT_ENEMY_DEF_PATH := "res://data/enemies/reference_fish.tres"
 ## 2026-06-24: the chaser was always meant to be its own species (it was just
@@ -27,11 +31,16 @@ const DEFAULT_ENEMY_DEF_PATH := "res://data/enemies/reference_fish.tres"
 ## so it can carry its own currency_color independent of the territorial/
 ## hunter fish, per Snir's call.
 const CHASER_ENEMY_DEF_PATH := "res://data/enemies/chaser_fish.tres"
+## MILESTONE_9.md — the Sand Lurker is its own species (sand body, "tan"
+## currency), bound to the AMBUSHER behavior the same way the chaser is bound
+## to CHASER.
+const LURKER_ENEMY_DEF_PATH := "res://data/enemies/lurker_fish.tres"
 ## Loaded lazily (not preloaded as a const) — preloading a custom-scripted
 ## .tres at fish.gd's own parse time raced the engine's global-class
 ## registration in headless runs and silently produced a scriptless Resource.
 static var _default_enemy_def: EnemyDef = null
 static var _chaser_enemy_def: EnemyDef = null
+static var _lurker_enemy_def: EnemyDef = null
 
 ## The sub it guards against (set at placement).
 var sub: Sub = null
@@ -89,6 +98,14 @@ var _terrain_cast: ShapeCast2D
 ## during RECOVER (when state briefly leaves HUNT between attacks).
 var _has_spotted: bool = false
 
+## MILESTONE_9.md — AMBUSHER (Sand Lurker) state. _windup_timer counts down the
+## tremor tell; _lunge_dir is the committed straight-line strike direction
+## (locked at the windup→lunge transition, so the lunge can be dodged);
+## _lunge_origin is where the lunge began, to measure its commit distance.
+var _windup_timer: float = 0.0
+var _lunge_dir: Vector2 = Vector2.ZERO
+var _lunge_origin: Vector2 = Vector2.ZERO
+
 func _ready() -> void:
 	add_to_group("fish")
 	home = global_position
@@ -102,6 +119,10 @@ func _ready() -> void:
 			if _chaser_enemy_def == null:
 				_chaser_enemy_def = load(CHASER_ENEMY_DEF_PATH)
 			enemy_def = _chaser_enemy_def
+		elif behavior == Behavior.AMBUSHER:
+			if _lurker_enemy_def == null:
+				_lurker_enemy_def = load(LURKER_ENEMY_DEF_PATH)
+			enemy_def = _lurker_enemy_def
 		else:
 			if _default_enemy_def == null:
 				_default_enemy_def = load(DEFAULT_ENEMY_DEF_PATH)
@@ -111,8 +132,7 @@ func _ready() -> void:
 	# MILESTONE_8.md Module 3: class tier visibly changes size (the Module 0
 	# `size_scale` field's first real consumer) — art stays identical at every
 	# tier (ART-PASS FLAG), just scaled.
-	var length_m := (PlaceholderArt.CHASER_LENGTH_M if behavior == Behavior.CHASER else PlaceholderArt.FISH_LENGTH_M) \
-		* class_stats().size_scale
+	var length_m := _base_length_m() * class_stats().size_scale
 	var shape := CollisionShape2D.new()
 	var circle := CircleShape2D.new()
 	circle.radius = length_m * GameFeel.PIXELS_PER_METER * 0.5
@@ -128,6 +148,21 @@ func _ready() -> void:
 	add_child(_terrain_cast)
 	area_entered.connect(_on_area_entered)
 	_check_elite_ability()
+	# AMBUSHER starts buried, not patrolling. Set after _check_elite_ability so
+	# the Elite-tier RECOVER nudge in there can't override it.
+	if behavior == Behavior.AMBUSHER:
+		state = State.LURK
+
+## The species' base body length in metres (before the class size_scale), used
+## by both the collision shape (_ready) and the drawn silhouette (_draw).
+func _base_length_m() -> float:
+	match behavior:
+		Behavior.CHASER:
+			return PlaceholderArt.CHASER_LENGTH_M
+		Behavior.AMBUSHER:
+			return PlaceholderArt.LURKER_LENGTH_M
+		_:
+			return PlaceholderArt.FISH_LENGTH_M
 
 func _physics_process(delta: float) -> void:
 	if is_dead:
@@ -260,9 +295,57 @@ func _physics_process(delta: float) -> void:
 		State.RETURN:
 			_swim_toward(home, feel.return_speed * ppm, delta)
 			if global_position.distance_to(home) < 10.0:
-				state = State.PATROL
-			elif sub_in_territory:
+				# AMBUSHER re-buries at the (new) home; everyone else patrols.
+				state = State.LURK if behavior == Behavior.AMBUSHER else State.PATROL
+			elif behavior != Behavior.AMBUSHER and sub_in_territory:
 				state = State.CHASE
+		State.LURK:
+			# Buried and ~motionless: hold at home, run a SILENT detect each
+			# frame (no attention ring is ever drawn — see _draw). Sub inside
+			# the hidden radius with line of sight → wind up the strike.
+			if feel.ambush_lurk_drift > 0.0:
+				_swim_toward(home, feel.ambush_lurk_drift * ppm, delta)
+			if sub != null and dist_to_sub <= feel.ambush_detect_m * ppm \
+					and _has_line_of_sight_to_sub():
+				_windup_timer = feel.ambush_windup_s
+				state = State.WINDUP
+		State.WINDUP:
+			# Brief tremor tell (drawn in _draw) before committing — the
+			# fairness window that lets an alert pilot react.
+			_windup_timer -= delta
+			if _windup_timer <= 0.0:
+				# Lock the strike direction NOW (committed straight line → it
+				# can be dodged), clear any leftover bite cooldown so the lunge
+				# always lands its bite, and go.
+				_lunge_dir = global_position.direction_to(_nearest_hull_point(global_position))
+				_lunge_origin = global_position
+				_bite_cooldown = 0.0
+				state = State.LUNGE
+		State.LUNGE:
+			# Fast committed dash along the locked direction. Terrain/sky ends
+			# it as a miss; overshooting the commit distance does too.
+			var lunge_step := _lunge_dir * feel.ambush_lunge_speed_mps * ppm * delta
+			var blocked := _is_blocked_by_sky(global_position + lunge_step)
+			if not blocked:
+				_terrain_cast.target_position = lunge_step
+				_terrain_cast.force_shapecast_update()
+				blocked = _terrain_cast.is_colliding()
+			if not blocked:
+				global_position += lunge_step
+				if absf(_lunge_dir.x) > 0.1:
+					_facing = signf(_lunge_dir.x)
+			# Reuse the shared bite path; a landed bite flips state to RECOVER.
+			_try_bite(feel.ambush_lunge_speed_mps)
+			if state == State.RECOVER:
+				# Bit the hull → dart off and re-bury somewhere new.
+				home = _pick_rebury_home()
+				state = State.RETURN
+				_has_spotted = false
+			elif blocked or global_position.distance_to(_lunge_origin) >= feel.ambush_lunge_reach_m * ppm:
+				# Missed (hit rock/surface, or overshot) → re-bury elsewhere too,
+				# so no sandy stretch is ever "cleared" in the players' memory.
+				home = _pick_rebury_home()
+				state = State.RETURN
 	queue_redraw()
 
 ## Distance from `world_pos` to the nearest point on the sub's hull (local
@@ -325,6 +408,29 @@ func _swim_toward(target: Vector2, speed: float, delta: float) -> void:
 	global_position += step
 	if absf(dir.x) > 0.1:
 		_facing = signf(dir.x)
+
+## MILESTONE_9.md — AMBUSHER: pick a fresh burial spot after a strike so the
+## lurker never returns to the exact same place ("re-bury somewhere new"). Samples
+## random offsets biased downward (toward the seabed it buries against); a
+## candidate is valid only if the swept path to it is clear of terrain (so it's
+## both reachable and not inside rock) and it isn't above a water/pocket surface.
+## Falls back to the current home if no valid spot turns up in a few tries.
+func _pick_rebury_home() -> Vector2:
+	var ppm := GameFeel.PIXELS_PER_METER
+	for _i in 8:
+		var ang := randf_range(-PI, PI)
+		var dist := randf_range(4.0, 9.0) * ppm
+		var offset := Vector2(cos(ang), sin(ang)) * dist
+		offset.y = absf(offset.y) * 0.7 + dist * 0.3  # bias toward the floor below
+		var candidate := global_position + offset
+		if _is_blocked_by_sky(candidate):
+			continue
+		_terrain_cast.target_position = candidate - global_position
+		_terrain_cast.force_shapecast_update()
+		if _terrain_cast.is_colliding():
+			continue
+		return candidate
+	return home
 
 ## If the fish's own shape is currently overlapping terrain right now (e.g.
 ## knocked into a wall by a hit), push it back out along the wall's normal
@@ -576,7 +682,8 @@ func reset_fish() -> void:
 	_patrol_target = home
 	_bite_cooldown = 0.0
 	_ranged_cooldown = 0.0
-	state = State.PATROL
+	state = State.LURK if behavior == Behavior.AMBUSHER else State.PATROL
+	_windup_timer = 0.0
 	hp_max = class_stats().hp
 	hp = hp_max
 	_hit_flash = 0.0
@@ -585,6 +692,21 @@ func reset_fish() -> void:
 	_hunter_lose_timer = 0.0
 	_has_spotted = false
 	last_drops.clear()
+
+## Whether the attention/detection ring is drawn for this fish right now.
+## Territorial: always (they can lose you, so the ring is useful). Chaser:
+## visible until it locks on, then it disappears. AMBUSHER (Lurker): NEVER —
+## its detect range is invisible by design (players find it only by spotting
+## the fish itself against the sand). Exposed (not inlined in _draw) so tests
+## can assert the lurker stays hidden.
+func shows_detection_ring() -> bool:
+	if is_dead or grabbed:
+		return false
+	if behavior == Behavior.AMBUSHER:
+		return false
+	if behavior == Behavior.CHASER and _has_spotted:
+		return false
+	return true
 
 ## Radius (px) of the detection zone shown as the attention circle.
 func _detect_radius_px() -> float:
@@ -605,30 +727,34 @@ func class_stats() -> EnemyClassStats:
 func _draw() -> void:
 	var ppm: float = GameFeel.PIXELS_PER_METER
 	var is_chaser := behavior == Behavior.CHASER
+	var is_ambusher := behavior == Behavior.AMBUSHER
 	# MILESTONE_8.md Module 3: class tier scales the drawn size too, matching
 	# the collision circle set in _ready() — art stays identical at every
 	# tier (ART-PASS FLAG), just scaled.
-	var length_m := (PlaceholderArt.CHASER_LENGTH_M if is_chaser else PlaceholderArt.FISH_LENGTH_M) \
-		* class_stats().size_scale
+	var length_m := _base_length_m() * class_stats().size_scale
 	var len_px := length_m * ppm
 	var half := len_px * 0.5
-	var base_color := PlaceholderArt.CHASER_COLOR if is_chaser else PlaceholderArt.FISH_COLOR
+	var base_color := PlaceholderArt.CHASER_COLOR if is_chaser \
+		else (PlaceholderArt.LURKER_COLOR if is_ambusher else PlaceholderArt.FISH_COLOR)
 	var c := Color.WHITE if _hit_flash > 0.0 else base_color
 
 	# Detection range circle — drawn before the fish-body transform so it
 	# stays round (not affected by the wobble/stretch scale).
-	# Territorial fish: always visible (they can lose you, so it's useful).
-	# Chasers: visible until they've locked on, then it disappears.
-	var show_range := not is_dead and not grabbed and not (is_chaser and _has_spotted)
-	if show_range:
+	if shows_detection_ring():
 		var ring := Color(base_color.r, base_color.g, base_color.b, 0.05)
 		draw_circle(Vector2.ZERO, _detect_radius_px(), ring)
 
 	# All drawn facing right, mirrored by _facing. Chasers are stretched
-	# lengthwise (more elongated) on top of their longer base length.
+	# lengthwise (more elongated) on top of their longer base length. The Lurker
+	# is squashed flat (squash<1) so it reads as half-buried in the sand, and
+	# shudders sideways during the WINDUP tell.
 	var stretch := 1.3 if is_chaser else 1.0
-	draw_set_transform(Vector2.ZERO, 0.0,
-		Vector2(_facing * stretch, 1.0 + 0.06 * sin(_wobble * 6.0)))
+	var squash := 0.5 if is_ambusher else 1.0
+	var tremor := 0.0
+	if is_ambusher and state == State.WINDUP:
+		tremor = sin(_wobble * 70.0) * half * 0.14  # fast shudder = the strike tell
+	draw_set_transform(Vector2(tremor, 0.0), 0.0,
+		Vector2(_facing * stretch, (1.0 + 0.06 * sin(_wobble * 6.0)) * squash))
 	# Chunky body.
 	draw_circle(Vector2(0, 0), half * 0.55, c)
 	draw_rect(Rect2(-half * 0.55, -half * 0.4, half * 0.9, half * 0.8), c)

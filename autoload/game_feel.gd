@@ -413,6 +413,16 @@ class FishFeel:
 	var chaser_detect_m: float = 22.0
 	var chaser_speed: float = 5.0
 	var chaser_backoff_time: float = 5.0
+	## MILESTONE_9.md — THE LURKER (AMBUSHER behavior). A sand-buried ambusher:
+	## an INVISIBLE detection range (no attention ring is ever drawn), a brief
+	## tremor windup tell for fairness, then a fast committed straight lunge, a
+	## single bite, and a re-bury somewhere new. First-pass numbers — tune in
+	## playtest (too-short a windup is unfair, too-long is toothless).
+	var ambush_detect_m: float = 7.0          ## hidden trigger radius (smaller than any visible range)
+	var ambush_windup_s: float = 0.2          ## tremor tell before the lunge (fairness window)
+	var ambush_lunge_speed_mps: float = 18.0  ## the strike — much faster than any other fish
+	var ambush_lurk_drift: float = 0.0        ## ~motionless while buried (stays put at home)
+	var ambush_lunge_reach_m: float = 12.0    ## how far a lunge commits; a miss past this re-buries
 	## MILESTONE_8.md Module 0: HP and bite damage moved to per-species
 	## EnemyDef/.tres data (res://data/enemies/) — no longer hard-coded here.
 

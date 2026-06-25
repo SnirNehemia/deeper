@@ -1,0 +1,48 @@
+[gd_resource type="Resource" script_class="EnemyDef" load_steps=6 format=3]
+
+[ext_resource type="Script" uid="uid://d4utj3crwggw" path="res://data/enemies/enemy_def.gd" id="1"]
+[ext_resource type="Script" uid="uid://cv4xikrr5v86f" path="res://data/enemies/enemy_class_stats.gd" id="2"]
+
+[sub_resource type="Resource" id="1"]
+script = ExtResource("2")
+damage = 1.5
+hp = 5.0
+room_weight = 1.0
+size_scale = 1.0
+move_speed = 3.5
+currency_drop_total = 6
+gold_drop = 0
+elite_ability = "none"
+
+[sub_resource type="Resource" id="2"]
+script = ExtResource("2")
+damage = 2.0
+hp = 8.0
+room_weight = 2.0
+size_scale = 1.3
+move_speed = 4.0
+currency_drop_total = 12
+gold_drop = 0
+elite_ability = "none"
+
+[sub_resource type="Resource" id="3"]
+script = ExtResource("2")
+damage = 3.0
+hp = 16.0
+room_weight = 3.0
+size_scale = 1.6
+move_speed = 4.5
+currency_drop_total = 30
+gold_drop = 5
+elite_ability = "none"
+
+[resource]
+script = ExtResource("1")
+species_name = "Sand Lurker"
+body_color = Color(0.82, 0.71, 0.48, 1)
+currency_color = "tan"
+ranged = false
+grabbable = true
+class_small = SubResource("1")
+class_big = SubResource("2")
+class_elite = SubResource("3")

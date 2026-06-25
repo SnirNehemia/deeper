@@ -113,6 +113,11 @@ func _spawn_entities() -> void:
 		# without authoring a new species.
 		_add_fish(Vector2(160.0 * M, 60.0 * M), Fish.Behavior.HUNTER,
 			EnemyDef.Class.ELITE, _ranged_demo_def())
+		# MILESTONE_9.md demo: the Sand Lurker (AMBUSHER) — sits buried with no
+		# attention ring, lunges when the sub gets close. Placed low (near the
+		# seabed) so it reads as half-buried. A Small and a Big to show the tiers.
+		_add_fish(Vector2(108.0 * M, 96.0 * M), Fish.Behavior.AMBUSHER, EnemyDef.Class.SMALL)
+		_add_fish(Vector2(140.0 * M, 96.0 * M), Fish.Behavior.AMBUSHER, EnemyDef.Class.BIG)
 
 ## Build the sub from the saved loadout and seat the two crew inside it.
 func _spawn_sub_and_crew() -> void:
