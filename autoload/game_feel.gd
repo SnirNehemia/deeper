@@ -326,12 +326,15 @@ class SpitterFeel:
 	var inflate_cooldown_s: float = 2.5
 	## Drawn body scale at full inflation (1.0 = resting size).
 	var inflate_full_scale: float = 1.9
-	## Bubbles fired per tier (Small 1, Big 2, Elite a scatter spread).
+	## Bubbles fired per tier — bigger spitters throw a denser volley that's
+	## harder to both intercept and dodge (Small 1, Big 5, Elite 10).
 	var small_bubbles: int = 1
-	var big_bubbles: int = 2
-	var elite_bubbles: int = 4
-	## Half-angle (deg) of the random spread cone when firing more than one.
-	var scatter_spread_deg: float = 18.0
+	var big_bubbles: int = 5
+	var elite_bubbles: int = 10
+	## Half-angle (deg) of the spread cone. A volley of >1 fans out EVENLY across
+	## (-this..+this) so every bubble flies a slightly different angle (with a hint
+	## of jitter so it doesn't look mechanical).
+	var scatter_spread_deg: float = 22.0
 	## Damage multiplier applied to hits taken while inflated (juicy target).
 	var inflate_damage_mult: float = 2.0
 	## Extra currency added to the drop if it's popped while inflated.

@@ -529,8 +529,10 @@ func _bubble_count() -> int:
 		_:
 			return GameFeel.spitter.small_bubbles
 
-## Spawn the volley: one bubble straight at the sub, extras jittered within a
-## spread cone. Each is a destructible Bubble (scripts/fauna/bubble.gd).
+## Spawn the volley aimed at the sub. A single bubble flies straight; a multi-
+## bubble volley fans out EVENLY across the spread cone (each a slightly
+## different angle, plus a touch of jitter), so it's harder to both intercept
+## and dodge. Each is a destructible Bubble (scripts/fauna/bubble.gd).
 func _fire_bubbles(ppm: float) -> void:
 	if sub == null:
 		return
@@ -538,10 +540,14 @@ func _fire_bubbles(ppm: float) -> void:
 	var aim := global_position.direction_to(sub.global_position)
 	var count := _bubble_count()
 	var spread := deg_to_rad(sp.scatter_spread_deg)
+	# Even angular gap between adjacent bubbles across (-spread..+spread).
+	var gap := (2.0 * spread) / float(count - 1) if count > 1 else 0.0
 	var muzzle := _base_length_m() * class_stats().size_scale * ppm * 0.6
 	for i in count:
-		var jitter := 0.0 if count <= 1 else randf_range(-spread, spread)
-		var dir := aim.rotated(jitter)
+		var offset := 0.0
+		if count > 1:
+			offset = -spread + gap * i + randf_range(-gap * 0.25, gap * 0.25)
+		var dir := aim.rotated(offset)
 		var b := Bubble.new()
 		b.velocity = dir * GameFeel.bubble.speed_mps * ppm
 		get_parent().add_child(b)

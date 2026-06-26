@@ -2,6 +2,13 @@
 
 _Read this at session start. Last updated: 2026-06-26 — **M9-1 + M9-2 shipped (the Sand Lurker + the Spitter), now paintable into the real cavern map (gen-layer markers tan `#D2B48C` = Lurker, brown `#825528` = Spitter), the Lurker swims through sand, and the fauna currency economy is consolidated to brown + teal.** Previous: 2026-06-25 — the `add-deeper-enemy` skill closed Milestone 8. Next: M10 — the queued deep-area roster (the Shoal + the Discharger, designed in `MILESTONE_9.md`) plus the rest of the economy balance pass._
 
+**Spitter volley denser + fanned (2026-06-26, Snir):** bigger spitters now throw
+a much denser volley — Small 1 / Big **5** / Elite **10** bubbles (was 1/2/4) —
+and a multi-bubble volley fans out **evenly** across the spread cone (each bubble
+a slightly different angle + a hint of jitter) instead of random scatter, so it's
+harder to both shoot down and dodge. Counts + `scatter_spread_deg` (now 22°) live
+in `GameFeel.spitter`; the even-fan math is in `Fish._fire_bubbles`.
+
 **M9 currency consolidation + marker recolor (2026-06-26, Snir's call):** to keep
 the wallet from sprawling as species multiply, all fauna now drop one of **two**
 currencies — **brown** (reef fish [was orange], Sand Lurker [was tan], Spitter)

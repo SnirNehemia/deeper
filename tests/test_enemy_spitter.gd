@@ -13,6 +13,7 @@ var _failures := 0
 
 func _ready() -> void:
 	await _test_tiers_and_bubble_counts()
+	await _test_volley_fans_out()
 	await _test_inflate_cycle_fires_bubbles()
 	await _test_bubble_breaches_sub()
 	await _test_bullet_chips_then_second_pops()
@@ -72,12 +73,49 @@ func _test_tiers_and_bubble_counts() -> void:
 	_check(small.enemy_def.grabbable, "the Spitter is grabbable")
 	_check(elite.hp_max > small.hp_max, "Elite has more hp than Small")
 	_check(small._bubble_count() == GameFeel.spitter.small_bubbles, "Small fires 1 bubble")
-	_check(big._bubble_count() == GameFeel.spitter.big_bubbles, "Big fires 2 bubbles")
-	_check(elite._bubble_count() == GameFeel.spitter.elite_bubbles, "Elite fires a scatter (4)")
+	_check(big._bubble_count() == GameFeel.spitter.big_bubbles
+		and big._bubble_count() > small._bubble_count(), "Big fires a denser volley than Small")
+	_check(elite._bubble_count() == GameFeel.spitter.elite_bubbles
+		and elite._bubble_count() > big._bubble_count(), "Elite fires the densest volley")
 
 	small.queue_free()
 	big.queue_free()
 	elite.queue_free()
+	sub.queue_free()
+	await _frames(2)
+
+func _test_volley_fans_out() -> void:
+	print("[a multi-bubble volley fans out across distinct angles]")
+	var sub := Sub.new()
+	add_child(sub)
+	await _frames(2)
+
+	# Elite to the LEFT of the sub, so the volley aims toward +x (angles near 0,
+	# safely away from the ±PI wraparound when we measure the spread).
+	var fish := _spitter(sub, EnemyDef.Class.ELITE, sub.global_position + Vector2(-10.0 * _ppm(), 0))
+	await _frames(2)
+
+	fish._fire_bubbles(_ppm())
+	await _frames(1)
+
+	var angles: Array[float] = []
+	for child in get_children():
+		if child is Bubble:
+			angles.append((child as Bubble).velocity.angle())
+	_check(angles.size() == GameFeel.spitter.elite_bubbles,
+		"an Elite volley spawns all elite_bubbles bubbles at once")
+	var amin: float = angles[0]
+	var amax: float = angles[0]
+	for a in angles:
+		amin = minf(amin, a)
+		amax = maxf(amax, a)
+	_check(amax - amin > deg_to_rad(10.0),
+		"the volley fans across a real angular spread (not all one direction)")
+
+	for child in get_children():
+		if child is Bubble:
+			child.queue_free()
+	fish.queue_free()
 	sub.queue_free()
 	await _frames(2)
 
