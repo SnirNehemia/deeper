@@ -12,6 +12,12 @@ const PLAYER_SPAWN := Color(1, 1, 1)                                          # 
 ## not just any orange).
 const TERRITORIAL_FISH := Color(0xE8 / 255.0, 0x74 / 255.0, 0x2C / 255.0)    # #E8742C
 const HUNTER_FISH := Color(0, 1, 0)                                           # #00FF00
+## MILESTONE_9.md fauna: the Sand Lurker (AMBUSHER) and the Spitter (SPITTER)
+## get their own marker hues so they're paintable into a real map, same as the
+## territorial/hunter markers — magenta and cyan, chosen to be unmistakable
+## against the existing markers. Blob size still sets the class tier.
+const LURKER_FISH := Color(1, 0, 1)                                           # #FF00FF magenta
+const SPITTER_FISH := Color(0, 1, 1)                                          # #00FFFF cyan
 const WRECKAGE := Color(0x80 / 255.0, 0x80 / 255.0, 0x80 / 255.0)            # #808080
 const DOCK_ZONE := Color(0x6E / 255.0, 0x47 / 255.0, 0x3B / 255.0)           # #6E473B
 
@@ -21,6 +27,8 @@ const COLOR_EPS := 2.0 / 255.0  # tolerant of 8-bit PNG round-trip rounding
 const KEY_PLAYER_SPAWN := "player_spawn"
 const KEY_TERRITORIAL_FISH := "territorial_fish"
 const KEY_HUNTER_FISH := "hunter_fish"
+const KEY_LURKER_FISH := "lurker_fish"
+const KEY_SPITTER_FISH := "spitter_fish"
 const KEY_WRECKAGE := "wreckage"
 const KEY_DOCK_ZONES := "dock_zones"
 
@@ -45,6 +53,8 @@ static func parse(config: MapConfig) -> Dictionary:
 		KEY_PLAYER_SPAWN: Vector2.ZERO,
 		KEY_TERRITORIAL_FISH: [] as Array[Dictionary],
 		KEY_HUNTER_FISH: [] as Array[Dictionary],
+		KEY_LURKER_FISH: [] as Array[Dictionary],
+		KEY_SPITTER_FISH: [] as Array[Dictionary],
 		KEY_WRECKAGE: [] as Array[Vector2],
 		KEY_DOCK_ZONES: [] as Array[Vector2],
 	}
@@ -59,6 +69,8 @@ static func parse(config: MapConfig) -> Dictionary:
 	var size := image.get_size()
 	var territorial_coords: Array[Vector2i] = []
 	var hunter_coords: Array[Vector2i] = []
+	var lurker_coords: Array[Vector2i] = []
+	var spitter_coords: Array[Vector2i] = []
 	for y in size.y:
 		for x in size.x:
 			var pixel := image.get_pixel(x, y)
@@ -71,6 +83,10 @@ static func parse(config: MapConfig) -> Dictionary:
 				territorial_coords.append(Vector2i(x, y))
 			elif _color_matches(pixel, HUNTER_FISH):
 				hunter_coords.append(Vector2i(x, y))
+			elif _color_matches(pixel, LURKER_FISH):
+				lurker_coords.append(Vector2i(x, y))
+			elif _color_matches(pixel, SPITTER_FISH):
+				spitter_coords.append(Vector2i(x, y))
 			elif _color_matches(pixel, WRECKAGE):
 				(result[KEY_WRECKAGE] as Array[Vector2]).append(world_pos)
 			elif _color_matches(pixel, DOCK_ZONE):
@@ -78,6 +94,8 @@ static func parse(config: MapConfig) -> Dictionary:
 
 	result[KEY_TERRITORIAL_FISH] = _cluster_to_spawns(territorial_coords, scale)
 	result[KEY_HUNTER_FISH] = _cluster_to_spawns(hunter_coords, scale)
+	result[KEY_LURKER_FISH] = _cluster_to_spawns(lurker_coords, scale)
+	result[KEY_SPITTER_FISH] = _cluster_to_spawns(spitter_coords, scale)
 	return result
 
 static func _color_matches(a: Color, b: Color) -> bool:

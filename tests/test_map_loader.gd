@@ -59,6 +59,18 @@ func _test_generation_parse() -> void:
 	_check(hunters[0]["cls"] == EnemyDef.Class.SMALL,
 		"a single isolated pixel parses as Small")
 
+	var lurkers: Array[Dictionary] = spawns[GenerationLayerParser.KEY_LURKER_FISH]
+	_check(lurkers.size() == 1 and lurkers[0]["pos"] == Vector2(2, 5) * M,
+		"sand lurker at magenta pixel (2,5)")
+	_check(lurkers[0]["cls"] == EnemyDef.Class.SMALL,
+		"a single isolated lurker pixel parses as Small")
+
+	var spitters: Array[Dictionary] = spawns[GenerationLayerParser.KEY_SPITTER_FISH]
+	_check(spitters.size() == 1 and spitters[0]["pos"] == Vector2(6, 5) * M,
+		"spitter at cyan pixel (6,5)")
+	_check(spitters[0]["cls"] == EnemyDef.Class.SMALL,
+		"a single isolated spitter pixel parses as Small")
+
 	var wrecks: Array[Vector2] = spawns[GenerationLayerParser.KEY_WRECKAGE]
 	_check(wrecks.size() == 1 and wrecks[0] == Vector2(3, 8) * M,
 		"wreckage at grey pixel (3,8)")

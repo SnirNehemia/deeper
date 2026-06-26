@@ -368,7 +368,7 @@ func _physics_process(delta: float) -> void:
 			if not blocked:
 				_terrain_cast.target_position = lunge_step
 				_terrain_cast.force_shapecast_update()
-				blocked = _terrain_cast.is_colliding()
+				blocked = _terrain_cast_blocks()
 			if not blocked:
 				global_position += lunge_step
 				if absf(_lunge_dir.x) > 0.1:
@@ -442,7 +442,7 @@ func _swim_toward(target: Vector2, speed: float, delta: float) -> void:
 		return
 	_terrain_cast.target_position = step
 	_terrain_cast.force_shapecast_update()
-	if _terrain_cast.is_colliding():
+	if _terrain_cast_blocks():
 		return
 	global_position += step
 	if absf(dir.x) > 0.1:
@@ -466,7 +466,7 @@ func _pick_rebury_home() -> Vector2:
 			continue
 		_terrain_cast.target_position = candidate - global_position
 		_terrain_cast.force_shapecast_update()
-		if _terrain_cast.is_colliding():
+		if _terrain_cast_blocks():
 			continue
 		return candidate
 	return home
@@ -558,12 +558,40 @@ func _fire_bubbles(ppm: float) -> void:
 func _try_depenetrate_from_terrain(delta: float) -> bool:
 	_terrain_cast.target_position = Vector2.ZERO
 	_terrain_cast.force_shapecast_update()
-	if _terrain_cast.get_collision_count() == 0:
+	# A Sand Lurker resting in sand is buried at home, NOT embedded in rock —
+	# sand is passable for it, so only a non-sand (rock) overlap counts as stuck.
+	if not _terrain_cast_blocks():
 		return false
-	var normal := _terrain_cast.get_collision_normal(0)
+	var normal := _depenetration_normal()
 	if normal != Vector2.ZERO:
 		global_position += normal * GameFeel.fish.return_speed * GameFeel.PIXELS_PER_METER * delta
 	return true
+
+## True if the (already-updated) terrain cast is blocked by terrain this fish
+## can't pass through. Normally ALL terrain blocks. The AMBUSHER (Sand Lurker)
+## treats SAND as passable — sand is its home; it burrows and moves through it
+## to hide — so only non-sand terrain (rock/dock) blocks the lurker.
+func _terrain_cast_blocks() -> bool:
+	for i in _terrain_cast.get_collision_count():
+		if not _is_passable_terrain(_terrain_cast.get_collider(i)):
+			return true
+	return false
+
+## Whether this fish may pass through `collider`. Only a Sand Lurker, and only
+## through SAND terrain bodies — every other fish (and every other terrain type)
+## blocks as before.
+func _is_passable_terrain(collider: Object) -> bool:
+	return behavior == Behavior.AMBUSHER and collider is TerrainBody \
+		and (collider as TerrainBody).terrain_type == TerrainType.Type.SAND
+
+## The collision normal to push out along when depenetrating — the first
+## IMPASSABLE collider's normal, so a lurker half-sunk in sand pushes out of the
+## rock it's actually stuck in, not out of its own sand.
+func _depenetration_normal() -> Vector2:
+	for i in _terrain_cast.get_collision_count():
+		if not _is_passable_terrain(_terrain_cast.get_collider(i)):
+			return _terrain_cast.get_collision_normal(i)
+	return _terrain_cast.get_collision_normal(0)
 
 ## True if `pos` would be in open air (above main surface or inside a pocket).
 ## Fish are water creatures — they never cross these boundaries from the water

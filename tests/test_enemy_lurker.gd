@@ -15,6 +15,7 @@ func _ready() -> void:
 	await _test_tiers_load_from_lurker_def()
 	await _test_attention_ring_is_never_drawn()
 	await _test_ambush_bites_and_reburies()
+	await _test_lurker_treats_sand_as_passable()
 
 	if _failures == 0:
 		print("ENEMY LURKER TESTS PASSED")
@@ -133,5 +134,49 @@ func _test_ambush_bites_and_reburies() -> void:
 		"after the strike it returns to its new burial spot (RETURN, then LURK)")
 
 	fish.queue_free()
+	sub.queue_free()
+	await _frames(2)
+
+func _terrain_body(t: int, center: Vector2, size: Vector2) -> TerrainBody:
+	var body := TerrainBody.new()
+	body.terrain_type = t
+	body.add_rect(Rect2(center - size * 0.5, size))  # world-space rect
+	add_child(body)
+	return body
+
+func _blocks_at(fish: Fish, pos: Vector2) -> bool:
+	fish.global_position = pos
+	fish._terrain_cast.target_position = Vector2.ZERO
+	fish._terrain_cast.force_shapecast_update()
+	return fish._terrain_cast_blocks()
+
+func _test_lurker_treats_sand_as_passable() -> void:
+	print("[the lurker moves through sand (its hiding place) but not rock]")
+	var sub := Sub.new()
+	add_child(sub)
+	await _frames(2)
+
+	# A sand block on the left, a rock block on the right, well apart.
+	var ppm := _ppm()
+	var sand_c := Vector2(-40.0 * ppm, 0)
+	var rock_c := Vector2(40.0 * ppm, 0)
+	_terrain_body(TerrainType.Type.SAND, sand_c, Vector2(8.0 * ppm, 8.0 * ppm))
+	_terrain_body(TerrainType.Type.NORMAL_ROCK, rock_c, Vector2(8.0 * ppm, 8.0 * ppm))
+
+	var lurker := _make_lurker(sub, EnemyDef.Class.SMALL, sand_c)
+	# A plain territorial fish as the control — sand must still block it.
+	var control := Fish.new()
+	control.sub = sub
+	control.behavior = Fish.Behavior.TERRITORIAL
+	control.position = sand_c
+	add_child(control)
+	await _frames(3)
+
+	_check(not _blocks_at(lurker, sand_c), "a lurker buried in sand is NOT blocked (sand is passable for it)")
+	_check(_blocks_at(lurker, rock_c), "a lurker is still blocked by solid rock")
+	_check(_blocks_at(control, sand_c), "a normal (non-lurker) fish IS still blocked by sand")
+
+	lurker.queue_free()
+	control.queue_free()
 	sub.queue_free()
 	await _frames(2)

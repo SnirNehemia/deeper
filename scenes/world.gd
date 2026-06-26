@@ -98,6 +98,10 @@ func _spawn_entities() -> void:
 			_add_fish(spawn["pos"], Fish.Behavior.TERRITORIAL, spawn["cls"])
 		for spawn in _map_loader.hunter_fish_spawns:
 			_add_fish(spawn["pos"], Fish.Behavior.CHASER, spawn["cls"])  # green gen-layer pixels → green chasers
+		for spawn in _map_loader.lurker_fish_spawns:
+			_add_fish(spawn["pos"], Fish.Behavior.AMBUSHER, spawn["cls"])  # magenta gen-layer pixels → sand lurkers
+		for spawn in _map_loader.spitter_fish_spawns:
+			_add_fish(spawn["pos"], Fish.Behavior.SPITTER, spawn["cls"])  # cyan gen-layer pixels → spitters
 		for pos in _map_loader.wreck_spawns:
 			_add_wreck(pos)
 	else:

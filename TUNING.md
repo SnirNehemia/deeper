@@ -20,8 +20,10 @@ file and search for the class name below to find the actual numbers.
 | Torpedo turret | `TurretFeel` (`GameFeel.turret`) | Torpedo speed/damage/cooldown, aim cone and sweep speed. |
 | Bullet gun | `BulletFeel` (`GameFeel.bullet`) | Bullet speed/damage/cooldown — fast chip-damage alternative to the torpedo. |
 | Floodlight | `FloodlightFeel` (`GameFeel.floodlight`) | Beam reach/rotate speed, cone shape, light falloff/brightness. |
-| Fish AI | `FishFeel` (`GameFeel.fish`) | Territory radius, patrol/chase/hunt/return speeds, bite interval, hunter/chaser detection and give-up ranges. (Per-species HP/damage/weight is NOT here — see "Per-species data" below.) |
+| Fish AI | `FishFeel` (`GameFeel.fish`) | Territory radius, patrol/chase/hunt/return speeds, bite interval, hunter/chaser detection and give-up ranges, **plus the Sand Lurker's ambush dials** (`ambush_detect_m` hidden range, `ambush_windup_s` tell length, `ambush_lunge_speed_mps`, `ambush_lunge_reach_m` commit distance). (Per-species HP/damage/weight is NOT here — see "Per-species data" below.) |
 | Ranged enemy fire | `EnemyRangedFeel` (`GameFeel.enemy_ranged`) | Fire range, cooldown, projectile speed/lifetime, hit severity, and the cooldown multiplier an Elite's `ranged_spit` ability gets when "intensifying" an already-ranged species. Per-species ranged on/off is the `.tres`'s `ranged` flag, not here. |
+| Spitter (puffer) | `SpitterFeel` (`GameFeel.spitter`) | Detect range, the keep-distance band (min/max), inflate time + cooldown, full-inflation draw scale, bubbles fired per tier (1/2/4), scatter spread, and the "juicy while inflated" damage multiplier + bonus-currency drop. |
+| Spitter bubble | `BubbleFeel` (`GameFeel.bubble`) | The destructible bubble: hp (shots to pop), drift speed, lifetime, hull-breach severity, and how much it slows a shot that passes through. |
 | Wreck | `WreckFeel` (`GameFeel.wreck`) | Wreck hp. |
 | Hull station (conning tower) | `HullStationFeel` (`GameFeel.hull_station`) | Remote-patch range and speed. |
 | Salvage claw arm | `ClawFeel` (`GameFeel.claw`) | Arm segment lengths, joint sweep speeds/limits, grab radius, cage/storage capacity. |
@@ -40,6 +42,8 @@ code involved. Two exist today:
 |---|---|---|---|
 | `reference_fish.tres` ("Reef Fish") | Territorial, Hunter | orange | orange |
 | `chaser_fish.tres` ("Basic Chaser") | Chaser | green | teal |
+| `lurker_fish.tres` ("Sand Lurker") | Ambusher | sand | tan |
+| `spitter_fish.tres` ("Spitter") | Spitter | dark brown | brown |
 
 The split exists so "how floaty does combat feel" (GameFeel, shared) stays
 separate from "how tough is THIS fish" (per-species data) — see DECISIONS.md,
@@ -51,6 +55,45 @@ ranged-Elite demo spawn does this). The actual on-screen render color is
 `PlaceholderArt.FISH_COLOR`/`CHASER_COLOR` (`scripts/placeholder_art.gd`) —
 kept in sync with each species' `body_color` field by hand, since body color
 isn't wired to read from the `.tres` directly yet (an ART-PASS-flagged gap).
+
+## Map authoring — what each painted pixel color means
+
+A map is four PNGs (see `MapConfig` / `maps/cavern_depths_01/`). Two of them are
+painted by **color code** — paint these exact hex values in Krita and the game
+turns them into spawns and terrain. (The other two PNGs, background + foreground,
+are just art.)
+
+### Generation layer (`*_gen.png`) — where things spawn
+One marker pixel = one spawn. For the fish, **blob size sets the difficulty
+tier**: a single pixel = Small, two touching pixels (even diagonally) = Big,
+three or more touching = Elite. Defined in `GenerationLayerParser`.
+
+| Paint this hex | Color | Spawns |
+|---|---|---|
+| `#FFFFFF` | white | Player sub spawn point (one) |
+| `#E8742C` | orange | Reef fish — Territorial behavior |
+| `#00FF00` | green | Chaser fish |
+| `#FF00FF` | magenta | **Sand Lurker** (buried ambusher) — MILESTONE_9 |
+| `#00FFFF` | cyan | **Spitter** (bubble puffer) — MILESTONE_9 |
+| `#808080` | grey | Wreck (salvage) |
+| `#6E473B` | brown | Dock zone (paint a cluster; its bounding box = the bay) |
+
+### Physical layer (`*_phys.png`) — solid terrain & water
+Every non-transparent pixel here is terrain or open space. Defined in
+`TerrainType` / `PhysicalLayerParser`.
+
+| Paint this hex | Color | Meaning |
+|---|---|---|
+| `#1d4a70` | deep blue | Water (open, navigable) |
+| `#4d9bc7` | light blue | Sky / air (above the surface or a cave air pocket) |
+| `#808080` | grey | Normal rock (solid) |
+| `#D2B48C` | tan | **Sand** — forgiving to ram (half severity); the **Sand Lurker swims through it** (its hiding medium), everything else is blocked by it |
+| `#000000` | black | Sharp rock — punishing (any bump = a max-severity gusher) |
+| `#6E473B` | brown | Dock terrain (never breaches the hull) |
+
+> Note: brown `#6E473B` means "dock" on **both** layers (a spawn-zone marker on
+> the gen layer, non-damaging floor on the phys layer) — that pairing is
+> intentional, paint it on both where the bay is.
 
 ## Reel minigame, in plain terms
 
