@@ -40,10 +40,18 @@ code involved. Two exist today:
 
 | Species (file) | AI behavior(s) | Body color | Currency color |
 |---|---|---|---|
-| `reference_fish.tres` ("Reef Fish") | Territorial, Hunter | orange | orange |
+| `reference_fish.tres` ("Reef Fish") | Territorial, Hunter | orange | brown |
 | `chaser_fish.tres` ("Basic Chaser") | Chaser | green | teal |
-| `lurker_fish.tres` ("Sand Lurker") | Ambusher | sand | tan |
+| `lurker_fish.tres` ("Sand Lurker") | Ambusher | sand | brown |
 | `spitter_fish.tres` ("Spitter") | Spitter | dark brown | brown |
+
+**Currency economy (deliberately just two droppable colors + a reserved third):**
+to keep the wallet from sprawling as species multiply, all fauna drop one of two
+currencies — **brown** (reef fish, Sand Lurker, Spitter) or **teal** (chaser, and
+the queued Shoal + Discharger). **purple** is reserved for a future category but
+nothing drops it yet. "gold" is the separate elite-only premium. Room prices
+(`GameFeel.currency.room_price_colors`) are drawn from the droppable set
+(brown/teal) so a room never costs a color you can't earn.
 
 The split exists so "how floaty does combat feel" (GameFeel, shared) stays
 separate from "how tough is THIS fish" (per-species data) — see DECISIONS.md,
@@ -73,8 +81,8 @@ three or more touching = Elite. Defined in `GenerationLayerParser`.
 | `#FFFFFF` | white | Player sub spawn point (one) |
 | `#E8742C` | orange | Reef fish — Territorial behavior |
 | `#00FF00` | green | Chaser fish |
-| `#FF00FF` | magenta | **Sand Lurker** (buried ambusher) — MILESTONE_9 |
-| `#00FFFF` | cyan | **Spitter** (bubble puffer) — MILESTONE_9 |
+| `#D2B48C` | tan | **Sand Lurker** (buried ambusher) — MILESTONE_9. Same hex as sand below, but this is the gen layer, so no conflict. |
+| `#825528` | brown | **Spitter** (bubble puffer) — MILESTONE_9 |
 | `#808080` | grey | Wreck (salvage) |
 | `#6E473B` | brown | Dock zone (paint a cluster; its bounding box = the bay) |
 

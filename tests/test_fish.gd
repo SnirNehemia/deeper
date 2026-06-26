@@ -325,8 +325,8 @@ func _test_chaser_is_its_own_species() -> void:
 
 	_check(chaser.enemy_def.currency_color == "teal",
 		"an unconfigured chaser defaults to its own teal-currency species")
-	_check(territorial.enemy_def.currency_color == "orange",
-		"an unconfigured territorial fish still defaults to the orange reference species")
+	_check(territorial.enemy_def.currency_color == "brown",
+		"an unconfigured territorial fish defaults to the reference species (drops shared 'brown')")
 	_check(chaser.enemy_def != territorial.enemy_def,
 		"chaser and territorial fish use two distinct EnemyDef resources")
 

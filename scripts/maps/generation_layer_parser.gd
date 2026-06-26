@@ -14,10 +14,12 @@ const TERRITORIAL_FISH := Color(0xE8 / 255.0, 0x74 / 255.0, 0x2C / 255.0)    # #
 const HUNTER_FISH := Color(0, 1, 0)                                           # #00FF00
 ## MILESTONE_9.md fauna: the Sand Lurker (AMBUSHER) and the Spitter (SPITTER)
 ## get their own marker hues so they're paintable into a real map, same as the
-## territorial/hunter markers — magenta and cyan, chosen to be unmistakable
-## against the existing markers. Blob size still sets the class tier.
-const LURKER_FISH := Color(1, 0, 1)                                           # #FF00FF magenta
-const SPITTER_FISH := Color(0, 1, 1)                                          # #00FFFF cyan
+## territorial/hunter markers — chosen (Snir, 2026-06-26) to echo each species'
+## own color: tan for the sand-buried lurker, brown for the dark puffer. (The
+## lurker marker shares sand's #D2B48C, but it's on a different PNG — the
+## gen layer — so there's no parsing conflict.) Blob size still sets the tier.
+const LURKER_FISH := Color(0xD2 / 255.0, 0xB4 / 255.0, 0x8C / 255.0)          # #D2B48C tan
+const SPITTER_FISH := Color(0x82 / 255.0, 0x55 / 255.0, 0x28 / 255.0)         # #825528 brown
 const WRECKAGE := Color(0x80 / 255.0, 0x80 / 255.0, 0x80 / 255.0)            # #808080
 const DOCK_ZONE := Color(0x6E / 255.0, 0x47 / 255.0, 0x3B / 255.0)           # #6E473B
 

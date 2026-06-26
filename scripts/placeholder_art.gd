@@ -50,12 +50,18 @@ const SCRAP_COLOR := Color("c8a050")      ## scrap crate (warm metal)
 ## currency) are arbitrary strings, not a fixed enum, so this is a Dictionary
 ## rather than more const Colors. Unknown names (a typo, or a color not yet
 ## registered here) fall back to a neutral grey rather than erroring.
+## 2026-06-26 (Snir): the fauna economy is consolidated to two droppable colors
+## — "brown" (territorial/hunter reef fish + Sand Lurker + Spitter) and "teal"
+## (chaser + the queued Shoal + Discharger) — plus "gold" (the elite premium).
+## "purple" is the reserved third currency for a future category (nothing drops
+## it yet). "orange"/"tan" are legacy palette entries no longer dropped by any
+## species, kept only so old saves/pickups still render instead of grey-falling.
 const CURRENCY_COLORS := {
+	"brown": Color("8a5a32"),
 	"teal": Color("2ec4b6"),
-	"orange": Color("e8742c"),
 	"gold": Color("d4af37"),
-	"tan": Color("d2b48c"),   ## MILESTONE_9.md — the Lurker's drop
-	"brown": Color("8a5a32"), ## MILESTONE_9.md — the Spitter's drop
+	"orange": Color("e8742c"),  ## legacy — no longer dropped
+	"tan": Color("d2b48c"),     ## legacy — no longer dropped
 }
 static func currency_color(name: String) -> Color:
 	return CURRENCY_COLORS.get(name, Color("b8b8c0"))

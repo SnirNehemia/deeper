@@ -34,9 +34,9 @@ const DEFAULT_ENEMY_DEF_PATH := "res://data/enemies/reference_fish.tres"
 ## so it can carry its own currency_color independent of the territorial/
 ## hunter fish, per Snir's call.
 const CHASER_ENEMY_DEF_PATH := "res://data/enemies/chaser_fish.tres"
-## MILESTONE_9.md — the Sand Lurker is its own species (sand body, "tan"
-## currency), bound to the AMBUSHER behavior the same way the chaser is bound
-## to CHASER.
+## MILESTONE_9.md — the Sand Lurker is its own species (sand body; drops the
+## shared "brown" fauna currency, 2026-06-26), bound to the AMBUSHER behavior
+## the same way the chaser is bound to CHASER.
 const LURKER_ENEMY_DEF_PATH := "res://data/enemies/lurker_fish.tres"
 ## MILESTONE_9.md — the Spitter is its own species (dark-brown body, "brown"
 ## currency), bound to the SPITTER behavior.

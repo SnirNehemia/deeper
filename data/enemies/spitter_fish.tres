@@ -1,18 +1,7 @@
-[gd_resource type="Resource" script_class="EnemyDef" load_steps=6 format=3]
+[gd_resource type="Resource" script_class="EnemyDef" load_steps=6 format=3 uid="uid://b7jknaxf6b7l0"]
 
 [ext_resource type="Script" uid="uid://d4utj3crwggw" path="res://data/enemies/enemy_def.gd" id="1"]
 [ext_resource type="Script" uid="uid://cv4xikrr5v86f" path="res://data/enemies/enemy_class_stats.gd" id="2"]
-
-[sub_resource type="Resource" id="1"]
-script = ExtResource("2")
-damage = 1.0
-hp = 6.0
-room_weight = 1.0
-size_scale = 1.0
-move_speed = 3.0
-currency_drop_total = 8
-gold_drop = 0
-elite_ability = "none"
 
 [sub_resource type="Resource" id="2"]
 script = ExtResource("2")
@@ -34,6 +23,17 @@ size_scale = 1.6
 move_speed = 4.0
 currency_drop_total = 36
 gold_drop = 5
+elite_ability = "none"
+
+[sub_resource type="Resource" id="1"]
+script = ExtResource("2")
+damage = 1.0
+hp = 6.0
+room_weight = 1.0
+size_scale = 1.0
+move_speed = 3.0
+currency_drop_total = 8
+gold_drop = 0
 elite_ability = "none"
 
 [resource]

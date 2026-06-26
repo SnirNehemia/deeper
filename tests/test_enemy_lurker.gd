@@ -60,7 +60,7 @@ func _test_tiers_load_from_lurker_def() -> void:
 
 	_check(small.enemy_def.species_name == "Sand Lurker",
 		"AMBUSHER loads the Sand Lurker species by default")
-	_check(small.enemy_def.currency_color == "tan", "the Lurker drops 'tan' currency")
+	_check(small.enemy_def.currency_color == "brown", "the Lurker drops the shared 'brown' fauna currency")
 	_check(not small.enemy_def.ranged, "the Lurker is melee (ranged=false)")
 	_check(small.enemy_def.grabbable, "the Lurker is grabbable")
 	_check(small.hp_max == small.enemy_def.class_small.hp, "Small tier reads its own hp block")
