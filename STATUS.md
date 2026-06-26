@@ -1,13 +1,27 @@
 # STATUS — DEEPER
 
-_Read this at session start. Last updated: 2026-06-26 — **M9-1 + M9-2 shipped (the Sand Lurker + the Spitter), plus a follow-up that makes them paintable into the real cavern map (magenta/cyan gen-layer markers) and lets the Lurker swim through sand.** Previous: 2026-06-25 — the `add-deeper-enemy` skill closed Milestone 8. Next: M10 — the queued deep-area roster (the Shoal + the Discharger, designed in `MILESTONE_9.md`) plus the carried-over economy balance pass._
+_Read this at session start. Last updated: 2026-06-26 — **M9-1 + M9-2 shipped (the Sand Lurker + the Spitter), now paintable into the real cavern map (gen-layer markers tan `#D2B48C` = Lurker, brown `#825528` = Spitter), the Lurker swims through sand, and the fauna currency economy is consolidated to brown + teal.** Previous: 2026-06-25 — the `add-deeper-enemy` skill closed Milestone 8. Next: M10 — the queued deep-area roster (the Shoal + the Discharger, designed in `MILESTONE_9.md`) plus the rest of the economy balance pass._
+
+**M9 currency consolidation + marker recolor (2026-06-26, Snir's call):** to keep
+the wallet from sprawling as species multiply, all fauna now drop one of **two**
+currencies — **brown** (reef fish [was orange], Sand Lurker [was tan], Spitter)
+and **teal** (chaser; earmarked for the queued Shoal + Discharger). A third,
+**purple**, is reserved for a future category (nothing drops it yet — and note it
+collides with `ELEMENTAL_UPDATE.md`'s reserved-hue list, flagged to Snir to
+reconcile when that category is designed). `GameFeel.currency.room_price_colors`
+moved `orange→brown` so rooms stay priced in earnable colors; `"orange"`/`"tan"`
+remain as render-only legacy palette entries. Gen-layer markers were recolored to
+echo each species (tan `#D2B48C` Lurker, brown `#825528` Spitter — see the
+`TUNING.md` map-authoring table). This is a down payment on the carried-over M8
+economy balance pass; per-room/per-color *gating* is still open for M10.
 
 **M9 follow-up — paintable markers + sand-dwelling lurkers (2026-06-26):** the
 two new species are now placeable in the live cavern map, and the Lurker got its
 sand habitat.
 - **Gen-layer markers (now in `TUNING.md`'s new map-authoring color table):**
-  `GenerationLayerParser` recognizes **magenta `#FF00FF` → Sand Lurker** and
-  **cyan `#00FFFF` → Spitter**, blob-clustered into Small/Big/Elite by clump size
+  `GenerationLayerParser` recognizes the Sand Lurker + Spitter markers (initially
+  magenta/cyan, recolored same day to tan `#D2B48C` / brown `#825528` to echo the
+  species — see the consolidation entry above), blob-clustered into S/B/E by size
   exactly like the orange/green fish markers. `MapLoader.lurker_fish_spawns` /
   `spitter_fish_spawns` carry them; `world.gd`'s map branch spawns them. **Snir
   paints these hexes into `maps/cavern_depths_01/world_01_gen.png` to place them.**
@@ -104,8 +118,8 @@ predate this session — a background cleanup task was filed for the stale test)
 
 **M9 spawns (resolved by the follow-up above):** the Lurker + Spitter still have
 the convenience demo spawns in the **ShoreShelf fallback**, AND are now paintable
-into the live cavern map via the magenta/cyan gen-layer markers (see the follow-up
-entry). To actually see them in a normal run, Snir paints those hexes into
+into the live cavern map via the tan/brown gen-layer markers (see the entries
+above). To actually see them in a normal run, Snir paints those hexes into
 `maps/cavern_depths_01/world_01_gen.png` (sandy spots for lurkers, open water for
 spitters). The marker → meaning table is in `TUNING.md`.
 

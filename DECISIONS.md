@@ -1299,3 +1299,28 @@ Snir's 7-part request, scoped via AskUserQuestion:
   fish still collide with sand exactly as before. Any future "this species
   ignores terrain type X" should follow the same in-Fish pattern rather than
   splitting the TERRAIN layer.
+
+## Settled (2026-06-26, M9 — fauna currency consolidation + marker recolor)
+- **The fauna currency economy is deliberately just TWO droppable colors, not
+  one-per-species.** Snir's call ("with too many fish types the color economics
+  will be too cumbersome"). **brown** drops from the reference reef fish (was
+  "orange"), the Sand Lurker (was "tan"), and the Spitter; **teal** drops from
+  the chaser and is earmarked for the queued **Shoal + Discharger**. So as the
+  bestiary grows, species map onto a small shared currency set rather than each
+  minting its own. `GameFeel.currency.room_price_colors` follows the droppable
+  set (now `["brown", "teal"]`, was `["orange", "teal"]`) so a room is never
+  priced in a color nothing drops. `"orange"`/`"tan"` stay as render-only legacy
+  palette entries (so old saves/pickups don't grey-fall) but no species drops
+  them. "gold" remains the separate elite-only premium.
+- **A third currency, "purple", is reserved for a future category** (nothing
+  drops it yet). ⚠️ FLAG / unresolved: `ELEMENTAL_UPDATE.md` §2 lists `purple`
+  among the *reserved Elemental hues currency must avoid* — so "purple as the
+  third currency" collides with that reservation. Not resolved now (no purple
+  drop exists yet); to be reconciled with Snir when that third category is
+  actually designed — either the Elemental palette gives up purple, or the third
+  currency takes a different hue.
+- **Gen-layer fauna markers echo the species' own color** (Snir): Sand Lurker
+  `#D2B48C` (tan, its sand body), Spitter `#825528` (brown, its puffer body),
+  replacing the first-pass magenta/cyan. The lurker marker shares sand's
+  `#D2B48C`, but markers live on the gen layer and terrain on the phys layer
+  (separate PNGs), so there's no parsing collision — documented in `TUNING.md`.
