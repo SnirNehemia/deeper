@@ -1278,3 +1278,24 @@ Snir's 7-part request, scoped via AskUserQuestion:
   the M8 ranged-demo precedent — they don't appear in the live cavern map. A
   paintable gen-layer marker per species (parser + MapLoader + world wiring) is
   the clean way to make them live; parked until Snir wants them in the real map.
+
+## Settled (2026-06-26, M9 follow-up — paintable markers + sand-dwelling lurkers)
+- **Gen-layer marker hues for the new fauna: magenta `#FF00FF` = Sand Lurker,
+  cyan `#00FFFF` = Spitter** (in `GenerationLayerParser`, documented in
+  `TUNING.md`'s map-authoring color table). Chosen to be unmistakable against the
+  existing markers (white spawn / orange territorial / green chaser / grey wreck
+  / brown dock). Blob size still sets the class tier (1px Small, 2 Big, 3+ Elite),
+  no separate convention. This supersedes the M9 "demo-spawns-only" limitation —
+  both species are now placeable in the live map by painting pixels.
+- **The Sand Lurker treats SAND terrain as passable; everything else does not.**
+  Snir's call ("lurkers can move over sand — it's their hiding place"). Sand is
+  the lurker's medium, so it swims/burrows through `SAND` `TerrainBody`s while
+  rock/dock still block it. Implemented **without a collision-layer change** —
+  the lurker's terrain ShapeCast reads `terrain_type` off the collided body and
+  ignores sand only for `Behavior.AMBUSHER` (`fish.gd` `_terrain_cast_blocks()` /
+  `_is_passable_terrain()`). Deliberately NOT a new collision layer: that would
+  have forced touching the sub-hull / projectile / every-fish masks; keeping it
+  a code-side per-behavior rule means the sub, torpedoes, bubbles, and all other
+  fish still collide with sand exactly as before. Any future "this species
+  ignores terrain type X" should follow the same in-Fish pattern rather than
+  splitting the TERRAIN layer.

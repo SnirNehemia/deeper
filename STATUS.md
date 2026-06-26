@@ -1,6 +1,31 @@
 # STATUS — DEEPER
 
-_Read this at session start. Last updated: 2026-06-26 — **M9-1 + M9-2 shipped: the first two real bestiary species — the Sand Lurker (an invisible-range ambusher) and the Spitter (a kiting puffer with destructible bubbles, the game's first shootable projectile).** Previous: 2026-06-25 — the `add-deeper-enemy` skill closed Milestone 8. Next: M10 — the queued deep-area roster (the Shoal + the Discharger, designed in `MILESTONE_9.md`) plus the carried-over economy balance pass._
+_Read this at session start. Last updated: 2026-06-26 — **M9-1 + M9-2 shipped (the Sand Lurker + the Spitter), plus a follow-up that makes them paintable into the real cavern map (magenta/cyan gen-layer markers) and lets the Lurker swim through sand.** Previous: 2026-06-25 — the `add-deeper-enemy` skill closed Milestone 8. Next: M10 — the queued deep-area roster (the Shoal + the Discharger, designed in `MILESTONE_9.md`) plus the carried-over economy balance pass._
+
+**M9 follow-up — paintable markers + sand-dwelling lurkers (2026-06-26):** the
+two new species are now placeable in the live cavern map, and the Lurker got its
+sand habitat.
+- **Gen-layer markers (now in `TUNING.md`'s new map-authoring color table):**
+  `GenerationLayerParser` recognizes **magenta `#FF00FF` → Sand Lurker** and
+  **cyan `#00FFFF` → Spitter**, blob-clustered into Small/Big/Elite by clump size
+  exactly like the orange/green fish markers. `MapLoader.lurker_fish_spawns` /
+  `spitter_fish_spawns` carry them; `world.gd`'s map branch spawns them. **Snir
+  paints these hexes into `maps/cavern_depths_01/world_01_gen.png` to place them.**
+- **The Sand Lurker swims through sand:** the `AMBUSHER` treats `SAND`
+  `TerrainBody`s as passable (its hiding medium) while rock/dock still block it —
+  done entirely in `fish.gd` (`_terrain_cast_blocks()` / `_is_passable_terrain()`
+  / `_depenetration_normal()` read `terrain_type` off the collided body). **No
+  collision-layer change** — the sub, projectiles, and every other fish are
+  untouched (sand still blocks them all).
+- **`TUNING.md`:** new "Map authoring — what each painted pixel color means"
+  section (both the gen-layer markers and the physical-layer terrain hexes, incl.
+  the sand-is-the-lurker's-medium note); per-species table + GameFeel index table
+  brought up to date with the Lurker/Spitter/Bubble dials.
+- **Tests:** `test_map_loader` asserts the new markers parse (fixture regenerated
+  via `gen_test_map.gd`); `test_enemy_lurker` asserts a lurker passes through sand
+  / is blocked by rock / a normal fish is still blocked by sand. No new failures.
+- **Commit:** `M9 follow-up: paintable Lurker/Spitter map markers + lurkers swim
+  through sand`.
 
 **M9-1 — THE SAND LURKER (AMBUSHER), shipped (2026-06-26):** the first new AI
 behavior past the M8 "no new AI" freeze. A flat, sand-colored fish that lies
@@ -77,13 +102,12 @@ pre-existing baseline (test_fish ×1, test_claw ×1, test_dock_shop_ui ×4, test
 ×2; plus test_input ×2 and a stale, unparseable `test_dry_dock.tscn` confirmed to
 predate this session — a background cleanup task was filed for the stale test).
 
-**Known limitation (M9 demo spawns):** like the M8 ranged-fish demo, the Lurker
-and Spitter demo spawns live in the **ShoreShelf fallback**, not the live
-cavern_depths_01 map (which spawns fish from painted gen-layer marker pixels, and
-no marker color exists for these two species yet). So they don't appear in a
-normal run. Making them paintable into the real map is a small follow-up: add a
-new marker color to `GenerationLayerParser` + `MapLoader` + `world.gd` for each,
-then Snir paints sandy/open spots — flagged for M10 if he wants them live.
+**M9 spawns (resolved by the follow-up above):** the Lurker + Spitter still have
+the convenience demo spawns in the **ShoreShelf fallback**, AND are now paintable
+into the live cavern map via the magenta/cyan gen-layer markers (see the follow-up
+entry). To actually see them in a normal run, Snir paints those hexes into
+`maps/cavern_depths_01/world_01_gen.png` (sandy spots for lurkers, open water for
+spitters). The marker → meaning table is in `TUNING.md`.
 
 **Still queued for M10 (designed in `MILESTONE_9.md`, not built):** the Shoal
 (flocking swarm with a mass-slam + leader-kill scatter) and the Discharger
