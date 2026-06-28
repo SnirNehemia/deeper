@@ -17,6 +17,10 @@ const Z_FOREGROUND := 100
 var background: Sprite2D
 var shimmer: WaterShimmerOverlay
 var foreground: Sprite2D
+## The world-space size (px) the background image scales to — exposed so
+## other per-frame layers (MILESTONE_11.md's depth fog) can size themselves
+## to match without re-deriving it from the texture.
+var world_size: Vector2 = Vector2.ZERO
 
 ## Builds the full stack for `config`. World size is derived from the
 ## background image's pixel size (falls back to `fallback_world_size` if the
@@ -33,6 +37,7 @@ static func build(config: MapConfig, fallback_world_size := Vector2(48.0, 48.0))
 		layers.background.z_index = Z_BACKGROUND
 		layers.add_child(layers.background)
 		world_size = VisualLayerBuilder.world_size(layers.background.texture.get_size(), scale)
+	layers.world_size = world_size
 
 	layers.shimmer = WaterShimmerOverlay.build(world_size)
 	layers.shimmer.z_index = Z_SHIMMER

@@ -22,16 +22,23 @@ var _salvage_hud: SalvageHud
 var _alerts: AlertHud
 var _dock_prompt: Label
 var _dry_dock: DryDock = null
+var _depth_fog: DepthFogOverlay = null
 
 ## Set by _load_map(); world uses these for spawning and dock checks.
 var _sub_spawn: Vector2 = SHORE_SHELF_SPAWN
-var _dock_center: Vector2 = SHORE_SHELF_SPAWN
-var _dock_radius: float = SHORE_SHELF_DOCK_RADIUS
+## MILESTONE_11.md Module 2: one entry per physically separate dock — a map
+## can have more than one. Each: {"center": Vector2, "radius": float}.
+var _docks: Array[Dictionary] = [{"center": SHORE_SHELF_SPAWN, "radius": SHORE_SHELF_DOCK_RADIUS}]
+## The index into _docks the sub was touching when the dry dock was last
+## opened — _on_dry_dock_closed repositions the rebuilt sub there. A run
+## reset (implosion) ignores this and always returns to _sub_spawn instead
+## (the run's home dock), per Snir's call: a reset is a fresh start.
+var _active_dock_index: int = 0
 var _map_loader: MapLoader = null  # non-null when a map config was found
 
 func _ready() -> void:
 	_load_map()
-	_spawn_sub_and_crew()
+	_spawn_sub_and_crew(_sub_spawn)
 	_spawn_entities()
 
 	# Fixed-zoom follow camera: ~60 m visible width, smoothed.
@@ -69,8 +76,16 @@ func _ready() -> void:
 	_add_hint_label()
 	_add_dock_prompt()
 
+	# MILESTONE_11.md Module 1: the depth-fog overlay, sized to the full map
+	# (or a generous fallback box on ShoreShelf, which has no background image
+	# to derive a size from).
+	var fog_world_size := _map_loader.world_size if _map_loader != null else Vector2(220.0 * M, 140.0 * M)
+	_depth_fog = DepthFogOverlay.build(fog_world_size)
+	_depth_fog.sub = _sub
+	add_child(_depth_fog)
+
 ## Loads the hand-drawn map config if the JSON exists; otherwise falls back to
-## the ShoreShelf procedural map. Populates _sub_spawn / _dock_center / _dock_radius.
+## the ShoreShelf procedural map. Populates _sub_spawn / _docks.
 func _load_map() -> void:
 	if FileAccess.file_exists(MAP_CONFIG_PATH):
 		var config := MapConfig.load_from_json(MAP_CONFIG_PATH)
@@ -78,14 +93,12 @@ func _load_map() -> void:
 			_map_loader = MapLoader.build(config)
 			add_child(_map_loader)
 			_sub_spawn = _map_loader.sub_spawn
-			_dock_center = _map_loader.dock_center
-			_dock_radius = _map_loader.dock_radius
+			_docks = _map_loader.docks
 			return
 	# Fallback: ShoreShelf placeholder map.
 	add_child(ShoreShelf.new())
 	_sub_spawn = SHORE_SHELF_SPAWN
-	_dock_center = SHORE_SHELF_SPAWN
-	_dock_radius = SHORE_SHELF_DOCK_RADIUS
+	_docks = [{"center": SHORE_SHELF_SPAWN, "radius": SHORE_SHELF_DOCK_RADIUS}]
 
 ## Spawn fish and wrecks: from the gen layer when a map is loaded, otherwise
 ## the hardcoded ShoreShelf placements used since Milestone 1.
@@ -136,15 +149,18 @@ func _spawn_entities() -> void:
 		_add_shoal(Vector2(120.0 * M, 70.0 * M), EnemyDef.Class.SMALL)
 		_add_shoal(Vector2(60.0 * M, 58.0 * M), EnemyDef.Class.ELITE)
 
-## Build the sub from the saved loadout and seat the two crew inside it.
-func _spawn_sub_and_crew() -> void:
+## Build the sub from the saved loadout and seat the two crew inside it, at
+## `spawn_pos` — the run's home dock (_sub_spawn) on first build / a run
+## reset, or the dock the sub was last touching on a dry-dock-close rebuild
+## (MILESTONE_11.md Module 2 — see _rebuild_sub).
+func _spawn_sub_and_crew(spawn_pos: Vector2) -> void:
 	_sub = Sub.new()
 	_sub.loadout = SaveData.loadout
 	_sub.layout = SaveData.layout
 	_sub.buoyancy_enabled = true
 	_sub.water_surface_y = _map_loader.water_surface_y if _map_loader != null else 0.0
 	_sub.sky_zones = _map_loader.sky_zones if _map_loader != null else []
-	_sub.position = _sub_spawn
+	_sub.position = spawn_pos
 	add_child(_sub)
 	_sub.imploded.connect(_on_imploded)
 	if _sub.hull_station != null:
@@ -173,9 +189,12 @@ func _physics_process(delta: float) -> void:
 			_cam.offset = Vector2.ZERO
 
 	if _sub != null:
-		_sub.try_bank(_dock_center, _dock_radius)
+		var idx := _current_dock_index()
+		if idx != -1:
+			var d: Dictionary = _docks[idx]
+			_sub.try_bank(d["center"], d["radius"])
 		if _dock_prompt != null:
-			_dock_prompt.visible = _is_docked() and _dry_dock == null
+			_dock_prompt.visible = idx != -1 and _dry_dock == null
 
 func _on_imploded() -> void:
 	if _resetting:
@@ -196,11 +215,12 @@ func _on_imploded() -> void:
 	fade_in.tween_property(_fade, "color:a", 0.0, 0.6)
 	_resetting = false
 
-## Resets the run back to the start: sub at dock, crew aboard, fish home.
+## Resets the run back to the start: sub at the HOME dock (_sub_spawn — a run
+## reset always returns here, regardless of which dock the sub last touched;
+## see _rebuild_sub), crew aboard, fish home.
 func reset_run() -> void:
 	SaveData.reset_for_test()
-	_rebuild_sub()
-	_sub.global_position = _sub_spawn
+	_rebuild_sub(_sub_spawn)
 	_crew[0].reset_at(_sub.tower_seat_local(0))
 	_crew[1].reset_at(_sub.tower_seat_local(1))
 	get_tree().call_group("fish", "reset_fish")
@@ -292,13 +312,27 @@ func _add_dock_prompt() -> void:
 	_dock_prompt.visible = false
 	layer.add_child(_dock_prompt)
 
-func _is_docked() -> bool:
+## MILESTONE_11.md Module 2: which _docks entry (if any) the sub currently
+## overlaps, or -1 if it isn't at any dock. Docks are independent zones (a map
+## can have more than one) — never merged into a single bbox.
+func _current_dock_index() -> int:
 	if _sub == null:
-		return false
-	return _sub.global_position.distance_to(_dock_center) <= _dock_radius
+		return -1
+	for i in _docks.size():
+		var d: Dictionary = _docks[i]
+		if _sub.global_position.distance_to(d["center"]) <= d["radius"]:
+			return i
+	return -1
+
+func _is_docked() -> bool:
+	return _current_dock_index() != -1
 
 func _on_hull_station_dock_requested() -> void:
-	if _is_docked():
+	# Capture which dock the sub is actually leaving from — _on_dry_dock_closed
+	# restores it here, not to the run's home spawn (MILESTONE_11.md Module 2).
+	var idx := _current_dock_index()
+	if idx != -1:
+		_active_dock_index = idx
 		_open_dry_dock()
 
 func _open_dry_dock() -> void:
@@ -311,14 +345,22 @@ func _open_dry_dock() -> void:
 func _on_dry_dock_closed(changed: bool) -> void:
 	_dry_dock = null
 	if changed:
-		_rebuild_sub()
+		var d: Dictionary = _docks[_active_dock_index]
+		_rebuild_sub(d["center"])
 
-func _rebuild_sub() -> void:
+## Rebuilds the sub at `spawn_pos` — the dock it was just touching (dry-dock
+## close, buy-a-room rebuild) or the run's home dock (reset_run, on an
+## implosion). MILESTONE_11.md Module 2: previously this always reused
+## _sub_spawn regardless of caller, which on a multi-dock map silently
+## snapped you back to the wrong dock after shopping.
+func _rebuild_sub(spawn_pos: Vector2) -> void:
 	_sub.queue_free()
-	_spawn_sub_and_crew()
+	_spawn_sub_and_crew(spawn_pos)
 	_depth_hud.sub = _sub
 	_salvage_hud.sub = _sub
 	_alerts.watch(_sub)
+	if _depth_fog != null:
+		_depth_fog.sub = _sub
 	_cam.reset_smoothing()
 	get_tree().call_group("fish", "set", "sub", _sub)
 	# The Shoal CONTROLLER lives in the "shoal" group, not "fish", so the line

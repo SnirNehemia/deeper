@@ -1386,3 +1386,63 @@ Snir's 7-part request, scoped via AskUserQuestion:
   so it never pins against any boundary (a per-member hard block alone froze them).
 - **The attention ring is 3× larger** — `detect_range_m` (27 m) is both the faint
   ring radius (drawn by the leader only) and the spot-trigger range.
+
+## Settled (2026-06-28, Milestone 11 — Depth Fog & The Dock You Left)
+- **M11 scoping:** ships Module 1 (Depth Fog) + Module 2 (Dock-Return Fix) only.
+  The art pass (pixel-shader vs. cute-vector branches) stays a parked side-spike
+  until after the vertical slice — committing a visual identity before the fog
+  exists would mean re-judging every sprite against a background that didn't
+  exist yet. The economy/room-store balance pass is **re-parked again** (carried
+  M8 → M9 → M10 → M11); full intent still lives in `MILESTONE_9.md`.
+- **Fog design rulings, locked:**
+  - **Continuous gradient with a per-zone cap** — darkness ramps smoothly with
+    depth, but each zone (Shallows/Twilight Drop/Midnight Trench/Hadal Garden)
+    has its own darkness ceiling, so the curve never crushes to black before its
+    zone. Implemented as breakpoints (`GameFeel.fog.zone_caps`) the gradient
+    lerps continuously between — first-pass numbers, tuned at the mid-build
+    checkpoint, not locked for real (see note below).
+  - **Shallows are fog-free** (0–50m): 0 darkness at the surface, looks exactly
+    as it did before this milestone.
+  - **Floodlight cut-out: soft falloff**, reusing the Module-20 beam work
+    (`FloodlightFeel`'s existing nested-fringe softness) rather than a new cone;
+    `FogFeel.floodlight_cutout_softness_m` adds one more, very faint, scaled-by-
+    darkness halo on top, so the floodlight "punches through" the fog rather than
+    just being unaffected by it.
+  - **Fog is cosmetic-only — no vision/AI gate.** Implemented via render order,
+    not a screen tint: a flat darkness layer sits ABOVE plain gameplay (fish,
+    wrecks, background — all default z=0) but the sub itself is bumped above
+    THAT (`Sub.z_index = 55` vs. the fog's `z_index = 40`), so the hull, crew,
+    room interiors, the floodlight beam, and the sub's own ambient glow always
+    draw on top and read clearly regardless of depth. Detection ranges, AI
+    behavior, and hitboxes are untouched — confirmed nothing in `FishFeel`/
+    `FlockFeel`/`SpitterFeel`/any enemy `.tres` changed.
+  - **Sub's own ambient "readability bubble"** (`FogFeel.ambient_bubble_radius_m`)
+    reaches a little past the hull into the dark, scaled by the current darkness
+    (invisible in the fog-free Shallows, fades in with depth) — distinct from the
+    floodlight, always-on regardless of aim.
+  - **This is the codebase's first atmosphere/lighting-layer precedent** — prior
+    visual work (water shimmer, background/foreground layers) was static per-map
+    art; depth fog is the first layer driven by live per-frame gameplay state
+    (the sub's depth).
+- **Mid-build playtest note (open, for Snir):** `cavern_depths_01`'s painted
+  extent is only ~200m deep (`world_size.y` / `PIXELS_PER_METER`), far short of
+  the design doc's Twilight Drop (50–600m) / Midnight Trench (600–1500m) depths
+  the shipped `zone_caps` are calibrated to — a real dive in the current map
+  barely shows fog. Decide at the tuning pass: extend the map's painted depth, or
+  rescale `zone_caps` to fit this map's actual scale. The mid-build capture used a
+  temporarily compressed curve (not shipped) just to demonstrate the rendering
+  technique works.
+- **Dock-return rule, locked (Snir):** the sub returns to **the dock it was
+  physically touching when the dry dock was opened** — not nearest, not a
+  separately-set home dock. A buy-a-room rebuild (still mid-visit) restores that
+  exact dock. A full **implosion run-reset is a different case**: it always
+  returns to the run's **home dock** (`_sub_spawn`, the white gen-layer pixel),
+  regardless of which dock was last touched — a reset is a fresh start, not a
+  "where was I" lookup.
+- **Root cause confirmed, not hypothetical:** the pre-M11 dock code merged every
+  brown dock-zone pixel on the whole map into ONE bounding box/Area2D — a real
+  bug the moment a map has more than one physical dock (confirmed via a parser
+  probe: `cavern_depths_01`'s gen layer already has 2 separate dock-pixel blobs,
+  15013px and 7202px). Fixed by clustering dock pixels into separate physical
+  docks (same 8-connected-blob technique as the fauna markers), each tracked
+  independently (`MapLoader.docks: Array[Dictionary]`).

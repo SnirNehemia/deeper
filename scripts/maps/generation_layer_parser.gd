@@ -46,8 +46,10 @@ const KEY_DOCK_ZONES := "dock_zones"
 ## - "territorial_fish": Array[Dictionary] — {"pos": Vector2, "cls": EnemyDef.Class}
 ## - "hunter_fish": Array[Dictionary] — same shape
 ## - "wreckage": Array[Vector2]
-## - "dock_zones": Array[Vector2] — all dock-zone pixel positions (build the
-##   bbox/center from these in the caller to drive dry-dock interaction)
+## - "dock_zones": Array[Array[Vector2]] — one inner array per physically
+##   separate dock (8-connected pixel blob, MILESTONE_11.md Module 2 — a map
+##   can paint more than one dock; build each dock's own bbox/center from its
+##   own inner array, never merge them together)
 ## Returns an empty dictionary (with empty defaults) if the image can't load.
 ##
 ## 2026-06-21 (M8 Module 3 follow-up): same-colored pixels that touch
@@ -66,7 +68,7 @@ static func parse(config: MapConfig) -> Dictionary:
 		KEY_SPITTER_FISH: [] as Array[Dictionary],
 		KEY_SHOAL_FISH: [] as Array[Dictionary],
 		KEY_WRECKAGE: [] as Array[Vector2],
-		KEY_DOCK_ZONES: [] as Array[Vector2],
+		KEY_DOCK_ZONES: [] as Array,  ## Array[Array[Vector2]] -- see parse() doc above
 	}
 
 	var image := Image.new()
@@ -82,6 +84,7 @@ static func parse(config: MapConfig) -> Dictionary:
 	var lurker_coords: Array[Vector2i] = []
 	var spitter_coords: Array[Vector2i] = []
 	var shoal_coords: Array[Vector2i] = []
+	var dock_coords: Array[Vector2i] = []
 	for y in size.y:
 		for x in size.x:
 			var pixel := image.get_pixel(x, y)
@@ -103,13 +106,14 @@ static func parse(config: MapConfig) -> Dictionary:
 			elif _color_matches(pixel, WRECKAGE):
 				(result[KEY_WRECKAGE] as Array[Vector2]).append(world_pos)
 			elif _color_matches(pixel, DOCK_ZONE):
-				(result[KEY_DOCK_ZONES] as Array[Vector2]).append(world_pos)
+				dock_coords.append(Vector2i(x, y))
 
 	result[KEY_TERRITORIAL_FISH] = _cluster_to_spawns(territorial_coords, scale)
 	result[KEY_HUNTER_FISH] = _cluster_to_spawns(hunter_coords, scale)
 	result[KEY_LURKER_FISH] = _cluster_to_spawns(lurker_coords, scale)
 	result[KEY_SPITTER_FISH] = _cluster_to_spawns(spitter_coords, scale)
 	result[KEY_SHOAL_FISH] = _cluster_to_spawns(shoal_coords, scale)
+	result[KEY_DOCK_ZONES] = _cluster_dock_zones(dock_coords, scale)
 	return result
 
 static func _color_matches(a: Color, b: Color) -> bool:
@@ -155,3 +159,38 @@ static func _cluster_to_spawns(coords: Array[Vector2i], scale: float) -> Array[D
 			cls = EnemyDef.Class.ELITE
 		spawns.append({"pos": centroid, "cls": cls})
 	return spawns
+
+## MILESTONE_11.md Module 2: dock-zone pixels are clustered into separate
+## physical docks the same way fauna markers cluster into population blobs
+## (8-connected flood fill) — a map can paint more than one dock, and each
+## becomes its own independently-detectable zone. Unlike _cluster_to_spawns,
+## a dock blob keeps every pixel's own world position (not just a centroid +
+## tier), since the caller needs the full extent to build each dock's bbox/
+## Area2D.
+static func _cluster_dock_zones(coords: Array[Vector2i], scale: float) -> Array:
+	var remaining := {}
+	for c in coords:
+		remaining[c] = true
+	var docks: Array = []
+	for start in coords:
+		if not remaining.has(start):
+			continue
+		var blob: Array[Vector2i] = []
+		var queue: Array[Vector2i] = [start]
+		remaining.erase(start)
+		while not queue.is_empty():
+			var cur: Vector2i = queue.pop_back()
+			blob.append(cur)
+			for dx in [-1, 0, 1]:
+				for dy in [-1, 0, 1]:
+					if dx == 0 and dy == 0:
+						continue
+					var n := Vector2i(cur.x + dx, cur.y + dy)
+					if remaining.has(n):
+						remaining.erase(n)
+						queue.append(n)
+		var positions: Array[Vector2] = []
+		for p in blob:
+			positions.append(Vector2(p) * scale)
+		docks.append(positions)
+	return docks

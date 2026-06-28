@@ -713,3 +713,46 @@ class TelescopeFeel:
 	var cage_capacity: int = 6         ## items per onboard cage (s2 + s4 = 12 total)
 
 var telescope: TelescopeFeel = TelescopeFeel.new()
+
+## MILESTONE_11.md Module 1: a darkness layer over the outside water that
+## thickens with depth -- purely cosmetic (never read by AI/gameplay code).
+## The curve is a continuous gradient with a per-zone cap: zone_caps is a list
+## of (depth_m, darkness_alpha) breakpoints; the gradient ramps linearly
+## between them (and from an implicit (0,0) at the surface), so it never jumps
+## and each zone's darkness still ceilings at its own value by the time you
+## reach that zone's far depth. Owns the DARKNESS only -- beam reach/cone/
+## falloff stay in FloodlightFeel; this block never touches that one.
+class FogFeel:
+	var fog_color: Color = Color(0.02, 0.06, 0.14)  ## deep navy-blue, not night-black
+	## Breakpoints matching the design doc's zones (depth_m, darkness ceiling
+	## 0..1): Shallows are fog-free through the shelf edge, then Twilight Drop /
+	## Midnight Trench / Hadal Garden each cap a bit darker. First-pass numbers,
+	## deeper-tuner-friendly -- locked for real at the M11 mid-build playtest.
+	var zone_caps: Array[Vector2] = [
+		Vector2(50.0, 0.0),     ## Shallows (0-50m): fog-free
+		Vector2(600.0, 0.35),   ## Shelf Edge & Twilight Drop
+		Vector2(1500.0, 0.7),   ## Midnight Trench
+		Vector2(3000.0, 0.92),  ## Hadal Garden (ceiling holds beyond this depth too)
+	]
+	## How far (m) the floodlight's own soft edge bleeds an extra faint halo
+	## into the fog around the cone, on top of FloodlightFeel's own beam-edge
+	## softness -- this is the part of the cutout that pushes back the fog.
+	var floodlight_cutout_softness_m: float = 2.0
+	## How far (m) past the hull the sub's own ambient readability glow
+	## reaches into the fog (0 = floodlight-only).
+	var ambient_bubble_radius_m: float = 4.0
+
+	## Darkness alpha (0..1) for a given depth (m) -- the same continuous-
+	## with-per-zone-cap gradient described above.
+	func darkness_alpha(depth_m: float) -> float:
+		if depth_m <= zone_caps[0].x:
+			return 0.0
+		for i in range(1, zone_caps.size()):
+			var prev: Vector2 = zone_caps[i - 1]
+			var cur: Vector2 = zone_caps[i]
+			if depth_m <= cur.x:
+				var t := (depth_m - prev.x) / maxf(0.001, cur.x - prev.x)
+				return lerpf(prev.y, cur.y, clampf(t, 0.0, 1.0))
+		return zone_caps[-1].y
+
+var fog: FogFeel = FogFeel.new()

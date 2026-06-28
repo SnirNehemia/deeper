@@ -16,10 +16,15 @@ var water_surface_y: float = 0.0
 ## {"rect": Rect2, "surface_y": float}. Copied to Sub.sky_zones so the sub
 ## can apply local buoyancy inside each pocket.
 var sky_zones: Array = []
-## Center and radius of the docking area (derived from gen-layer dock pixels),
-## fed to Sub.try_bank() and the _is_docked() proximity check.
-var dock_center: Vector2 = Vector2.ZERO
-var dock_radius: float = 0.0
+## World-space size (px) of the map, from MapVisualLayers' background image —
+## MILESTONE_11.md's depth fog overlay sizes itself to this.
+var world_size: Vector2 = Vector2.ZERO
+## One entry per physically separate dock (MILESTONE_11.md Module 2 — a map
+## can paint more than one; each gen-layer dock-pixel blob clusters into its
+## own zone here, never merged with another). Each: {"center": Vector2,
+## "radius": float, "area": Area2D}. The world iterates these for the
+## dry-dock proximity check, Sub.try_bank(), and dock-return positioning.
+var docks: Array[Dictionary] = []
 ## Entity spawn lists read by the world to create Fish and Wreck nodes.
 ## Fish spawns are Array[Dictionary] — {"pos": Vector2, "cls": EnemyDef.Class}
 ## — one entry per connected pixel blob in the gen layer (see
@@ -35,9 +40,6 @@ var spitter_fish_spawns: Array[Dictionary] = []
 ## spawns the Shoal CONTROLLER per blob, not a lone fish.
 var shoal_spawns: Array[Dictionary] = []
 var wreck_spawns: Array[Vector2] = []
-## The dock-zone Area2D (collision_mask = SUB_HULL) added as a child, so the
-## world can call dock_zone.overlaps_body(sub) for the dry-dock prompt.
-var dock_zone: Area2D = null
 
 ## Builds and returns a MapLoader for `config`. Adds terrain + visual layers
 ## as children immediately; entity spawn coordinates are available on the
@@ -55,6 +57,7 @@ static func build(config: MapConfig) -> MapLoader:
 	# --- Visual layers ---
 	var visuals := MapVisualLayers.build(config)
 	loader.add_child(visuals)
+	loader.world_size = visuals.world_size
 
 	# --- Generation layer ---
 	var spawns := GenerationLayerParser.parse(config)
@@ -66,12 +69,18 @@ static func build(config: MapConfig) -> MapLoader:
 	loader.shoal_spawns = spawns[GenerationLayerParser.KEY_SHOAL_FISH]
 	loader.wreck_spawns = spawns[GenerationLayerParser.KEY_WRECKAGE]
 
-	var dock_positions: Array[Vector2] = spawns[GenerationLayerParser.KEY_DOCK_ZONES]
-	if not dock_positions.is_empty():
-		loader.dock_center = _bbox_center(dock_positions)
-		loader.dock_radius = _bbox_half_diagonal(dock_positions)
-		loader.dock_zone = _build_dock_area(dock_positions, config.pixel_scale())
-		loader.add_child(loader.dock_zone)
+	var dock_blobs: Array = spawns[GenerationLayerParser.KEY_DOCK_ZONES]
+	for blob in dock_blobs:
+		var positions: Array[Vector2] = blob
+		if positions.is_empty():
+			continue
+		var area := _build_dock_area(positions, config.pixel_scale())
+		loader.add_child(area)
+		loader.docks.append({
+			"center": _bbox_center(positions),
+			"radius": _bbox_half_diagonal(positions),
+			"area": area,
+		})
 
 	return loader
 

@@ -1,6 +1,92 @@
 # STATUS — DEEPER
 
-_Read this at session start. Last updated: 2026-06-26 — **M10 shipped THE SHOAL — the codebase's first group meta-entity: a boids-flocking swarm steered as one organism by a controller, with a killable crowned leader, a pooled mass-slam, and thin-to-flee.** Previous: 2026-06-26 — M9-1 + M9-2 (the Sand Lurker + the Spitter). Next: **THE DISCHARGER** (electric station-jammer — its own milestone; full spec in `MILESTONE_9.md`) and the carried-over **economy balance pass**, both re-parked out of M10 to keep the swarm build undiluted._
+_Read this at session start. Last updated: 2026-06-28 — **M11 shipped THE DEEP DARK — the codebase's first atmosphere/lighting layer: a depth-fog overlay that darkens the outside water as you sink (cosmetic only, no vision/AI gate), punched through by the floodlight beam and the sub's own ambient glow — plus a fix for the dock-return bug (multi-dock maps now return you to the dock you actually left, not a hardcoded spawn).** Previous: 2026-06-26 — M10 THE SHOAL. Next: **the mid-build fog tuning pass** (per-zone darkness caps, dark-blue hue, floodlight cutout softness, ambient bubble radius — first-pass numbers shipped, need Snir's feel pass; also decide whether to extend `cavern_depths_01`'s painted depth or rescale the curve to its current ~200m), **THE DISCHARGER**, and the carried-over **economy balance pass** (re-parked again out of M11)._
+
+**M11 — THE DEEP DARK, shipped (2026-06-28):** depth fog (the felt half of
+"descend through increasingly dangerous depth zones") plus a real, reproducible
+multi-dock bug fix.
+- **Module 1 — Depth Fog:** a darkness layer over the outside water that
+  thickens with depth — continuous gradient, but each zone (Shallows/Twilight
+  Drop/Midnight Trench/Hadal Garden) caps at its own ceiling so the deep can't
+  crush to black before its zone. Shallows (0–50m) are fog-free; surface play
+  looks exactly as before.
+  - **`autoload/game_feel.gd`:** new `FogFeel` (`GameFeel.fog`) —
+    `fog_color`, `zone_caps` (depth_m → darkness-alpha breakpoints the gradient
+    lerps between), `floodlight_cutout_softness_m`, `ambient_bubble_radius_m`,
+    and `darkness_alpha(depth_m)` (reads the same `Sub.depth_m()` the hull-
+    pressure gate already uses). First-pass numbers, `deeper-tuner`-friendly.
+  - **`scripts/maps/depth_fog_overlay.gd`** (new, `class_name DepthFogOverlay
+    extends ColorRect`): a flat darkness rect covering the full map, at
+    `z_index = 40` — above plain gameplay (fish/wrecks/background, all z=0) so
+    it visually darkens them, below the sub. **`Sub.z_index` is now 55**
+    (`scripts/sub/sub.gd`), so the hull, crew, room interiors, the floodlight
+    beam, and the sub's own ambient glow always draw on top and punch through
+    via ordinary alpha blending — no shader/masking needed for this pass.
+  - **`scripts/sub/sub_visual.gd`:** new `_draw_ambient_bubble()` — a soft warm
+    glow reaching `ambient_bubble_radius_m` past the hull, scaled by the
+    current darkness (invisible in the fog-free Shallows, fades in with
+    depth). `_draw_floodlight_beam()` gained one extra, very faint outer
+    fringe (additive-meters halo, not a cone-width multiple) sized by
+    `floodlight_cutout_softness_m`, also scaled by darkness — the part of the
+    cutout that actually pushes back the fog, distinct from `FloodlightFeel`'s
+    own (unrelated) beam-edge softness.
+  - **`scripts/maps/map_visual_layers.gd` / `map_loader.gd`:** expose
+    `world_size` (derived from the background image) so the fog overlay can
+    size itself to the map without re-deriving the texture size.
+  - **Cosmetic only, confirmed:** nothing in `FishFeel`/`FlockFeel`/
+    `SpitterFeel`/any enemy `.tres` changed; fauna detect/chase/bite exactly as
+    before in the dark.
+  - **Mid-build checkpoint capture shown to Snir** (3 stills: clear surface,
+    thickening mid-descent, a floodlight carving a soft-edged lit pocket out
+    of the dark with the hull fully readable) — flagged that
+    `cavern_depths_01`'s painted extent (~200m) is far short of the canon zone
+    depths (Twilight Drop 50–600m / Midnight Trench 600–1500m) the shipped
+    `zone_caps` are calibrated to, so a real dive barely shows fog today; open
+    item for Snir to resolve at the tuning pass (extend the map or rescale the
+    curve).
+- **Module 2 — Dock-Return Fix:** the pre-M11 dock code merged every brown
+  dock-zone pixel on the WHOLE map into one bounding box — a real bug the
+  moment a map has more than one dock (confirmed: `cavern_depths_01`'s gen
+  layer already has 2 separate dock-pixel blobs, 15013px/7202px).
+  - **`scripts/maps/generation_layer_parser.gd`:** new `_cluster_dock_zones()`
+    (8-connected flood fill, same technique as the fauna blob clustering, but
+    keeps every pixel position per blob instead of reducing to a centroid).
+    `KEY_DOCK_ZONES` is now `Array[Array[Vector2]]` — one inner array per
+    physically separate dock.
+  - **`scripts/maps/map_loader.gd`:** `dock_center`/`dock_radius`/`dock_zone`
+    (single values) replaced by `docks: Array[Dictionary]` (one
+    `{"center","radius","area"}` per physical dock).
+  - **`scenes/world.gd`:** `_docks` array replaces `_dock_center`/
+    `_dock_radius`; new `_current_dock_index()` finds which dock (if any) the
+    sub is touching. `_on_hull_station_dock_requested()` captures
+    `_active_dock_index` at the moment the dry dock opens.
+    `_spawn_sub_and_crew()`/`_rebuild_sub()` now take an explicit
+    `spawn_pos` — **`_on_dry_dock_closed()` repositions to the dock just
+    left** (`_docks[_active_dock_index]`), while **`reset_run()` (implosion)
+    always repositions to `_sub_spawn`** (the run's home dock), regardless of
+    which dock was last touched — Snir's call: a reset is a fresh start, not a
+    "where was I" lookup.
+- **Tests:** new `tests/test_dock_return.gd/.tscn` — gen-layer clustering keeps
+  far-apart dock pixels separate (and still merges touching ones), the real
+  live map parses into 2+ docks, a buy-a-room rebuild returns to the
+  non-home dock that was actually touched, and a run reset always returns to
+  the home dock regardless. **New `class_name DepthFogOverlay` → ran
+  `--headless --import` once.**
+- **Full regression (37 suites):** zero new failures beyond the documented
+  baseline (test_fish×1, test_claw×1, test_dock_shop_ui — STATUS previously
+  said ×4, confirmed via stash this run to actually be ×8 pre-existing
+  (one root-cause cascade, undercounted in earlier notes — not a regression),
+  test_sub×2, test_input×2, test_turret×4, test_lower_deck×7,
+  test_station_flood×2; test_implosion passes overall but has a pre-existing
+  cosmetic script-error referencing a nonexistent `world.SUB_SPAWN` — should
+  be `world._sub_spawn`, not fixed this session, unrelated to M11). Clean
+  headless boot.
+- **Parked (NOT built in M11):** the art pass (pixel-shader vs. cute-vector —
+  deliberately waits until after the vertical slice, now that the fog exists
+  to light sprites against) and the economy/room-store balance pass
+  (re-parked again, carried M8→M9→M10→M11; full intent in `MILESTONE_9.md`).
+- **Commit:** `M11: depth fog (atmosphere layer, floodlight + ambient
+  cutout) + dock-return fix (multi-dock-aware)`.
 
 **M10 — THE SHOAL, shipped (2026-06-26):** a school of tiny fish that moves and
 decides as ONE organism — the first GROUP enemy in a codebase where every prior

@@ -30,6 +30,7 @@ file and search for the class name below to find the actual numbers.
 | Salvage claw arm | `ClawFeel` (`GameFeel.claw`) | Arm segment lengths, joint sweep speeds/limits, grab radius, cage/storage capacity. |
 | Dry dock economy | `DockFeel` (`GameFeel.dock`) | Slot prices and how they scale with slots owned / depth level. |
 | Telescope arm | `TelescopeFeel` (`GameFeel.telescope`) | Reach, aim arc/speed, extend/retract speed, auto-retract speed, grab radius, cage capacity. |
+| Depth fog | `FogFeel` (`GameFeel.fog`) | The outside-water darkness layer: `fog_color` (deep navy), `zone_caps` (depth_m -> darkness-alpha breakpoints the gradient ramps continuously between — Shallows fog-free, then a per-zone ceiling), `floodlight_cutout_softness_m` (how far the beam's own faint halo bleeds into the fog beyond its normal soft edge), and `ambient_bubble_radius_m` (how far the sub's own glow reaches past the hull). Cosmetic only — never gates vision/AI/detection. Beam reach/cone/falloff itself stays in `FloodlightFeel`, not here. |
 
 ## Per-species enemy data (NOT in GameFeel)
 

@@ -33,6 +33,11 @@ func _draw() -> void:
 	for f in floodlights:
 		_draw_floodlight_beam(f)
 
+	# MILESTONE_11.md Module 1: the sub's own ambient readability glow, also
+	# drawn before the opaque hull so it reads as a soft halo bleeding into
+	# the water around the hull, not just the hull's own silhouette.
+	_draw_ambient_bubble(sub)
+
 	# Outer hull silhouette: one continuous shape, drawn as overlapping rounded
 	# rects (one per occupied cell), so it reads as a single hull.
 	for r in sub.hull_rects():
@@ -210,12 +215,23 @@ func _draw_floodlight_beam(f: FloodlightStation) -> void:
 	var decay_width_m := h / 8.0
 	var segments := 10
 	# Widest/faintest fringe first, narrowest/brightest core last (drawn on
-	# top), so the overlap reads as a soft glow toward the edges.
+	# top), so the overlap reads as a soft glow toward the edges. "extra_m" is
+	# an additive meters-wide halo (not a multiple of the cone's own width),
+	# distinct from FloodlightFeel's own edge softness — it's MILESTONE_11.md
+	# Module 1's depth-fog cutout reaching a bit past the beam's normal edge.
 	var fringes := [
-		{"scale": 1.6, "alpha_mul": 0.12},
-		{"scale": 1.3, "alpha_mul": 0.35},
-		{"scale": 1.0, "alpha_mul": 1.0},
+		{"scale": 1.6, "alpha_mul": 0.12, "extra_m": 0.0},
+		{"scale": 1.3, "alpha_mul": 0.35, "extra_m": 0.0},
+		{"scale": 1.0, "alpha_mul": 1.0, "extra_m": 0.0},
 	]
+	# MILESTONE_11.md Module 1: this extra halo only matters once there's fog
+	# to cut through -- scaled by the current darkness so it's a no-op in the
+	# fog-free Shallows (and ramps in smoothly, never a hard pop) but a real
+	# soft-edged cutout once the water around the lamp has actually darkened.
+	var fog_softness_m := GameFeel.fog.floodlight_cutout_softness_m
+	var fog_alpha := GameFeel.fog.darkness_alpha(f.sub.depth_m()) if f.sub != null else 0.0
+	if fog_softness_m > 0.0 and fog_alpha > 0.0:
+		fringes.append({"scale": 1.6, "alpha_mul": 0.05 * fog_alpha, "extra_m": fog_softness_m})
 	for i in range(segments):
 		var d0 := h * float(i) / segments
 		var d1 := h * float(i + 1) / segments
@@ -226,11 +242,45 @@ func _draw_floodlight_beam(f: FloodlightStation) -> void:
 			/ (1.0 + exp((d_mid - decay_center_m) / decay_width_m))
 		for fringe in fringes:
 			var scale: float = fringe["scale"]
-			var w0 := perp * (half_width_m * (d0 / h) * scale * Sub.PPM)
-			var w1 := perp * (half_width_m * (d1 / h) * scale * Sub.PPM)
+			var extra_px: float = float(fringe["extra_m"]) * Sub.PPM
+			var w0 := perp * (half_width_m * (d0 / h) * scale * Sub.PPM + extra_px)
+			var w1 := perp * (half_width_m * (d1 / h) * scale * Sub.PPM + extra_px)
 			draw_colored_polygon(PackedVector2Array([
 				p0 - w0, p0 + w0, p1 + w1, p1 - w1,
 			]), Color(beam.r, beam.g, beam.b, alpha * float(fringe["alpha_mul"])))
+
+## MILESTONE_11.md Module 1: a soft, low-alpha glow centered on the sub's own
+## hull (bounding-box center of its occupied cells), reaching
+## GameFeel.fog.ambient_bubble_radius_m past the hull into the dark — the
+## sub's own readability bubble, distinct from the floodlight beam. Drawn as
+## nested circles, widest/faintest first, like the beam's fringe technique.
+func _draw_ambient_bubble(sub: Sub) -> void:
+	var radius_m := GameFeel.fog.ambient_bubble_radius_m
+	if radius_m <= 0.0:
+		return
+	# Scaled by the current darkness so the bubble is invisible in the fog-
+	# free Shallows (nothing to punch through yet) and fades in smoothly with
+	# depth, matching the floodlight's own fog-cutout fringe above.
+	var fog_alpha := GameFeel.fog.darkness_alpha(sub.depth_m())
+	if fog_alpha <= 0.0:
+		return
+	var rects := sub.hull_rects()
+	if rects.is_empty():
+		return
+	var bbox: Rect2 = rects[0]
+	for r in rects:
+		bbox = bbox.merge(r)
+	var center := bbox.get_center()
+	var radius_px := radius_m * Sub.PPM
+	var glow := PlaceholderArt.FLOODLIGHT_COLOR
+	var rings := [
+		{"scale": 1.0, "alpha": 0.10},
+		{"scale": 0.65, "alpha": 0.18},
+		{"scale": 0.35, "alpha": 0.28},
+	]
+	for ring in rings:
+		draw_circle(center, radius_px * float(ring["scale"]),
+			Color(glow.r, glow.g, glow.b, float(ring["alpha"]) * fog_alpha))
 
 ## Flooding water: a flat rect rising from each room's floor. Drawn last.
 func _draw_water(sub: Sub) -> void:

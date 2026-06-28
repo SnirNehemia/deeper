@@ -157,6 +157,11 @@ func _ready() -> void:
 	collision_layer = Layers.SUB_HULL
 	collision_mask = Layers.TERRAIN
 	_move_mult = loadout.move_mult()
+	# MILESTONE_11.md Module 1: drawn above the depth-fog overlay (z=40) so the
+	# hull, crew, room interiors, floodlight beam, and ambient glow always
+	# punch through the dark regardless of depth — the sub itself, plain
+	# fauna/wrecks/background stay at the default z=0, under the fog.
+	z_index = 55
 
 	# Compile + re-anchor the geometry so the helm row's floor sits at y = 0.
 	geometry = SubGeometry.build(layout)
