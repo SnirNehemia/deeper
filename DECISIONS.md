@@ -1324,3 +1324,65 @@ Snir's 7-part request, scoped via AskUserQuestion:
   replacing the first-pass magenta/cyan. The lurker marker shares sand's
   `#D2B48C`, but markers live on the gen layer and terrain on the phys layer
   (separate PNGs), so there's no parsing collision — documented in `TUNING.md`.
+
+## Settled (2026-06-26, M10 — THE SHOAL)
+- **M10 re-scoping: Shoal only.** M9's Deep-Area Roster queued three things for
+  "M10" (the Shoal, the Discharger, the carried-over economy balance pass). M10
+  **commits the Shoal alone.** The **Discharger** becomes its own later milestone
+  (its full M9 spec stands, untouched — it carries the `Station.disable()` system,
+  the bolt, and the electrical-type fauna tag), and the **economy balance pass**
+  stays parked. Neither is retired; they're just not in M10. (Per the M10 brief.)
+- **Group-meta-entity (boids) precedent — the first GROUP enemy in the codebase.**
+  Every enemy before the Shoal was an independent single body. The Shoal is a
+  `controller + members` pattern: `scripts/fauna/shoal.gd` (`class_name Shoal
+  extends Node2D`) owns a GROUP state machine and the boids flocking math, and
+  steers N `Fish` members (a new `Behavior.SHOAL_MEMBER`) by assigning each one's
+  `shoal_velocity` every frame — the members run no AI of their own but reuse all
+  of Fish's collision / damage / grab / draw. Future group enemies follow this
+  precedent rather than baking swarm logic into `Fish`.
+- **The mass-slam pools into a SINGLE `breach_from_hit`.** N members converge on
+  one locked hull point and the *controller* issues exactly one breach (severity
+  `FlockFeel.slam_damage`), never N per-fish bites. Flooding stays the only death
+  path; no new HP pool, no second damage path — same pillar M8/M9 held.
+- **Tier = school SIZE, not per-fish power.** Small/Big/Elite only change the
+  member count (10 / 20 / 40, `FlockFeel`); every member is identical. A bigger
+  tier is a denser cloud and a scarier slam, authored by count alone.
+- **Leader holds the prize; regroup until thinned out.** The `.tres`'s per-tier
+  `currency_drop_total` encodes the **leader prize** (members drop ~none); killing
+  the crowned leader scatters the school, which promotes the nearest survivor and
+  regroups. A **promoted** leader carries only `leader_drop_share` of what the
+  previous one would have (diminishing each beheading; the original carries full)
+  — Snir's call. There's no "kill one fish and win," but there IS an end state:
+  once survivors fall to ≤ `flee_threshold_frac` (0.5) of the original count, the
+  whole school flees for good — so THINNING ends the encounter, not only beheading.
+- **Look:** members pale silvery-teal (`SHOAL_COLOR`), slim silhouette; the leader
+  wears crown **spikes** that **grow in via a short animation** on promotion
+  (`_leader_anim`), so the eye can watch the marker hop to a new fish. Currency
+  is **teal** (the deep/advanced-fauna color earmarked at the M9 consolidation).
+- **A grabbed member behaves like any caught fish** — it leaves the flock (the
+  controller stops steering grabbed members), is at-risk in the claw, and a
+  delivered catch is a normal kill/drop. Push-your-luck preserved; no special case.
+- **All Shoal dials live in `GameFeel.flock` (`FlockFeel`)**, never in the member
+  `.tres` — the M8 spine/content split, keeping the whole swarm `deeper-tuner`-
+  friendly. First-pass numbers; the cloud density / attack rhythm / flee point get
+  tuned in playtest.
+
+### Shoal playtest rework (2026-06-26, Snir — supersedes the "telegraphed slam")
+- **The attack is now SPOT → CIRCLE → CHARGE, not ball-up-and-slam.** The earlier
+  "telegraphed & punchy" ball-up/slam ruling is superseded: the school **drifts
+  very loose and sparse by default** (`drift_cohesion_weight`), and only when the
+  sub enters its detect ring does it **tighten into a dense, coordinated school**
+  (`stalk_cohesion_weight`), slide to a point **beside the sub and orbit it once**
+  (STALK), then **charge** the hull for the *same single pooled `breach_from_hit`*
+  (CHARGE). The one-pooled-hit + flooding-only-death pillars are unchanged — only
+  the approach/telegraph changed. Group states `BALL_UP`/`SLAM` → `STALK`/`CHARGE`.
+- **Member counts 10/20/40** (was 6/12/20) and the school **moves like a real
+  school** — strong alignment + velocity smoothing (`turn_smoothing`) + a roaming
+  drift target so it sweeps as one sheet rather than clumping (earlier same-day
+  tune, kept).
+- **Boundary avoidance generalized to all obstacles.** The school steers away from
+  the water surface AND terrain (sand/rock) with soft avoidance forces
+  (`surface_avoid_m` / `obstacle_avoid_m`, the latter via short feeler raycasts),
+  so it never pins against any boundary (a per-member hard block alone froze them).
+- **The attention ring is 3× larger** — `detect_range_m` (27 m) is both the faint
+  ring radius (drawn by the leader only) and the spot-trigger range.

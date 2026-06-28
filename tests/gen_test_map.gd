@@ -26,6 +26,7 @@ func _init() -> void:
 ##   (8,8) green   -> hunter fish
 ##   (2,5) tan     -> sand lurker (MILESTONE_9.md)
 ##   (6,5) brown   -> spitter (MILESTONE_9.md)
+##   (4,4) teal    -> shoal (MILESTONE_10.md)
 ##   (3,8) grey    -> wreckage
 func _write_generation_layer() -> void:
 	var img := Image.create(10, 10, false, Image.FORMAT_RGBA8)
@@ -35,6 +36,7 @@ func _write_generation_layer() -> void:
 	img.set_pixel(8, 8, Color(0, 1, 0))       # #00FF00
 	img.set_pixel(2, 5, Color(0xD2 / 255.0, 0xB4 / 255.0, 0x8C / 255.0))   # #D2B48C sand lurker
 	img.set_pixel(6, 5, Color(0x82 / 255.0, 0x55 / 255.0, 0x28 / 255.0))   # #825528 spitter
+	img.set_pixel(4, 4, Color(0xB3 / 255.0, 0xD9 / 255.0, 0xD1 / 255.0))   # #B3D9D1 shoal
 	img.set_pixel(3, 8, Color(0.5, 0.5, 0.5)) # #808080
 	img.save_png(DIR + "/test_map_gen.png")
 

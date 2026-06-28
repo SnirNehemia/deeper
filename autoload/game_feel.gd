@@ -342,6 +342,133 @@ class SpitterFeel:
 
 var spitter: SpitterFeel = SpitterFeel.new()
 
+## MILESTONE_10.md — THE SHOAL (scripts/fauna/shoal.gd, a group meta-entity): a
+## cloud of tiny fish steered as ONE organism by a controller. Boids-style
+## flocking (separation/alignment/cohesion) around a visible leader, a
+## coordinated mass-slam that pools into a SINGLE breach_from_hit, leader-kill
+## scatter+promote, and a terminal flee once thinned out. Every dial lives here
+## (never in the member .tres) so it stays deeper-tuner-friendly. First-pass
+## numbers — tune the cloud density / slam rhythm / flee point in playtest.
+class FlockFeel:
+	## Boids steering weights. Separation pushes members apart so they don't
+	## overlap; alignment matches neighbours' heading (the dominant "school" feel
+	## — they turn together as a sheet); cohesion pulls toward the neighbourhood
+	## centre; leader-follow biases the cloud toward its leader (kept LIGHT so the
+	## leader guides the school's heading without magnetizing everyone into a
+	## ball). Wander adds a little organic jitter so it never looks rigid.
+	var separation_radius_m: float = 1.4   ## members closer than this push apart (wider = fans out into a sheet)
+	var separation_weight: float = 1.8
+	var alignment_weight: float = 1.5      ## strong: the school turns as one
+	## Cohesion differs by mode: LOOSE/sparse while drifting unbothered, DENSE once
+	## the school spots the sub and coordinates (the "very loose by default, tight
+	## when it notices you" behaviour).
+	var drift_cohesion_weight: float = 0.3   ## loose, sparse default
+	var stalk_cohesion_weight: float = 1.4   ## dense + coordinated when engaged
+	var leader_follow_weight: float = 0.6  ## light: a guide, not a magnet
+	var wander: float = 0.35               ## random jitter magnitude
+	var drift_speed_mps: float = 3.2       ## cloud cruise speed while drifting (flows more)
+	## Velocity smoothing (0..1): each frame a member eases from its current
+	## velocity toward the freshly-computed steering by this fraction, giving the
+	## fish MOMENTUM — they keep their heading and turn gradually together instead
+	## of snapping a new direction every frame. The single biggest "real school"
+	## lever. Lower = heavier/smoother, higher = twitchier. Only the flocking
+	## states use it; the slam/scatter/flee drive velocity directly (snappy).
+	var turn_smoothing: float = 0.14
+	## How far the school roams: the leader cruises to targets within this radius
+	## of the spawn anchor, so the whole school sweeps across an area instead of
+	## milling in place. Bigger = it travels more.
+	var drift_roam_m: float = 11.0
+	## Soft boundary avoidance (m): within this distance of the water surface OR
+	## any terrain (sand/rock), a member gets a steering push AWAY from it (full
+	## strength at the boundary, fading to zero at the band edge), so the school
+	## never pins itself against a wall/surface — the per-member hard block would
+	## otherwise just freeze a fish steered straight into it. surface_avoid_m is
+	## the surface band; obstacle_avoid_m is the terrain feeler look-ahead.
+	var surface_avoid_m: float = 3.0
+	var obstacle_avoid_m: float = 2.5
+	## Perf: each member re-probes terrain (the wall-avoid raycasts) only every
+	## this-many physics frames, staggered across members, reusing its last veer in
+	## between — walls don't move and fish are slow, so it reads identical but cuts
+	## ~90% of the physics raycasts (the measured #1 framerate cost with many
+	## schools). The per-step movement block still runs every frame, so a member
+	## can never actually penetrate rock between probes.
+	var obstacle_check_interval: int = 8
+	## Perf: while ACTIVE, the controller recomputes the (expensive) flocking
+	## steering only every this-many frames, staggered per school; members coast on
+	## their last velocity in between. 2 = every other frame, ~half the flocking
+	## cost, invisible. Charge/scatter/flee still steer every frame (precision).
+	var flock_update_interval: int = 2
+	## Perf / LOD: a RESTING school whose distance to the sub's hull exceeds this
+	## goes DORMANT — cheap lazy group-drift, with full flocking / wall-rays /
+	## per-member physics switched OFF — until the sub comes near. Set comfortably
+	## beyond lose_range_m so a school is fully alive before it can engage (no
+	## pop-in). Far/off-screen schools cost almost nothing.
+	var active_range_m: float = 40.0
+	## DETECT → STALK (circle the sub) → CHARGE → DISPERSE. While unbothered the
+	## school is a loose sparse drift; when the sub comes within detect_range_m
+	## (also the radius of the faint attention ring) it tightens into a dense
+	## coordinated school. It disengages only past lose_range_m (hysteresis).
+	var detect_range_m: float = 27.0
+	var lose_range_m: float = 34.0
+	## STALK: the dense school slides to a point stalk_offset_m to the SIDE of the
+	## sub and orbits around it at orbit_speed_rad (rad/s), following it as it
+	## moves. After it has swept one full circle (TAU) it commits to the charge.
+	var stalk_offset_m: float = 8.0
+	var stalk_speed_mps: float = 4.5
+	var orbit_speed_rad: float = 1.7
+	## CHARGE: the whole dense school drives at one locked hull point; on contact
+	## it issues ONE pooled breach (charge_damage), then disperses. A charge that
+	## never reaches the hull gives up after charge_timeout_s.
+	var charge_speed_mps: float = 12.0
+	var charge_contact_m: float = 1.2
+	var charge_timeout_s: float = 2.0
+	var charge_damage: float = 2.0         ## ONE pooled breach severity (a modest leak, not the heaviest)
+	var charge_cooldown_s: float = 5.0     ## drift-off before it can re-engage
+	## How hard the charge shoves the sub (a flat "room_weight" fed to the shared
+	## ram-knockback; lower = gentler nudge). Kept small so a charge bumps rather
+	## than launches the sub.
+	var charge_knockback_weight: float = 1.0
+	## The charge TRACKS the sub as a coordinated ball, but only this far from the
+	## spot it first locked on — a small jink gets chased down, a big/early dodge
+	## still slips it (the ball reaches the edge of this range and whiffs).
+	var charge_track_m: float = 10.0
+	## Leader death → SCATTER (panic, harmless) → promote nearest survivor.
+	var scatter_time_s: float = 2.0
+	var scatter_speed_mps: float = 6.0
+	## Terminal FLEE: survivors at/below flee_threshold_frac × original count
+	## turn and swim away for good (so THINNING the cloud ends it, not only
+	## beheading it).
+	var flee_threshold_frac: float = 0.5
+	var flee_speed_mps: float = 6.0
+	var flee_despawn_s: float = 3.0        ## after fleeing this long, fled members go dormant
+	## Tier → member count (the only thing the class tier controls: a bigger
+	## tier is a denser cloud + a scarier slam; each member is identical).
+	var small_count: int = 10
+	var big_count: int = 20
+	var elite_count: int = 40
+	## The leader is a distinct member: tougher (extra hp), wears a grown-in
+	## spike marker, and carries the teal prize. A PROMOTED leader carries only
+	## leader_drop_share of what the previous one would have (diminishing each
+	## beheading); the original carries the full per-tier prize.
+	var leader_extra_hp: float = 6.0
+	var leader_drop_share: float = 0.5
+	var leader_grow_time_s: float = 0.4    ## spikes grow in over this on promotion
+	## Members drop ~nothing on death (the leader carries the prize, via the
+	## member .tres's per-tier currency_drop_total).
+	var member_drop: int = 0
+
+	## Member count for a spawned tier (Small/Big/Elite → denser clouds).
+	func member_count(cls: int) -> int:
+		match cls:
+			EnemyDef.Class.BIG:
+				return big_count
+			EnemyDef.Class.ELITE:
+				return elite_count
+			_:
+				return small_count
+
+var flock: FlockFeel = FlockFeel.new()
+
 ## MILESTONE_8.md Module 4: color-currency economy. Replaces the retired
 ## carcass tiers (s_ca/m_ca/l_ca) — an enemy drops its species' currency_color
 ## (EnemyDef, per-species) instead, split into these denominations. Room
@@ -480,6 +607,16 @@ class FishFeel:
 	var ambush_lunge_speed_mps: float = 18.0  ## the strike — much faster than any other fish
 	var ambush_lurk_drift: float = 0.0        ## ~motionless while buried (stays put at home)
 	var ambush_lunge_reach_m: float = 12.0    ## how far a lunge commits; a miss past this re-buries
+	## MILESTONE_10 perf: an IDLE fish (patrolling / returning / lurking) farther
+	## than far_active_range_m from the sub runs its full AI only every
+	## far_update_interval frames (staggered) instead of every frame — cutting the
+	## per-frame terrain/line-of-sight casts of many far/off-screen fish. This
+	## range is well beyond every detection range (territory 10, hunter 16, chaser
+	## 22), so a fish is only ever throttled while the sub is far out of its reach —
+	## it never delays an actual engagement; an engaged (chasing/biting) fish always
+	## runs full-rate.
+	var far_active_range_m: float = 40.0
+	var far_update_interval: int = 8
 	## MILESTONE_8.md Module 0: HP and bite damage moved to per-species
 	## EnemyDef/.tres data (res://data/enemies/) — no longer hard-coded here.
 

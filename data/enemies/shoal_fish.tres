@@ -1,0 +1,48 @@
+[gd_resource type="Resource" script_class="EnemyDef" load_steps=6 format=3]
+
+[ext_resource type="Script" uid="uid://d4utj3crwggw" path="res://data/enemies/enemy_def.gd" id="1"]
+[ext_resource type="Script" uid="uid://cv4xikrr5v86f" path="res://data/enemies/enemy_class_stats.gd" id="2"]
+
+[sub_resource type="Resource" id="2"]
+script = ExtResource("2")
+damage = 1.0
+hp = 2.0
+room_weight = 0.6
+size_scale = 1.0
+move_speed = 2.5
+currency_drop_total = 35
+gold_drop = 0
+elite_ability = "none"
+
+[sub_resource type="Resource" id="3"]
+script = ExtResource("2")
+damage = 1.0
+hp = 2.0
+room_weight = 0.6
+size_scale = 1.0
+move_speed = 2.5
+currency_drop_total = 60
+gold_drop = 0
+elite_ability = "none"
+
+[sub_resource type="Resource" id="1"]
+script = ExtResource("2")
+damage = 1.0
+hp = 2.0
+room_weight = 0.6
+size_scale = 1.0
+move_speed = 2.5
+currency_drop_total = 20
+gold_drop = 0
+elite_ability = "none"
+
+[resource]
+script = ExtResource("1")
+species_name = "Shoal"
+body_color = Color(0.7, 0.85, 0.82, 1)
+currency_color = "teal"
+ranged = false
+grabbable = true
+class_small = SubResource("1")
+class_big = SubResource("2")
+class_elite = SubResource("3")

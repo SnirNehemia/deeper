@@ -20,10 +20,11 @@ file and search for the class name below to find the actual numbers.
 | Torpedo turret | `TurretFeel` (`GameFeel.turret`) | Torpedo speed/damage/cooldown, aim cone and sweep speed. |
 | Bullet gun | `BulletFeel` (`GameFeel.bullet`) | Bullet speed/damage/cooldown — fast chip-damage alternative to the torpedo. |
 | Floodlight | `FloodlightFeel` (`GameFeel.floodlight`) | Beam reach/rotate speed, cone shape, light falloff/brightness. |
-| Fish AI | `FishFeel` (`GameFeel.fish`) | Territory radius, patrol/chase/hunt/return speeds, bite interval, hunter/chaser detection and give-up ranges, **plus the Sand Lurker's ambush dials** (`ambush_detect_m` hidden range, `ambush_windup_s` tell length, `ambush_lunge_speed_mps`, `ambush_lunge_reach_m` commit distance). (Per-species HP/damage/weight is NOT here — see "Per-species data" below.) |
+| Fish AI | `FishFeel` (`GameFeel.fish`) | Territory radius, patrol/chase/hunt/return speeds, bite interval, hunter/chaser detection and give-up ranges, **the Sand Lurker's ambush dials** (`ambush_detect_m` hidden range, `ambush_windup_s` tell length, `ambush_lunge_speed_mps`, `ambush_lunge_reach_m` commit distance), and the **perf far-throttle** (`far_active_range_m` / `far_update_interval`: an idle fish beyond that range from the sub runs its AI only every N frames). (Per-species HP/damage/weight is NOT here — see "Per-species data" below.) |
 | Ranged enemy fire | `EnemyRangedFeel` (`GameFeel.enemy_ranged`) | Fire range, cooldown, projectile speed/lifetime, hit severity, and the cooldown multiplier an Elite's `ranged_spit` ability gets when "intensifying" an already-ranged species. Per-species ranged on/off is the `.tres`'s `ranged` flag, not here. |
 | Spitter (puffer) | `SpitterFeel` (`GameFeel.spitter`) | Detect range, the keep-distance band (min/max), inflate time + cooldown, full-inflation draw scale, bubbles fired per tier (1/5/10, fanned evenly across the spread cone), scatter spread, and the "juicy while inflated" damage multiplier + bonus-currency drop. |
 | Spitter bubble | `BubbleFeel` (`GameFeel.bubble`) | The destructible bubble: hp (shots to pop), drift speed, lifetime, hull-breach severity, and how much it slows a shot that passes through. |
+| Shoal (flocking swarm) | `FlockFeel` (`GameFeel.flock`) | The whole swarm: boids weights (separation/alignment + **loose** `drift_cohesion_weight` vs **dense** `stalk_cohesion_weight` + leader-follow) + wander + drift speed; the engage sequence — `detect_range_m` (spot range = the ring), `lose_range_m`, the stalk orbit (`stalk_offset_m`/`stalk_speed_mps`/`orbit_speed_rad`), and the charge (`charge_speed_mps`/`contact`/`timeout`/`damage`/`cooldown`); scatter + flee (timers, speeds, the `flee_threshold_frac` half-killed point); per-tier member counts (10/20/40); the velocity smoothing / alignment that make it move like a real school; the roam radius + the `surface_avoid_m` / `obstacle_avoid_m` bands that keep the school off the water surface AND off sand/rock; the perf knobs `obstacle_check_interval` (how often each fish re-probes walls), `flock_update_interval` (recompute the flocking every Nth frame; members coast between), and `active_range_m` (beyond this from the sub a resting school goes dormant — cheap lazy drift, full behaviour off — until you approach); and the leader's extra hp, prize share on promotion, crown grow-in time, and member drop (~0). The leader draws one faint attention ring sized to `detect_range_m`. |
 | Wreck | `WreckFeel` (`GameFeel.wreck`) | Wreck hp. |
 | Hull station (conning tower) | `HullStationFeel` (`GameFeel.hull_station`) | Remote-patch range and speed. |
 | Salvage claw arm | `ClawFeel` (`GameFeel.claw`) | Arm segment lengths, joint sweep speeds/limits, grab radius, cage/storage capacity. |
@@ -36,7 +37,7 @@ Per-species stats (hp, bite damage, weight, size, move speed, currency drops,
 elite ability, body color, currency color) deliberately live OUTSIDE GameFeel,
 in one `.tres` file per species under `res://data/enemies/`. Open one in the
 Godot editor (Inspector panel) to tune that species' numbers or colors — no
-code involved. Two exist today:
+code involved. The species today:
 
 | Species (file) | AI behavior(s) | Body color | Currency color |
 |---|---|---|---|
@@ -44,6 +45,13 @@ code involved. Two exist today:
 | `chaser_fish.tres` ("Basic Chaser") | Chaser | green | teal |
 | `lurker_fish.tres` ("Sand Lurker") | Ambusher | sand | brown |
 | `spitter_fish.tres` ("Spitter") | Spitter | dark brown | brown |
+| `shoal_fish.tres` ("Shoal") | Shoal member (group) | pale silvery-teal | teal |
+
+> The Shoal is special: its tiers are **school size** (Small/Big/Elite → 10/20/40
+> members), not per-fish power — every member is identical, and the `.tres`'s
+> per-tier `currency_drop_total` is the **leader's** prize (members drop ~none).
+> A Shoal is steered by the `Shoal` controller (`scripts/fauna/shoal.gd`), not the
+> plain `Fish` AI. All its tuning is in `GameFeel.flock` (see the table above).
 
 **Currency economy (deliberately just two droppable colors + a reserved third):**
 to keep the wallet from sprawling as species multiply, all fauna drop one of two
@@ -83,6 +91,7 @@ three or more touching = Elite. Defined in `GenerationLayerParser`.
 | `#00FF00` | green | Chaser fish |
 | `#D2B48C` | tan | **Sand Lurker** (buried ambusher) — MILESTONE_9. Same hex as sand below, but this is the gen layer, so no conflict. |
 | `#825528` | brown | **Spitter** (bubble puffer) — MILESTONE_9 |
+| `#B3D9D1` | pale silvery-teal | **Shoal** (flocking swarm) — MILESTONE_10. Blob size = **school size** (1px = Small/10 fish, 2px = Big/20, 3+px = Elite/40); spawns the whole school's controller, not a lone fish. |
 | `#808080` | grey | Wreck (salvage) |
 | `#6E473B` | brown | Dock zone (paint a cluster; its bounding box = the bay) |
 

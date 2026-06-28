@@ -1,6 +1,0 @@
-[gd_scene load_steps=2 format=3 uid="uid://c731rignp0gkt"]
-
-[ext_resource type="Script" path="res://tests/test_dry_dock.gd" id="1_drydock"]
-
-[node name="TestDryDock" type="Node"]
-script = ExtResource("1_drydock")

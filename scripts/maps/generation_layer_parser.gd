@@ -20,6 +20,12 @@ const HUNTER_FISH := Color(0, 1, 0)                                           # 
 ## gen layer — so there's no parsing conflict.) Blob size still sets the tier.
 const LURKER_FISH := Color(0xD2 / 255.0, 0xB4 / 255.0, 0x8C / 255.0)          # #D2B48C tan
 const SPITTER_FISH := Color(0x82 / 255.0, 0x55 / 255.0, 0x28 / 255.0)         # #825528 brown
+## MILESTONE_10.md — THE SHOAL marker. Echoes the species' pale silvery-teal
+## body (Snir's "marker = the species' own color" rule); a blob's size sets the
+## SCHOOL SIZE (1px = Small/10 members, 2px = Big/20, 3+px = Elite/40) via the
+## same clustering as every other fauna marker. world.gd spawns the Shoal
+## CONTROLLER per blob, not a lone fish.
+const SHOAL_FISH := Color(0xB3 / 255.0, 0xD9 / 255.0, 0xD1 / 255.0)           # #B3D9D1 pale silvery-teal
 const WRECKAGE := Color(0x80 / 255.0, 0x80 / 255.0, 0x80 / 255.0)            # #808080
 const DOCK_ZONE := Color(0x6E / 255.0, 0x47 / 255.0, 0x3B / 255.0)           # #6E473B
 
@@ -31,6 +37,7 @@ const KEY_TERRITORIAL_FISH := "territorial_fish"
 const KEY_HUNTER_FISH := "hunter_fish"
 const KEY_LURKER_FISH := "lurker_fish"
 const KEY_SPITTER_FISH := "spitter_fish"
+const KEY_SHOAL_FISH := "shoal_fish"
 const KEY_WRECKAGE := "wreckage"
 const KEY_DOCK_ZONES := "dock_zones"
 
@@ -57,6 +64,7 @@ static func parse(config: MapConfig) -> Dictionary:
 		KEY_HUNTER_FISH: [] as Array[Dictionary],
 		KEY_LURKER_FISH: [] as Array[Dictionary],
 		KEY_SPITTER_FISH: [] as Array[Dictionary],
+		KEY_SHOAL_FISH: [] as Array[Dictionary],
 		KEY_WRECKAGE: [] as Array[Vector2],
 		KEY_DOCK_ZONES: [] as Array[Vector2],
 	}
@@ -73,6 +81,7 @@ static func parse(config: MapConfig) -> Dictionary:
 	var hunter_coords: Array[Vector2i] = []
 	var lurker_coords: Array[Vector2i] = []
 	var spitter_coords: Array[Vector2i] = []
+	var shoal_coords: Array[Vector2i] = []
 	for y in size.y:
 		for x in size.x:
 			var pixel := image.get_pixel(x, y)
@@ -89,6 +98,8 @@ static func parse(config: MapConfig) -> Dictionary:
 				lurker_coords.append(Vector2i(x, y))
 			elif _color_matches(pixel, SPITTER_FISH):
 				spitter_coords.append(Vector2i(x, y))
+			elif _color_matches(pixel, SHOAL_FISH):
+				shoal_coords.append(Vector2i(x, y))
 			elif _color_matches(pixel, WRECKAGE):
 				(result[KEY_WRECKAGE] as Array[Vector2]).append(world_pos)
 			elif _color_matches(pixel, DOCK_ZONE):
@@ -98,6 +109,7 @@ static func parse(config: MapConfig) -> Dictionary:
 	result[KEY_HUNTER_FISH] = _cluster_to_spawns(hunter_coords, scale)
 	result[KEY_LURKER_FISH] = _cluster_to_spawns(lurker_coords, scale)
 	result[KEY_SPITTER_FISH] = _cluster_to_spawns(spitter_coords, scale)
+	result[KEY_SHOAL_FISH] = _cluster_to_spawns(shoal_coords, scale)
 	return result
 
 static func _color_matches(a: Color, b: Color) -> bool:

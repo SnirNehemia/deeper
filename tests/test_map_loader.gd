@@ -67,9 +67,15 @@ func _test_generation_parse() -> void:
 
 	var spitters: Array[Dictionary] = spawns[GenerationLayerParser.KEY_SPITTER_FISH]
 	_check(spitters.size() == 1 and spitters[0]["pos"] == Vector2(6, 5) * M,
-		"spitter at cyan pixel (6,5)")
+		"spitter at brown pixel (6,5)")
 	_check(spitters[0]["cls"] == EnemyDef.Class.SMALL,
 		"a single isolated spitter pixel parses as Small")
+
+	var shoals: Array[Dictionary] = spawns[GenerationLayerParser.KEY_SHOAL_FISH]
+	_check(shoals.size() == 1 and shoals[0]["pos"] == Vector2(4, 4) * M,
+		"shoal at pale silvery-teal pixel (4,4)")
+	_check(shoals[0]["cls"] == EnemyDef.Class.SMALL,
+		"a single isolated shoal pixel parses as a Small school")
 
 	var wrecks: Array[Vector2] = spawns[GenerationLayerParser.KEY_WRECKAGE]
 	_check(wrecks.size() == 1 and wrecks[0] == Vector2(3, 8) * M,

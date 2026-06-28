@@ -26,10 +26,14 @@ var dock_radius: float = 0.0
 ## GenerationLayerParser._cluster_to_spawns: blob size sets the class tier).
 var territorial_fish_spawns: Array[Dictionary] = []
 var hunter_fish_spawns: Array[Dictionary] = []
-## MILESTONE_9.md fauna, paintable into a map the same way (magenta = Sand
-## Lurker, cyan = Spitter). Same {"pos", "cls"} blob-sized shape.
+## MILESTONE_9.md fauna, paintable into a map the same way (tan #D2B48C = Sand
+## Lurker, brown #825528 = Spitter). Same {"pos", "cls"} blob-sized shape.
 var lurker_fish_spawns: Array[Dictionary] = []
 var spitter_fish_spawns: Array[Dictionary] = []
+## MILESTONE_10.md — THE SHOAL, paintable the same way (pale silvery-teal
+## #B3D9D1). Blob size = SCHOOL SIZE (Small/Big/Elite → 10/20/40 members); world.gd
+## spawns the Shoal CONTROLLER per blob, not a lone fish.
+var shoal_spawns: Array[Dictionary] = []
 var wreck_spawns: Array[Vector2] = []
 ## The dock-zone Area2D (collision_mask = SUB_HULL) added as a child, so the
 ## world can call dock_zone.overlaps_body(sub) for the dry-dock prompt.
@@ -59,6 +63,7 @@ static func build(config: MapConfig) -> MapLoader:
 	loader.hunter_fish_spawns = spawns[GenerationLayerParser.KEY_HUNTER_FISH]
 	loader.lurker_fish_spawns = spawns[GenerationLayerParser.KEY_LURKER_FISH]
 	loader.spitter_fish_spawns = spawns[GenerationLayerParser.KEY_SPITTER_FISH]
+	loader.shoal_spawns = spawns[GenerationLayerParser.KEY_SHOAL_FISH]
 	loader.wreck_spawns = spawns[GenerationLayerParser.KEY_WRECKAGE]
 
 	var dock_positions: Array[Vector2] = spawns[GenerationLayerParser.KEY_DOCK_ZONES]

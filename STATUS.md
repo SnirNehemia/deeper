@@ -1,6 +1,176 @@
 # STATUS — DEEPER
 
-_Read this at session start. Last updated: 2026-06-26 — **M9-1 + M9-2 shipped (the Sand Lurker + the Spitter), now paintable into the real cavern map (gen-layer markers tan `#D2B48C` = Lurker, brown `#825528` = Spitter), the Lurker swims through sand, and the fauna currency economy is consolidated to brown + teal.** Previous: 2026-06-25 — the `add-deeper-enemy` skill closed Milestone 8. Next: M10 — the queued deep-area roster (the Shoal + the Discharger, designed in `MILESTONE_9.md`) plus the rest of the economy balance pass._
+_Read this at session start. Last updated: 2026-06-26 — **M10 shipped THE SHOAL — the codebase's first group meta-entity: a boids-flocking swarm steered as one organism by a controller, with a killable crowned leader, a pooled mass-slam, and thin-to-flee.** Previous: 2026-06-26 — M9-1 + M9-2 (the Sand Lurker + the Spitter). Next: **THE DISCHARGER** (electric station-jammer — its own milestone; full spec in `MILESTONE_9.md`) and the carried-over **economy balance pass**, both re-parked out of M10 to keep the swarm build undiluted._
+
+**M10 — THE SHOAL, shipped (2026-06-26):** a school of tiny fish that moves and
+decides as ONE organism — the first GROUP enemy in a codebase where every prior
+enemy was an independent single body. A controller spawns N cheap members and
+steers them with boids flocking (separation/alignment/cohesion + leader-follow);
+the threat is a coordinated mass-slam that **pools into a single
+`breach_from_hit`** (no new damage path); kill the crowned leader to scatter the
+school, then it promotes a new leader and regroups; thin it past half and the
+survivors flee for good.
+- **`scripts/fauna/shoal.gd`** (new, `class_name Shoal extends Node2D`): owns the
+  group state machine (`DRIFT → BALL_UP → SLAM → DISPERSE`, plus `SCATTER` on
+  leader death and a terminal `FLEE`), runs the O(n²) flocking (n ≤ 20), manages
+  the leader + promotion, and issues the **one** pooled slam breach. Members are
+  parented to it; it assigns each member's `shoal_velocity` every frame.
+- **`scripts/fauna/fish.gd`:** new `Behavior.SHOAL_MEMBER` — members reuse Fish's
+  collision / `take_damage` / `die` / grab / terrain-sky / `_draw`, but take their
+  velocity from the controller (no independent seeking). A leader wears a **spike
+  marker** that **grows in via a short animation** on promotion (`_leader_anim`).
+  `die()`'s drop is overridden for members: the `.tres`'s `currency_drop_total`
+  encodes the **leader prize**, so a plain member drops `FlockFeel.member_drop`
+  (~none) and the leader drops the prize scaled by its share (full for the
+  original, `leader_drop_share` reduced for each promoted one). New `SHOAL`
+  case in `_base_length_m()`; ring suppressed for members; members auto-load
+  `shoal_fish.tres` by behavior (like the chaser/lurker/spitter).
+- **`autoload/game_feel.gd`:** new `FlockFeel` block — every dial (flocking
+  weights, ball-up/slam rhythm, scatter/flee, per-tier counts, leader hp/prize/
+  grow-time). All first-pass, `deeper-tuner`-friendly.
+- **`scripts/placeholder_art.gd`:** `SHOAL_COLOR` (pale silvery-teal),
+  `SHOAL_LENGTH_M` (slim), `SHOAL_LEADER_MARK` (crown spikes).
+- **`data/enemies/shoal_fish.tres`** (new): member stats — tiny, identical across
+  tiers (tier = school SIZE, not per-fish power); `grabbable=true`, `ranged=false`,
+  `teal` currency; per-tier `currency_drop_total` = the leader prize (20/35/60).
+- **`scenes/world.gd`:** a Shoal demo spawn (Small + Elite clouds) in the
+  ShoreShelf fallback (spawns the **controller**, not a lone Fish); `reset_run()`
+  now also calls `reset_shoal` on the "shoal" group after reviving the members.
+- **Gen-layer marker (follow-up, same session):** the Shoal is now **paintable
+  into the real cavern map** — marker hex **`#B3D9D1`** (pale silvery-teal,
+  echoing the body) in `*_gen.png`, blob size = school size (1px Small/6 →
+  2px Big/12 → 3+px Elite/20). `GenerationLayerParser` recognizes it,
+  `MapLoader.shoal_spawns` carries it, `world.gd`'s map branch spawns the
+  controller per blob. Test-map fixture regenerated (`gen_test_map.gd`, shoal
+  pixel at (4,4)); `test_map_loader` asserts it parses. `TUNING.md`'s
+  map-authoring + per-species tables updated. **Snir paints `#B3D9D1` hexes into
+  `maps/cavern_depths_01/world_01_gen.png` to place shoals.**
+- **Design rulings (Snir, this session):** tier = school size; members pale
+  silvery-teal; leader = grown-in spikes; counts 10/20/40; reduced-share prize on
+  promotion; telegraphed-&-punchy slam; flee at ≤50% survivors; a grabbed member
+  behaves like any caught fish (leaves the flock, at-risk in the claw).
+- **Tests:** new `tests/test_enemy_shoal` (tier→count, flocking cohesion+spacing,
+  one-pooled-slam, leader-kill scatter→promote, thin→flee, leader-prize-vs-member)
+  — green. **New `class_name Shoal` → ran `--headless --import` once.**
+- **Verified:** clean headless boot; capture-gameplay stills of the drifting
+  crowned cloud + the balled-up slam shown to Snir.
+- **Parked (NOT built in M10, full specs stand in `MILESTONE_9.md`):** the
+  **Discharger** (its own later milestone — carries the station-disable system +
+  the electrical-type fauna tag) and the **economy balance pass**.
+- **Playtest tuning + fixes (2026-06-26, Snir):** (1) **denser, more school-like**
+  — counts bumped to 10/20/40; leaned on alignment + added velocity smoothing
+  (`FlockFeel.turn_smoothing`) and a roaming drift target (`drift_roam_m`) so the
+  school fans into a sheet and flows/turns as one instead of clumping (commit
+  `8249a5e`). (2) **Surface-stuck bug fixed** — the school used to swim up and
+  freeze against the water surface (the controller steered members up and the
+  per-member sky-block pinned them). Added a soft "stay submerged" downward push
+  near the surface (`FlockFeel.surface_avoid_m`, applied in steering + scatter +
+  flee) and clamped the roam target below the surface. (3) **Faint attention
+  ring** — the leader now draws ONE soft circle for the whole school, sized to
+  `ball_up_range_m` (the slam-trigger range), matching the other species' rings.
+  `test_enemy_shoal` covers the surface-stay + leader-only-ring; all green.
+- **Behavior rework + obstacle avoidance (2026-06-26, Snir):** (1) the attack is
+  now a **spot → circle → charge** sequence, replacing the old ball-up/slam:
+  the school drifts **very loose/sparse** by default (`drift_cohesion_weight`),
+  and when the sub enters the detect ring it **tightens into a dense coordinated
+  school** (`stalk_cohesion_weight`), slides to a point beside the sub and
+  **orbits it once** (STALK), then **charges** the hull for the single pooled
+  breach (CHARGE). New group states `STALK`/`CHARGE` (replaced `BALL_UP`/`SLAM`).
+  (2) **Obstacle avoidance** — members now steer clear of terrain (sand/rock) via
+  three feeler raycasts (`FlockFeel.obstacle_avoid_m`), the same soft-avoid
+  approach as the surface, so they don't pin against rock either. (3) The
+  **attention ring is 3× larger** (`detect_range_m` 27 m, was the 9 m ball-up
+  range) and is the spot-trigger. `test_enemy_shoal` adds spot→stalk→charge and
+  terrain-avoidance checks; all green. **Editing the `GroupState` enum needed the
+  `--headless --import` refresh** (the documented class-cache trap).
+- **Dodge-the-charge fix (2026-06-26, Snir):** a charge used to fire its breach +
+  knockback when the school reached the **locked target point**, so dodging just
+  made it hit the empty water where you *were* and still damage you. Now the hit
+  lands ONLY on actual contact with the sub's **live** hull (`_dist_to_hull` of
+  the centroid, re-checked each charge frame) and the breach is applied at the
+  real contact point; the school still drives at the committed spot (so the charge
+  stays dodgeable) but **whiffs harmlessly** if you clear it. `test_enemy_shoal`
+  adds a dodge-miss check (teleport the sub aside mid-charge → no breach).
+- **Tracking charge (2026-06-26, Snir):** the charge now **tracks the sub as a
+  coordinated ball, but only within `charge_track_m` (10 m) of where it first
+  locked on** — each charge frame re-aims at the sub's live nearest hull point,
+  clamped to that radius. So a **small jink gets chased down and hit**, while a
+  **big or early dodge** (sub past the 10 m range) leaves the ball striking the
+  clamped edge in empty water → whiff (the live-contact rule above still gates the
+  actual hit). `test_enemy_shoal` covers both (small dodge lands, big dodge misses).
+- **Frozen-after-implosion fix (2026-06-26, Snir):** after an implosion the
+  school froze in place. `World._rebuild_sub()` frees the old sub + spawns a new
+  one and re-points the `"fish"` group at it (`call_group("fish","set","sub",…)`)
+  — but the **Shoal controller is in the `"shoal"` group, not `"fish"`**, so it
+  was left holding the freed old sub; its `_physics_process` then bailed on the
+  `not is_instance_valid(sub)` guard every frame and never steered the members.
+  Fix: `_rebuild_sub()` now also re-points the `"shoal"` group, and `reset_shoal`
+  re-points each member's `sub` defensively. Covers the implosion reset AND the
+  dock buy-a-room rebuild (same code path). `test_enemy_shoal` adds a rebuild→
+  reset→still-moving check.
+- **Leader-loot-misplaced fix (2026-06-26, Snir):** the leader "didn't drop loot."
+  It *did* — but `SalvageItem.make_currency()` sets the item's **local** `position`,
+  and `Fish._spawn_drop()` parents the drop via `get_parent().add_child()`. A
+  normal fish is parented to the world root (origin), so local == world; but a
+  **shoal member is parented to its Shoal controller node** (out at the school's
+  spawn anchor), so the drop got offset by the controller's position and landed
+  far from the kill, uncollectable. (Members drop nothing, so only the leader's
+  misplaced prize was noticed.) Fix: `_spawn_drop` now pins `drop.global_position`
+  after parenting, so loot always drops where the fish died regardless of parent
+  transform. `test_enemy_shoal` now asserts the leader's loot lands AT the kill
+  (the old check only counted drops, not their position, so it missed this).
+- **Multi-shoal performance (2026-06-26, Snir):** several schools tanked the
+  framerate + caused stutter. A headless A/B confirmed the per-fish wall-avoid
+  raycasts were a big slice (cold: ~40% of frame time; 3 raycasts × 40 fish ×
+  N schools every frame, plus per-call allocations → GC churn). Two fixes:
+  (1) **Throttled wall-checks** — each member re-probes terrain only every
+  `obstacle_check_interval` (8) frames, staggered by instance id, reusing its
+  cached veer between probes (`Fish._shoal_terrain_push`); the hard per-step
+  movement block still runs every frame so nothing penetrates rock.
+  (2) **Dormant-when-far LOD** — a RESTING school beyond `active_range_m` (40 m)
+  from the sub switches its members' per-frame physics + hit-sensors OFF and the
+  controller just lazy-drifts the group rigidly (O(N), no flocking/rays); it
+  wakes to full behaviour when the sub nears (always before engage range, so no
+  pop-in). Only DRIFT-state schools dormant; engaged ones stay live. Measured: 12
+  Elite schools (480 fish) went from ~39 ms/frame (all active) to **16.6 ms (a
+  locked 60 fps) when dormant** — realistic play has only 1–3 active near the sub.
+  `test_enemy_shoal` adds a dormant→wake check; `test_fish` baseline unchanged.
+- **Perf round 2 (2026-06-26, Snir):** three follow-ups. (1) **Every-other-frame
+  flocking** — an ACTIVE school recomputes its (expensive) boids steering only
+  every `FlockFeel.flock_update_interval` (2) frames, staggered per school;
+  members coast on their last velocity between (charge/scatter/flee still steer
+  every frame). (2) **Far-idle throttle for ALL fish** (not just shoals) — any
+  idle fish (patrol/return/lurk) farther than `FishFeel.far_active_range_m` (40 m,
+  well beyond every detection range) runs its full AI only every
+  `far_update_interval` (8) frames, staggered, so many distant/off-screen fish
+  stop paying per-frame terrain + line-of-sight casts. Engaged fish, near fish,
+  and airborne/falling fish (`_in_sky`) are never throttled, so it never changes
+  what you see or fight. `Fish._should_throttle_far()`. (3) **Spawn-clear-of-rock**
+  — a Shoal now relocates any member that spawned inside terrain (or above water)
+  into the nearest clear water on its first physics frame (`_settle_members_into_water`,
+  expanding-ring search), fixing the "school painted next to rock spawns half its
+  fish embedded and stuck" bug (made worse by dormancy freezing them before they
+  could wriggle out). `test_enemy_shoal` adds spawn-clear; `test_fish` adds the
+  far-throttle test (and confirms airborne fish still fall).
+- **Spawn-clear v2 + weaker charge (2026-06-26, Snir — fish still spawned in
+  rock):** the first spawn-clear used a centre-POINT terrain check, which missed
+  members spawned at a rock EDGE (centre clear, body overlapping) — still stuck.
+  Now `_member_blocked` probes with each member's own terrain SHAPECAST (the exact
+  shape/mask its movement uses), so it catches body-edge overlaps too;
+  `test_enemy_shoal` asserts via that shapecast (school spawned straddling a slab
+  edge → none left overlapping). Also, per Snir, the charge **hit is weaker**
+  (`FlockFeel.charge_damage` 4.0 → 2.0) and the **knockback is weaker + flat**
+  (`charge_knockback_weight` 1.0, replacing the member-count-scaled 1..4 shove —
+  a big school now bumps rather than launches the sub).
+- **Regression note:** full regression shows **no Shoal-caused failures**. Beyond
+  the previously-consolidated baseline (test_fish ×1, test_claw ×1,
+  test_dock_shop_ui ×4, test_sub ×2, test_input ×2), the test-runner also
+  surfaced `test_turret` ×4, `test_lower_deck` ×7, `test_station_flood` ×2 — all
+  proven unrelated to this diff (no turret/lower-deck/station files touched) and
+  matching older "physics-frame-heavy suite" / station-flood notes in this file's
+  history; folded into the known-failures baseline here, not investigated.
+- **Commit:** `M10: the shoal (boids flocking swarm, killable leader, mass-slam,
+  thin-to-flee)`.
 
 **Spitter volley denser + fanned (2026-06-26, Snir):** bigger spitters now throw
 a much denser volley — Small 1 / Big **5** / Elite **10** bubbles (was 1/2/4) —
@@ -120,8 +290,9 @@ it fires).
 
 **Full regression (28 suites) shows no new failures** beyond the documented
 pre-existing baseline (test_fish ×1, test_claw ×1, test_dock_shop_ui ×4, test_sub
-×2; plus test_input ×2 and a stale, unparseable `test_dry_dock.tscn` confirmed to
-predate this session — a background cleanup task was filed for the stale test).
+×2; plus test_input ×2). The stale, unparseable `test_dry_dock` (obsolete
+PLACEMENT/LIST dock model, superseded by `test_dock_shop_ui`) was deleted
+2026-06-26.
 
 **M9 spawns (resolved by the follow-up above):** the Lurker + Spitter still have
 the convenience demo spawns in the **ShoreShelf fallback**, AND are now paintable
@@ -2063,8 +2234,8 @@ Launch: `"D:\Godot_v4.4.1-stable_win64.exe\Godot_v4.4.1-stable_win64.exe" --path
   `await`-ing sub-tests from `_ready` *without* `await`, so they quit before the
   assertions run and pass *vacuously* (tell-tale: "ObjectDB instances leaked at
   exit"). Don't trust those as coverage; if you touch their area, make `_ready`
-  actually `await`. The keyed-input / menu tests (`test_dry_dock`, `test_helm`,
-  `test_sub`, …) DO await and are real.
+  actually `await`. The keyed-input / menu tests (`test_dock_shop_ui`,
+  `test_helm`, `test_sub`, …) DO await and are real.
 - **Test coordinates from constants, not literals:** the cell width has changed
   twice via playtest. Tests derive room positions from `SubGrid.CELL_W_PX` etc.
   so a future tweak doesn't break them — keep doing that.

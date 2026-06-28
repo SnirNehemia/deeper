@@ -42,6 +42,13 @@ const LURKER_LENGTH_M: float = 1.2        ## longer + drawn flat, so it looks ha
 ## taut circle before firing bubbles.
 const SPITTER_COLOR := Color(0.36, 0.23, 0.13)  ## dark brown
 const SPITTER_LENGTH_M: float = 1.2
+## MILESTONE_10.md — THE SHOAL: a cloud of tiny, slim fish that move as one
+## organism. Pale silvery-teal so the swarm shimmers as a group and reads
+## distinct from the green chaser; they drop "teal" currency (the leader carries
+## the prize). The leader wears a grown-in spike marker (drawn in Fish._draw).
+const SHOAL_COLOR := Color(0.7, 0.85, 0.82)     ## pale silvery-teal
+const SHOAL_LENGTH_M: float = 0.6               ## slim little body
+const SHOAL_LEADER_MARK := Color(0.96, 0.98, 0.95)  ## bright crown spikes over the leader
 
 # --- Salvage ---
 const SCRAP_COLOR := Color("c8a050")      ## scrap crate (warm metal)

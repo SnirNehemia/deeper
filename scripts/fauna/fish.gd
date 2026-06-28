@@ -25,8 +25,13 @@ enum State { PATROL, CHASE, RECOVER, RETURN, HUNT, LURK, WINDUP, LUNGE, KITE, IN
 ## somewhere new (never the same spot). SPITTER (MILESTONE_9.md — the Spitter
 ## puffer): a kiter that keeps a standoff band, inflates to a full circle, then
 ## fires destructible bubbles at the sub (more from bigger ones); juicy and
-## vulnerable while inflated.
-enum Behavior { TERRITORIAL, HUNTER, CHASER, AMBUSHER, SPITTER }
+## vulnerable while inflated. SHOAL_MEMBER (MILESTONE_10.md — the Shoal): one
+## fish in a flocking swarm. It does NO independent seeking — a Shoal controller
+## (scripts/fauna/shoal.gd) computes its steering each frame and assigns
+## `shoal_velocity`; this branch only applies that velocity (reusing the shared
+## collision / terrain / sky / grab / damage / draw paths). One member is the
+## leader, flagged `_is_leader`, with a grown-in spike marker and the teal prize.
+enum Behavior { TERRITORIAL, HUNTER, CHASER, AMBUSHER, SPITTER, SHOAL_MEMBER }
 
 const DEFAULT_ENEMY_DEF_PATH := "res://data/enemies/reference_fish.tres"
 ## 2026-06-24: the chaser was always meant to be its own species (it was just
@@ -41,6 +46,10 @@ const LURKER_ENEMY_DEF_PATH := "res://data/enemies/lurker_fish.tres"
 ## MILESTONE_9.md — the Spitter is its own species (dark-brown body, "brown"
 ## currency), bound to the SPITTER behavior.
 const SPITTER_ENEMY_DEF_PATH := "res://data/enemies/spitter_fish.tres"
+## MILESTONE_10.md — the Shoal member species (pale silvery-teal, "teal"
+## currency; per-tier currency_drop_total encodes the leader prize), bound to
+## the SHOAL_MEMBER behavior. The Shoal controller spawns these.
+const SHOAL_ENEMY_DEF_PATH := "res://data/enemies/shoal_fish.tres"
 ## Loaded lazily (not preloaded as a const) — preloading a custom-scripted
 ## .tres at fish.gd's own parse time raced the engine's global-class
 ## registration in headless runs and silently produced a scriptless Resource.
@@ -48,6 +57,7 @@ static var _default_enemy_def: EnemyDef = null
 static var _chaser_enemy_def: EnemyDef = null
 static var _lurker_enemy_def: EnemyDef = null
 static var _spitter_enemy_def: EnemyDef = null
+static var _shoal_enemy_def: EnemyDef = null
 
 ## The sub it guards against (set at placement).
 var sub: Sub = null
@@ -121,6 +131,21 @@ var _inflate_timer: float = 0.0
 var _inflate_cooldown: float = 0.0
 var _inflated: bool = false
 
+## MILESTONE_10.md — SHOAL_MEMBER state. The controller (scripts/fauna/shoal.gd)
+## owns the AI; the member just applies `shoal_velocity` (px/s, set each frame)
+## via the shared terrain-checked move. `_is_leader` flags the one member that
+## wears the spike marker and carries the prize; `_leader_prize_mult` scales that
+## prize (1.0 for the original leader, a reduced share for each promoted one);
+## `_leader_anim` ramps the spike-grow animation 0→1 when a leader is promoted.
+var shoal_velocity: Vector2 = Vector2.ZERO
+## Cached terrain-avoid push (MILESTONE_10 perf): the Shoal controller refreshes
+## this only every few frames (staggered) instead of raycasting every frame.
+var _shoal_terrain_push: Vector2 = Vector2.ZERO
+var _is_shoal_member: bool = false
+var _is_leader: bool = false
+var _leader_prize_mult: float = 1.0
+var _leader_anim: float = 1.0
+
 func _ready() -> void:
 	add_to_group("fish")
 	home = global_position
@@ -142,6 +167,10 @@ func _ready() -> void:
 			if _spitter_enemy_def == null:
 				_spitter_enemy_def = load(SPITTER_ENEMY_DEF_PATH)
 			enemy_def = _spitter_enemy_def
+		elif behavior == Behavior.SHOAL_MEMBER:
+			if _shoal_enemy_def == null:
+				_shoal_enemy_def = load(SHOAL_ENEMY_DEF_PATH)
+			enemy_def = _shoal_enemy_def
 		else:
 			if _default_enemy_def == null:
 				_default_enemy_def = load(DEFAULT_ENEMY_DEF_PATH)
@@ -182,8 +211,30 @@ func _base_length_m() -> float:
 			return PlaceholderArt.LURKER_LENGTH_M
 		Behavior.SPITTER:
 			return PlaceholderArt.SPITTER_LENGTH_M
+		Behavior.SHOAL_MEMBER:
+			return PlaceholderArt.SHOAL_LENGTH_M
 		_:
 			return PlaceholderArt.FISH_LENGTH_M
+
+## MILESTONE_10 perf: should this fish skip its full AI this frame? True only when
+## it's IDLE (patrol/return/lurk), the sub is farther than far_active_range_m
+## (well beyond any detection range), AND this isn't its scheduled update frame
+## (staggered per fish). Engaged fish, and any fish near the sub, always run full
+## rate — so this never affects what you can see or fight, only cuts the cost of
+## many distant/off-screen fish. Shoal members are excluded (their controller runs
+## its own LOD and switches their physics off entirely when far).
+func _should_throttle_far() -> bool:
+	if behavior == Behavior.SHOAL_MEMBER or sub == null:
+		return false
+	if state != State.PATROL and state != State.RETURN and state != State.LURK:
+		return false
+	if _in_sky():
+		return false  # a stranded/airborne fish must keep falling under gravity every frame
+	var range_px: float = GameFeel.fish.far_active_range_m * GameFeel.PIXELS_PER_METER
+	if global_position.distance_squared_to(sub.global_position) <= range_px * range_px:
+		return false
+	var interval: int = maxi(1, GameFeel.fish.far_update_interval)
+	return (Engine.get_physics_frames() + int(get_instance_id())) % interval != 0
 
 func _physics_process(delta: float) -> void:
 	if is_dead:
@@ -192,6 +243,13 @@ func _physics_process(delta: float) -> void:
 		# Position/visuals are driven by the holding station each frame
 		# (mirrors how a caught SalvageItem rides the tip); no AI runs.
 		queue_redraw()
+		return
+	if _should_throttle_far():
+		# Idle and far from the sub: run full AI only on its scheduled frames
+		# (MILESTONE_10 perf), so many far/off-screen fish stop paying for
+		# per-frame terrain + line-of-sight casts. It still updates within a few
+		# frames, and far_active_range_m is well beyond any detection range, so
+		# this never delays a real engagement.
 		return
 	if _try_depenetrate_from_terrain(delta):
 		# Embedded in rock right now (e.g. knocked into a wall) — push back
@@ -248,6 +306,13 @@ func _physics_process(delta: float) -> void:
 	if _stun_timer > 0.0:
 		_stun_timer -= delta
 		queue_redraw()
+		return
+
+	if behavior == Behavior.SHOAL_MEMBER:
+		# The Shoal controller drives this member's velocity each frame; it runs
+		# no state machine of its own. (Grab / sky-fall / knockback / stun above
+		# are all still honoured — only the AI seeking is replaced.)
+		_shoal_member_move(delta)
 		return
 
 	var sub_in_territory := sub != null \
@@ -553,6 +618,25 @@ func _fire_bubbles(ppm: float) -> void:
 		get_parent().add_child(b)
 		b.global_position = global_position + dir * muzzle
 
+## MILESTONE_10.md — SHOAL_MEMBER: apply the controller-assigned `shoal_velocity`
+## (px/s) for this frame, terrain- and sky-blocked exactly like _swim_toward so a
+## member can't be steered through rock or up out of the water. Also ramps the
+## leader's spike-grow animation. The controller owns all the AI; this is the
+## only movement a swarm member ever does.
+func _shoal_member_move(delta: float) -> void:
+	if _is_leader and _leader_anim < 1.0:
+		_leader_anim = minf(1.0, _leader_anim + delta / maxf(0.01, GameFeel.flock.leader_grow_time_s))
+	var step := shoal_velocity * delta
+	if step != Vector2.ZERO:
+		if not _is_blocked_by_sky(global_position + step):
+			_terrain_cast.target_position = step
+			_terrain_cast.force_shapecast_update()
+			if not _terrain_cast_blocks():
+				global_position += step
+				if absf(shoal_velocity.x) > 0.1:
+					_facing = signf(shoal_velocity.x)
+	queue_redraw()
+
 ## If the fish's own shape is currently overlapping terrain right now (e.g.
 ## knocked into a wall by a hit), push it back out along the wall's normal
 ## and report true so the caller skips AI entirely this frame. Letting AI run
@@ -803,7 +887,7 @@ func die() -> void:
 	get_parent().add_child(pop)
 	last_drops.clear()
 	var stats := class_stats()
-	for value in GameFeel.currency.split(stats.currency_drop_total):
+	for value in GameFeel.currency.split(_currency_total_for_drop()):
 		_spawn_drop(enemy_def.currency_color, value)
 	if current_class == EnemyDef.Class.ELITE and stats.gold_drop > 0:
 		for value in GameFeel.currency.split(stats.gold_drop):
@@ -814,14 +898,33 @@ func die() -> void:
 		for value in GameFeel.currency.split(GameFeel.spitter.inflate_pop_bonus):
 			_spawn_drop(enemy_def.currency_color, value)
 
+## The currency total this kill drops. Normally the class block's
+## currency_drop_total. For a SHOAL_MEMBER (MILESTONE_10.md) the .tres's
+## currency_drop_total encodes the LEADER prize, so a plain member drops only
+## GameFeel.flock.member_drop (~none) and the leader drops the prize scaled by
+## its share (full for the original, reduced for each promoted leader).
+func _currency_total_for_drop() -> int:
+	var stats := class_stats()
+	if _is_shoal_member:
+		if _is_leader:
+			return int(round(stats.currency_drop_total * _leader_prize_mult))
+		return GameFeel.flock.member_drop
+	return stats.currency_drop_total
+
 ## One denomination pickup, scattered a little around the kill site so several
 ## drops from one kill don't all stack on the exact same pixel.
 func _spawn_drop(color: String, value: int) -> void:
-	var scatter := Vector2(randf_range(-15.0, 15.0), randf_range(-15.0, 15.0))
-	var drop := SalvageItem.make_currency(global_position + scatter, color, value)
+	var world_pos := global_position + Vector2(randf_range(-15.0, 15.0), randf_range(-15.0, 15.0))
+	var drop := SalvageItem.make_currency(world_pos, color, value)
 	drop.sky_zones = sky_zones
 	drop.water_surface_y = water_surface_y
 	get_parent().add_child(drop)
+	# make_currency sets `position` (LOCAL). A normal fish is parented to the world
+	# root (at origin) so that's already the world position — but a SHOAL member is
+	# parented to its controller node (out at the school's spawn anchor), which
+	# would offset the drop far from the kill. Pin the WORLD position after
+	# parenting so loot always lands where the fish actually died.
+	drop.global_position = world_pos
 	last_drops.append(drop)
 
 ## Back home, alive — the world's run reset calls this on the "fish" group.
@@ -864,6 +967,12 @@ func shows_detection_ring() -> bool:
 		return false
 	if behavior == Behavior.AMBUSHER:
 		return false
+	# Shoal: ONE faint ring for the whole school, drawn by the leader only (40
+	# overlapping per-member rings would be a mess) — it marks the detect range
+	# (FlockFeel.detect_range_m): enter it and the school tightens up, circles the
+	# sub, and charges.
+	if behavior == Behavior.SHOAL_MEMBER:
+		return _is_leader
 	if behavior == Behavior.CHASER and _has_spotted:
 		return false
 	return true
@@ -872,6 +981,8 @@ func shows_detection_ring() -> bool:
 func _detect_radius_px() -> float:
 	var ppm := GameFeel.PIXELS_PER_METER
 	var feel := GameFeel.fish
+	if behavior == Behavior.SHOAL_MEMBER:
+		return GameFeel.flock.detect_range_m * ppm
 	if behavior == Behavior.CHASER:
 		return feel.chaser_detect_m * ppm
 	if behavior == Behavior.HUNTER:
@@ -891,6 +1002,7 @@ func _draw() -> void:
 	var is_chaser := behavior == Behavior.CHASER
 	var is_ambusher := behavior == Behavior.AMBUSHER
 	var is_spitter := behavior == Behavior.SPITTER
+	var is_shoal := behavior == Behavior.SHOAL_MEMBER
 	# MILESTONE_8.md Module 3: class tier scales the drawn size too, matching
 	# the collision circle set in _ready() — art stays identical at every
 	# tier (ART-PASS FLAG), just scaled.
@@ -899,7 +1011,8 @@ func _draw() -> void:
 	var half := len_px * 0.5
 	var base_color := PlaceholderArt.CHASER_COLOR if is_chaser \
 		else (PlaceholderArt.LURKER_COLOR if is_ambusher \
-		else (PlaceholderArt.SPITTER_COLOR if is_spitter else PlaceholderArt.FISH_COLOR))
+		else (PlaceholderArt.SPITTER_COLOR if is_spitter \
+		else (PlaceholderArt.SHOAL_COLOR if is_shoal else PlaceholderArt.FISH_COLOR)))
 	var c := Color.WHITE if _hit_flash > 0.0 else base_color
 
 	# Detection range circle — drawn before the fish-body transform so it
@@ -921,6 +1034,9 @@ func _draw() -> void:
 		Vector2(_facing * stretch, (1.0 + 0.06 * sin(_wobble * 6.0)) * squash))
 	if is_spitter:
 		_draw_puffer(half, c)
+		return
+	if is_shoal:
+		_draw_shoal_member(half, c)
 		return
 	# Chunky body.
 	draw_circle(Vector2(0, 0), half * 0.55, c)
@@ -961,3 +1077,30 @@ func _draw_puffer(half: float, c: Color) -> void:
 	# Eye, biased forward.
 	draw_circle(Vector2(r * 0.4, -r * 0.2), r * 0.2, Color.WHITE)
 	draw_circle(Vector2(r * 0.47, -r * 0.2), r * 0.1, Color.BLACK)
+
+## MILESTONE_10.md — a Shoal member: a slim little fish so a cloud of them reads
+## as a shimmering swarm. The leader wears a crown of spikes that GROWS IN over
+## _leader_anim (0→1) when it's promoted, so the eye can watch the marker hop to
+## a new fish after a beheading. Local +x faces travel (mirrored by the caller).
+func _draw_shoal_member(half: float, c: Color) -> void:
+	# Slim body + tail fin.
+	draw_circle(Vector2(half * 0.1, 0), half * 0.5, c)
+	draw_colored_polygon(PackedVector2Array([
+		Vector2(-half * 0.35, 0), Vector2(-half * 0.85, -half * 0.45),
+		Vector2(-half * 0.85, half * 0.45)]), c.darkened(0.2))
+	# Tiny eye.
+	draw_circle(Vector2(half * 0.35, -half * 0.1), half * 0.14, Color.WHITE)
+	draw_circle(Vector2(half * 0.4, -half * 0.1), half * 0.07, Color.BLACK)
+	# Leader crown — three spikes above the body, growing in on promotion.
+	if _is_leader:
+		var grow: float = clampf(_leader_anim, 0.0, 1.0)
+		if grow > 0.01:
+			var mark := PlaceholderArt.SHOAL_LEADER_MARK
+			var top := -half * 0.45
+			var spike_h := half * 0.8 * grow
+			for i in 3:
+				var bx := (i - 1) * half * 0.42
+				draw_colored_polygon(PackedVector2Array([
+					Vector2(bx - half * 0.18, top),
+					Vector2(bx + half * 0.18, top),
+					Vector2(bx, top - spike_h)]), mark)

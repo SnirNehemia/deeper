@@ -24,6 +24,7 @@ func _ready() -> void:
 	await _test_resumes_ai_after_landing_in_a_pocket()
 	await _test_chaser_does_not_detect_through_walls()
 	await _test_does_not_swim_through_a_wall_while_chasing()
+	await _test_far_idle_fish_throttles()
 
 	if _failures == 0:
 		print("FISH TESTS PASSED")
@@ -547,5 +548,39 @@ func _test_does_not_swim_through_a_wall_while_chasing() -> void:
 
 	fish.queue_free()
 	rock.queue_free()
+	sub.queue_free()
+	await _frames(2)
+
+func _test_far_idle_fish_throttles() -> void:
+	print("[far idle fish throttle (perf, MILESTONE_10)]")
+	var sub := Sub.new()
+	sub.position = Vector2.ZERO
+	add_child(sub)
+	var fish := Fish.new()
+	fish.sub = sub
+	fish.position = Vector2((GameFeel.fish.far_active_range_m + 20.0) * _ppm(), 0)
+	add_child(fish)
+	await _frames(5)
+
+	# Far + idle (PATROL): throttled on all but ~one frame per interval.
+	fish.state = Fish.State.PATROL
+	var throttled := 0
+	for i in GameFeel.fish.far_update_interval:
+		if fish._should_throttle_far():
+			throttled += 1
+		await get_tree().physics_frame
+	_check(throttled >= GameFeel.fish.far_update_interval - 1,
+		"a far idle fish skips its full update on all but ~one frame per interval")
+
+	# Engaged (HUNT) never throttles, even far out.
+	fish.state = Fish.State.HUNT
+	_check(not fish._should_throttle_far(), "an engaged (hunting) fish always runs full-rate, even far")
+
+	# Near the sub never throttles.
+	fish.state = Fish.State.PATROL
+	sub.global_position = fish.global_position
+	_check(not fish._should_throttle_far(), "a fish near the sub always runs full-rate")
+
+	fish.queue_free()
 	sub.queue_free()
 	await _frames(2)

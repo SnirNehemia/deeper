@@ -101,7 +101,9 @@ func _spawn_entities() -> void:
 		for spawn in _map_loader.lurker_fish_spawns:
 			_add_fish(spawn["pos"], Fish.Behavior.AMBUSHER, spawn["cls"])  # magenta gen-layer pixels → sand lurkers
 		for spawn in _map_loader.spitter_fish_spawns:
-			_add_fish(spawn["pos"], Fish.Behavior.SPITTER, spawn["cls"])  # cyan gen-layer pixels → spitters
+			_add_fish(spawn["pos"], Fish.Behavior.SPITTER, spawn["cls"])  # brown gen-layer pixels → spitters
+		for spawn in _map_loader.shoal_spawns:
+			_add_shoal(spawn["pos"], spawn["cls"])  # pale silvery-teal gen-layer pixels → a Shoal (blob size = school size)
 		for pos in _map_loader.wreck_spawns:
 			_add_wreck(pos)
 	else:
@@ -127,6 +129,12 @@ func _spawn_entities() -> void:
 		# (a 4-bubble scatter) to show the tiers.
 		_add_fish(Vector2(75.0 * M, 80.0 * M), Fish.Behavior.SPITTER, EnemyDef.Class.SMALL)
 		_add_fish(Vector2(175.0 * M, 80.0 * M), Fish.Behavior.SPITTER, EnemyDef.Class.ELITE)
+		# MILESTONE_10.md demo: the Shoal (a flocking swarm steered as one
+		# organism by a Shoal controller, NOT lone fish). A Small cloud and a
+		# bigger Elite cloud to show tier = school size; approach one to see it
+		# ball up and slam, shoot the crowned leader to scatter it.
+		_add_shoal(Vector2(120.0 * M, 70.0 * M), EnemyDef.Class.SMALL)
+		_add_shoal(Vector2(60.0 * M, 58.0 * M), EnemyDef.Class.ELITE)
 
 ## Build the sub from the saved loadout and seat the two crew inside it.
 func _spawn_sub_and_crew() -> void:
@@ -196,6 +204,9 @@ func reset_run() -> void:
 	_crew[0].reset_at(_sub.tower_seat_local(0))
 	_crew[1].reset_at(_sub.tower_seat_local(1))
 	get_tree().call_group("fish", "reset_fish")
+	# Shoals reset AFTER the fish group: reset_fish revives each member, then
+	# reset_shoal re-establishes the group state + re-crowns the original leader.
+	get_tree().call_group("shoal", "reset_shoal")
 	get_tree().call_group("wreck", "reset_wreck")
 	get_tree().call_group("salvage_carcass", "queue_free")
 	get_tree().call_group("carryable", "queue_free")
@@ -231,6 +242,19 @@ func _ranged_demo_def() -> EnemyDef:
 	var def: EnemyDef = base.duplicate(true)
 	def.ranged = true
 	return def
+
+## MILESTONE_10.md: spawn a Shoal (the controller, NOT a lone Fish). It owns and
+## steers its own swarm of members; `tier` only sets how many members (a denser
+## cloud + scarier slam), each member identical. Mirrors _add_fish's sky/water
+## plumbing so members respect the surface and pockets.
+func _add_shoal(pos: Vector2, tier: EnemyDef.Class = EnemyDef.Class.SMALL) -> void:
+	var shoal := Shoal.new()
+	shoal.sub = _sub
+	shoal.tier = tier
+	shoal.position = pos
+	shoal.sky_zones = _map_loader.sky_zones if _map_loader != null else []
+	shoal.water_surface_y = _map_loader.water_surface_y if _map_loader != null else 0.0
+	add_child(shoal)
 
 func _add_wreck(pos: Vector2) -> void:
 	var wreck := Wreck.new()
@@ -297,6 +321,11 @@ func _rebuild_sub() -> void:
 	_alerts.watch(_sub)
 	_cam.reset_smoothing()
 	get_tree().call_group("fish", "set", "sub", _sub)
+	# The Shoal CONTROLLER lives in the "shoal" group, not "fish", so the line
+	# above doesn't reach it — re-point it at the rebuilt sub too, or it freezes
+	# (its _physics_process bails on the now-freed old sub and never steers the
+	# school). Covers both the implosion reset and the dock's buy-a-room rebuild.
+	get_tree().call_group("shoal", "set", "sub", _sub)
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not (event is InputEventKey) or not event.pressed:
