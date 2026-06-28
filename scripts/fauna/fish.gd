@@ -467,9 +467,21 @@ func _dist_to_sub_hull(world_pos: Vector2) -> float:
 func _has_line_of_sight_to_sub() -> bool:
 	var target := _nearest_hull_point(global_position)
 	var space_state := get_world_2d().direct_space_state
-	var query := PhysicsRayQueryParameters2D.create(global_position, target, Layers.TERRAIN)
-	var result := space_state.intersect_ray(query)
-	return result.is_empty()
+	# A Sand Lurker's ray starts buried IN sand, so the very first hit would
+	# always be its own sand cover — sand is passable for it (see
+	# _is_passable_terrain), so skip over passable hits and keep walking the
+	# ray outward; only a genuinely solid (rock/dock) hit blocks sight.
+	var exclude: Array[RID] = []
+	for _i in 8:
+		var query := PhysicsRayQueryParameters2D.create(global_position, target, Layers.TERRAIN)
+		query.exclude = exclude
+		var result := space_state.intersect_ray(query)
+		if result.is_empty():
+			return true
+		if not _is_passable_terrain(result.collider):
+			return false
+		exclude.append(result.rid)
+	return false
 
 ## The nearest point on the sub's hull to `world_pos`, in world space. Used
 ## as the actual swim target in CHASE/HUNT (2026-06-22 fix) instead of the
