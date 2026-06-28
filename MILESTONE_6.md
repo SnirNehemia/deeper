@@ -29,10 +29,10 @@ To address concerns regarding visual blockiness/pixelation, the level loader mus
  {
     "map_id": "cavern_depths_01",
     "pixels_per_meter": 1.0,
-    "physical_layer": "res://maps/world_01_phys.png",
-    "generation_layer": "res://maps/world_01_gen.png",
-    "visual_background": "res://maps/world_01_bg.png",
-    "visual_foreground": "res://maps/world_01_fg.png"
+    "physical_layer": "res://maps/cavern_depths_01/world_01_phys.png",
+    "generation_layer": "res://maps/cavern_depths_01/world_01_gen.png",
+    "visual_background": "res://maps/cavern_depths_01/world_01_bg.png",
+    "visual_foreground": "res://maps/cavern_depths_01/world_01_fg.png"
   }
   ```
   
