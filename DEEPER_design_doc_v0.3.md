@@ -43,7 +43,7 @@ A couch co-op submarine roguelite for 1–4 players. The crew shares one modular
 ## 5. The Submarine
 
 ### 5.1 Structure
-- Side-view cutaway. The sub is a **grid of room modules** (e.g., 2×1 cells) connected by hatches and ladders.
+- Side-view cutaway. The sub is a **grid of room modules** (one uniform cell each, 5m wide × 3m tall) connected by hatches and ladders.
 - Starting sub ("The Minnow"): 3 rooms — Helm, Engine, and one flex slot (default: a small turret).
 - Modules attach at predefined hardpoints (top, bottom, bow, stern). The silhouette grows asymmetric and personal — your sub looks like *your* run history.
 

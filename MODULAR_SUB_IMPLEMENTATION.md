@@ -12,7 +12,7 @@ The submarine is a **layout**: a set of room modules placed on a fixed **grid** 
 
 ## 2. The grid
 
-- **Cell:** 2.5m × 3.0m (120 × 144 px). Constants live with the other geometry constants; never re-derive them locally.
+- **Cell:** 5m × 3.0m (240 × 144 px). Constants live with the other geometry constants; never re-derive them locally. *(Superseded from 2.5m by `ROOM_SYSTEM.md` §1, settled at Checkpoint 1 — see `DECISIONS.md`.)*
 - **Coordinates:** integer `Vector2i` grid positions; +x toward the bow (right), +y downward. Origin is arbitrary but fixed per layout (the helm anchors it — see §5).
 - **Uniform height rule:** all rooms are exactly 1 cell (3m) tall (settled — the lower deck loses its squat 2.5m height; this is a deliberate visual change, re-verify feel at Checkpoint 1).
 - **Room sizes:** every room module occupies a whole number of cells. The standard catalog uses 2×1 (the classic 5×3m room) and 1×1 (tower-sized).
