@@ -453,6 +453,17 @@ func turret_tube_local() -> Vector2:
 func floodlight_rooms() -> Array:
 	return _floodlight_rooms
 
+## The first currently-lit floodlight station, or null if none are on. Used
+## by DepthFogOverlay to carve the beam's repelled-darkness cone into the fog
+## shader (2026-06-28 follow-up #3). Only one beam is carved at a time even
+## if multiple Floodlight Rooms are placed -- a later pass could extend the
+## shader to multiple cones if that turns out to matter in play.
+func active_floodlight() -> FloodlightStation:
+	for f in _visual.floodlights:
+		if f.is_on:
+			return f
+	return null
+
 func claw_seat_local() -> Vector2:
 	return _claw_seat
 func claw_anchor_local() -> Vector2:

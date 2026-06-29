@@ -215,23 +215,17 @@ func _draw_floodlight_beam(f: FloodlightStation) -> void:
 	var decay_width_m := h / 8.0
 	var segments := 10
 	# Widest/faintest fringe first, narrowest/brightest core last (drawn on
-	# top), so the overlap reads as a soft glow toward the edges. "extra_m" is
-	# an additive meters-wide halo (not a multiple of the cone's own width),
-	# distinct from FloodlightFeel's own edge softness — it's MILESTONE_11.md
-	# Module 1's depth-fog cutout reaching a bit past the beam's normal edge.
+	# top), so the overlap reads as a soft glow toward the edges.
+	# 2026-06-28 follow-up #3: the depth-fog shader now genuinely carves this
+	# same cone shape out of the darkness (shaders/depth_fog.gdshader) instead
+	# of this beam needing a painted-on fake fringe to fake the cutout — the
+	# beam art below just needs to look like a bright light, the actual fog
+	# repulsion happens underneath it now.
 	var fringes := [
 		{"scale": 1.6, "alpha_mul": 0.12, "extra_m": 0.0},
 		{"scale": 1.3, "alpha_mul": 0.35, "extra_m": 0.0},
 		{"scale": 1.0, "alpha_mul": 1.0, "extra_m": 0.0},
 	]
-	# MILESTONE_11.md Module 1: this extra halo only matters once there's fog
-	# to cut through -- scaled by the current darkness so it's a no-op in the
-	# fog-free Shallows (and ramps in smoothly, never a hard pop) but a real
-	# soft-edged cutout once the water around the lamp has actually darkened.
-	var fog_softness_m := GameFeel.fog.floodlight_cutout_softness_m
-	var fog_alpha := GameFeel.fog.darkness_alpha(f.sub.depth_m()) if f.sub != null else 0.0
-	if fog_softness_m > 0.0 and fog_alpha > 0.0:
-		fringes.append({"scale": 1.6, "alpha_mul": 0.05 * fog_alpha, "extra_m": fog_softness_m})
 	for i in range(segments):
 		var d0 := h * float(i) / segments
 		var d1 := h * float(i + 1) / segments

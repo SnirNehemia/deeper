@@ -208,7 +208,9 @@ func _ready() -> void:
 	_check(int(SaveData.layout.inventory.get("floodlight_pod", 0)) == 1,
 		"buying the Floodlight Room also grants its pod into inventory")
 	_check(SaveData.place_room("floodlight_room", fl_pos), "place the Floodlight Room")
-	_check(SaveData.layout.pods.size() == 1, "placing the room auto-attaches its lamp")
+	## M11: the base sub already has 1 floodlight_pod (on the base floodlight_room) --
+	## placing this second floodlight_room should bring the pod count to 2.
+	_check(SaveData.layout.pods.size() == 2, "placing the room auto-attaches its lamp")
 	_check(SaveData.layout.inventory.get("floodlight_pod", 0) == 0,
 		"the lamp is no longer in inventory")
 	dock._rebuild_assembly_entries()
@@ -226,7 +228,14 @@ func _ready() -> void:
 	while dock._assembly_actions[fl_pos]["menu"][dock._menu_index]["type"] != "return_room":
 		dock._assembly_key(KEY_Q)
 	dock._assembly_key(KEY_E)  # confirm "return room"
-	_check(SaveData.layout.pods.is_empty(), "the lamp is detached along with its room")
+	## M11: the base sub's own floodlight_pod (on the base floodlight_room) is
+	## still attached -- check specifically that fl_pos's pod is gone, not that
+	## the list is empty.
+	var still_attached_at_fl := false
+	for pod in SaveData.layout.pods:
+		if pod.host_cell == fl_pos:
+			still_attached_at_fl = true
+	_check(not still_attached_at_fl, "the lamp is detached along with its room")
 	_check(SaveData.layout.inventory.get("floodlight_pod", 0) == 1,
 		"the lamp is back in inventory")
 	_check(SaveData.layout.inventory.get("floodlight_room", 0) == 1,

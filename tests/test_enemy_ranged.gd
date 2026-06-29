@@ -87,11 +87,15 @@ func _test_ranged_base_trait_fires_and_breaches() -> void:
 	var fish := Fish.new()
 	fish.sub = sub
 	fish.enemy_def = def
-	# Within fire_range_m but well clear of hull contact (9.5 m center-to-
-	# center is the same safe non-contact distance test_fish.gd's territory
-	# test uses against this same default ~8.3 m-wide hull), so any breach
-	# here can only come from the ranged shot, not the contact bite.
-	fish.position = sub.global_position + Vector2(9.5 * _ppm(), 0)
+	## MILESTONE_11.md: the floodlight_room re-centered the hull, pushing its
+	## edges ~2.5m further out -- measure the real edge instead of assuming
+	## the old ~8.3m-wide hull, so the fish sits within fire_range_m but
+	## clear of hull contact (any breach here can only be the ranged shot).
+	var min_x := INF
+	for r in sub.hull_rects():
+		min_x = minf(min_x, r.position.x)
+	var hull_half_width_m: float = -min_x / _ppm()
+	fish.position = sub.global_position + Vector2((hull_half_width_m + 3.0) * _ppm(), 0)
 	add_child(fish)
 	await _frames(2)
 	_check(sub.breaches.is_empty(), "precondition: no breach yet")

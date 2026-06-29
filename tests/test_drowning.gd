@@ -45,10 +45,11 @@ func _test_drown_and_respawn() -> void:
 
 	var sub := Sub.new()
 	add_child(sub)
-	# Flood only the telescope_room: the victim drowns there, but the helm room
-	# (the respawn point) stays dry long enough to verify full-air respawn —
-	# water creeps toward it only slowly over one door sill.
-	sub.water_levels = [1.0, 0.0, 0.0, 0.0]
+	# Flood only the telescope_room (water index 1 — MILESTONE_11.md's
+	# floodlight_room is now index 0): the victim drowns there, but the helm
+	# room (the respawn point) stays dry long enough to verify full-air
+	# respawn — water creeps toward it only slowly over one door sill.
+	sub.water_levels = [0.0, 1.0, 0.0, 0.0, 0.0]
 
 	var victim := Crew.new()
 	victim.player_index = 0
@@ -75,7 +76,7 @@ func _test_drown_and_respawn() -> void:
 	await _seconds(1.4)
 	_check(not victim.is_dead, "victim respawns after the delay")
 	_check(victim._visual.visible, "respawned crew is visible again")
-	_check(sub.room_index_at(victim.position) == 3, "respawn lands in the conning tower")
+	_check(sub.room_index_at(victim.position) == 4, "respawn lands in the conning tower")
 	_check(victim.air_seconds >= GameFeel.water.air_time - 0.1, "respawn restores full air")
 	_check(not buddy.is_dead, "buddy still fine after the respawn")
 
@@ -88,11 +89,15 @@ func _test_air_refill() -> void:
 
 	var sub := Sub.new()
 	add_child(sub)
-	sub.water_levels = [1.0, 0.0, 0.0, 0.0]
+	sub.water_levels = [0.0, 1.0, 0.0, 0.0, 0.0]
 
 	var crew := Crew.new()
 	crew.player_index = 0
-	crew.position = Vector2(-240, -60)  # flooded telescope_room
+	## MILESTONE_11.md: -240 used to land in empty space left of telescope_room
+	## (no room there) and still happened to read as submerged by accident;
+	## that cell is now the real floodlight_room, which this test leaves dry.
+	## Use a position safely inside telescope_room's own cell instead.
+	crew.position = Vector2(-SubGrid.CELL_W_PX * 0.5, -60)  # flooded telescope_room
 	sub.add_child(crew)
 
 	await _seconds(2.0)  # hold breath for ~2s
@@ -100,7 +105,7 @@ func _test_air_refill() -> void:
 	_check(drained < 9.0, "air drained while submerged")
 
 	# Drain the room instantly: the crew surfaces and refills fast.
-	sub.water_levels = [0.0, 0.0, 0.0, 0.0]
+	sub.water_levels = [0.0, 0.0, 0.0, 0.0, 0.0]
 	await _seconds(2.5)  # refill takes ~2s for the full bar
 	_check(crew.air_seconds >= GameFeel.water.air_time - 0.1,
 		"air refills quickly once surfaced")

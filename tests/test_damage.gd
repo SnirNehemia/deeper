@@ -138,8 +138,11 @@ func _test_real_collision() -> void:
 			break
 	_check(not sub.breaches.is_empty(), "ramming a terrain wall opens a breach")
 	if not sub.breaches.is_empty():
-		_check(sub.breaches[0].room == 2,
-			"bow-first ram breaches the helm (bow) room")
+		## MILESTONE_11.md: floodlight_room (leftmost) shifted every later
+		## room's water index by +1 -- bullet_room (the actual bow/rightmost
+		## room a rightward ram hits) is now index 3, was 2.
+		_check(sub.breaches[0].room == 3,
+			"bow-first ram breaches the bullet_room (bow) room")
 
 	sub.queue_free()
 	wall.queue_free()

@@ -72,13 +72,13 @@ func _test_footprints() -> void:
 func _test_starting_layout() -> void:
 	print("[starting layout]")
 	var layout := SubLayout.starting_layout()
-	_check(layout.placements.size() == 4,
-		"the M7 base sub has 4 placed modules (telescope_room, helm, bullet_room, tower)")
+	_check(layout.placements.size() == 5,
+		"the M11 base sub has 5 placed modules (floodlight_room, telescope_room, helm, bullet_room, tower)")
 
 	var ids: Array = []
 	for p in layout.placements:
 		ids.append(p.module_id)
-	for id in ["helm", "tower", "telescope_room", "bullet_room"]:
+	for id in ["helm", "tower", "telescope_room", "bullet_room", "floodlight_room"]:
 		_check(id in ids, "the starting layout includes a '%s'" % id)
 
 	# Every placed module's id resolves in the catalog.
@@ -97,7 +97,8 @@ func _test_starting_layout() -> void:
 	_check(tower_pos == helm_pos + Vector2i(0, -1),
 		"the tower sits directly above the helm")
 
-	_check(layout.pods.is_empty(), "the starting layout has no pods")
+	_check(layout.pods.size() == 1 and layout.pods[0].pod_id == "floodlight_pod",
+		"the starting layout has exactly the base floodlight_pod")  ## MILESTONE_11.md: floodlight_room added
 	_check(layout.inventory.is_empty(), "the starting layout has an empty inventory")
 
 	# Within the bounds guard.
@@ -130,9 +131,13 @@ func _test_serialization_round_trip() -> void:
 			same_placements = false
 	_check(same_placements, "placements round-trip (contents)")
 
-	_check(restored.pods.size() == 1, "pods round-trip (count)")
-	_check(restored.pods[0].pod_id == "floodlight_pod"
-		and restored.pods[0].host_cell == Vector2i(0, 0)
-		and restored.pods[0].face == "bottom", "pods round-trip (contents)")
+	# 2 pods: the starting layout's own base floodlight_pod at (-2,0), plus
+	# the one appended above at (0,0).
+	_check(restored.pods.size() == 2, "pods round-trip (count)")
+	var found_appended := false
+	for pod in restored.pods:
+		if pod.pod_id == "floodlight_pod" and pod.host_cell == Vector2i(0, 0) and pod.face == "bottom":
+			found_appended = true
+	_check(found_appended, "pods round-trip (contents)")
 
 	_check(restored.inventory.get("floodlight_pod", 0) == 2, "inventory round-trips")

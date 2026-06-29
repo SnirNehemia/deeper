@@ -73,7 +73,9 @@ func _test_seat_and_aim() -> void:
 
 	var turret := _find_turret(sub)
 	_check(turret != null, "sub built a turret station")
-	_check(turret.room_index == 2, "gunner seat is in the Bullet Room (bow weapon, index 2)")
+	## MILESTONE_11.md: floodlight_room shifted every later room's water index
+	## by +1 -- bullet_room (bow weapon) is now index 3, was 2.
+	_check(turret.room_index == 3, "gunner seat is in the Bullet Room (bow weapon, index 3)")
 
 	# Sit down (E) — same enter/exit flow as the helm.
 	_press(KEY_E)

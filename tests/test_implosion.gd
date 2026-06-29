@@ -42,7 +42,7 @@ func _test_implosion_reset() -> void:
 	# Drive away from the dock and breach everything: drag the sub under.
 	sub.global_position += Vector2(40.0 * 48.0, 30.0 * 48.0)
 	sub.spawn_breach(0, GameFeel.water.leak_rate_max)
-	sub.water_levels = [0.9, 0.9, 0.9, 0.9]  # well over the 70% total threshold
+	sub.water_levels = [0.9, 0.9, 0.9, 0.9, 0.9]  # well over the 70% total threshold
 	var pre_reset_x := sub.global_position.x
 
 	await _frames(5)
@@ -51,7 +51,10 @@ func _test_implosion_reset() -> void:
 	# The sequence runs ~1.5s of crunch + fade + the reset + fade-in.
 	await _frames(200)
 	_check(not world._resetting, "implosion sequence finishes")
-	_check(sub.global_position.distance_to(world.SUB_SPAWN) < 10.0,
+	# reset_run() rebuilds the sub (queue_free's the old one) -- re-fetch
+	# world._sub rather than reusing the now-freed local reference.
+	sub = world._sub
+	_check(sub.global_position.distance_to(world._sub_spawn) < 10.0,
 		"sub is back at the dock spawn")
 	_check(absf(sub.global_position.x - pre_reset_x) > 100.0,
 		"the reset actually moved the sub (it wasn't at the dock already)")
@@ -68,7 +71,7 @@ func _test_implosion_reset() -> void:
 	_check(p1.air_seconds >= GameFeel.water.air_time - 0.1, "crew air is full again")
 
 	# The run can implode again on a later flood (guard flag re-arms).
-	sub.water_levels = [0.9, 0.9, 0.9, 0.9]
+	sub.water_levels = [0.9, 0.9, 0.9, 0.9, 0.9]
 	await _frames(5)
 	_check(world._resetting, "a second flood can implode the sub again")
 	await _frames(200)

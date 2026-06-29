@@ -7,12 +7,18 @@ extends Node2D
 ##   2. (gameplay: sub interior/stations/crew/objects/enemies — added by the
 ##      world separately, at the default z_index)
 ##   3. the ambient water shimmer overlay
-##   4. visual_foreground  (in front of everything)
+##   4. visual_foreground  (in front of plain gameplay, but BELOW the
+##      depth-fog overlay — see Z_FOREGROUND, 2026-06-29 follow-up #4)
 
 const Z_BACKGROUND := -100
 const Z_SHIMMER := -50   # between background and gameplay (z=0), so only the
                          # background art wobbles — not the sub, crew, or fish
-const Z_FOREGROUND := 100
+## 2026-06-29 follow-up #4 (Snir): was 100 (in front of EVERYTHING, including
+## the depth-fog overlay at z=40 — the foreground used to poke through the
+## darkness untouched). Now sits below the fog overlay so it gets darkened
+## like the rest of the outside world, while staying above plain gameplay
+## (fish/wrecks, z=0) for its original parallax-occlusion purpose.
+const Z_FOREGROUND := 10
 
 var background: Sprite2D
 var shimmer: WaterShimmerOverlay

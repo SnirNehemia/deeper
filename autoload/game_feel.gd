@@ -547,7 +547,7 @@ var bullet: BulletFeel = BulletFeel.new()
 class FloodlightFeel:
 	var rotate_speed_deg: float = 60.0   ## left/right aim sweep (deg/s)
 	var zoom_speed_m: float = 2.0        ## up/down change to h (m/s)
-	var cone_radius_m: float = 10.0      ## R, the circle h and the base half-width are drawn from
+	var cone_radius_m: float = 20.0      ## R, the circle h and the base half-width are drawn from
 	var min_height_m: float = 3.0
 	## Must stay below cone_radius_m, or base_half_width_m(h) -> 0 and the
 	## cone's drawn width vanishes (2026-06-20: capped to radius - 1m).
@@ -557,7 +557,11 @@ class FloodlightFeel:
 	## centered at half the radius, falling off over this many meters.
 	var decay_center_m: float = 5.0      ## R / 2
 	var decay_width_m: float = 2.0
-	var max_alpha: float = 0.35
+	## 2026-06-29 follow-up #3, Snir reversal: the painted yellow beam should
+	## now be almost invisible -- the REAL indication of the floodlight is the
+	## darkness it repels (the shader carve in depth_fog.gdshader), not a
+	## colored cone drawn on top of it. (Was 0.85, briefly 0.35 before that.)
+	var max_alpha: float = 0.04
 
 	## The cone's base half-width at reach `h` (m): sqrt(R^2 - h^2).
 	func base_half_width_m(h: float) -> float:
@@ -714,36 +718,66 @@ class TelescopeFeel:
 
 var telescope: TelescopeFeel = TelescopeFeel.new()
 
-## MILESTONE_11.md Module 1: a darkness layer over the outside water that
-## thickens with depth -- purely cosmetic (never read by AI/gameplay code).
-## The curve is a continuous gradient with a per-zone cap: zone_caps is a list
-## of (depth_m, darkness_alpha) breakpoints; the gradient ramps linearly
-## between them (and from an implicit (0,0) at the surface), so it never jumps
-## and each zone's darkness still ceilings at its own value by the time you
-## reach that zone's far depth. Owns the DARKNESS only -- beam reach/cone/
-## falloff stay in FloodlightFeel; this block never touches that one.
+## MILESTONE_11.md Module 1 (2026-06-28 redesign, Snir, since refined twice):
+## a darkness gradient that CLOSES IN on the sub as it sinks -- purely
+## cosmetic (never read by AI/gameplay code). At any depth, the area within
+## clear_radius_m_at(depth_m) of the sub is fully clear, fading over
+## `falloff_width_m` to the depth's darkness cap. The clear radius SHRINKS
+## with depth via `clear_radius_anchors` -- the whole screen at the first
+## anchor (Shelf Edge), shrinking at each subsequent one, down to a small
+## hull-hugging contour by the deepest zone -- only the floodlight beam /
+## ambient glow (drawn on top, see DepthFogOverlay / sub_visual.gd) carve a
+## way to see beyond it. The darkness cap curve (zone_caps) is its own
+## continuous gradient with a per-zone ceiling: a list of (depth_m,
+## darkness_alpha) breakpoints the gradient ramps linearly between (and from
+## an implicit (0,0) at the surface), so it never jumps and each zone's
+## darkness ceilings at its own value by that zone's far depth. Owns the
+## DARKNESS only -- beam reach/cone/falloff stay in FloodlightFeel.
 class FogFeel:
 	var fog_color: Color = Color(0.02, 0.06, 0.14)  ## deep navy-blue, not night-black
 	## Breakpoints matching the design doc's zones (depth_m, darkness ceiling
 	## 0..1): Shallows are fog-free through the shelf edge, then Twilight Drop /
-	## Midnight Trench / Hadal Garden each cap a bit darker. First-pass numbers,
-	## deeper-tuner-friendly -- locked for real at the M11 mid-build playtest.
+	## Midnight Trench / Hadal Garden each cap a bit darker. Rescaled by Snir
+	## to match cavern_depths_01's actual ~200-400m painted depth (the design
+	## doc's canon 50/600/1500m breakpoints were far beyond what this map can
+	## physically reach) -- deeper-tuner-friendly, still tunable by feel.
 	var zone_caps: Array[Vector2] = [
 		Vector2(50.0, 0.0),     ## Shallows (0-50m): fog-free
-		Vector2(600.0, 0.35),   ## Shelf Edge & Twilight Drop
-		Vector2(1500.0, 0.7),   ## Midnight Trench
-		Vector2(3000.0, 0.92),  ## Hadal Garden (ceiling holds beyond this depth too)
+		Vector2(300.0, 0.35),   ## Shelf Edge & Twilight Drop
+		Vector2(350.0, 0.7),   ## Midnight Trench
+		Vector2(400.0, 0.92),  ## Hadal Garden (ceiling holds beyond this depth too)
 	]
-	## How far (m) the floodlight's own soft edge bleeds an extra faint halo
-	## into the fog around the cone, on top of FloodlightFeel's own beam-edge
-	## softness -- this is the part of the cutout that pushes back the fog.
-	var floodlight_cutout_softness_m: float = 2.0
+	## (depth_m, clear_radius_m) anchor points -- 2026-06-29 follow-up #4
+	## (Snir): at the FIRST threshold the visible area should still be the
+	## whole screen (no perceptible "hug" yet), then gradually shrink toward
+	## the sub at each subsequent anchor, so by medium depth areas away from
+	## the sub are already dark, ending at a small hull-hugging contour by the
+	## deepest zone. Anchored on the same depths as zone_caps so the radius
+	## and darkness curves stay in lockstep; deeper-tuner-friendly, still
+	## tunable by feel. Linearly interpolated between anchors by
+	## clear_radius_m_at(); holds at the last value beyond the final depth.
+	var clear_radius_anchors: Array[Vector2] = [
+		Vector2(50.0, 500.0),   ## Shelf Edge: effectively the whole screen
+		Vector2(300.0, 35.0),   ## Twilight Drop: shrinking, edges going dark
+		Vector2(350.0, 15.0),   ## Midnight Trench: tight around the hull
+		Vector2(400.0, 7.0),    ## Hadal Garden: a small hugging contour
+	]
+	## Width (m) of the gradient ring between the clear radius and the full
+	## darkness cap -- how soft/wide the "closing in" edge looks.
+	var falloff_width_m: float = 6.0
+	## Width (m) of the soft edge on the floodlight's repelled-darkness cone
+	## (both its side edges and its far reach) -- how gradually the carved-out
+	## visibility blends back into full darkness.
+	var floodlight_cutout_softness_m: float = 3.0
 	## How far (m) past the hull the sub's own ambient readability glow
-	## reaches into the fog (0 = floodlight-only).
-	var ambient_bubble_radius_m: float = 4.0
+	## (the cosmetic warm highlight, drawn in sub_visual.gd) reaches into the
+	## fog. Distinct from clear_radius_m, which is the actual visibility
+	## radius the fog shader carves -- this is just the painted highlight.
+	var ambient_bubble_radius_m: float = 3.0
 
-	## Darkness alpha (0..1) for a given depth (m) -- the same continuous-
-	## with-per-zone-cap gradient described above.
+	## Darkness alpha (0..1) for a given depth (m) -- the continuous-with-
+	## per-zone-cap gradient described above. Drives clear_radius_m_at's
+	## shrink curve and gates the ambient glow's fade-in.
 	func darkness_alpha(depth_m: float) -> float:
 		if depth_m <= zone_caps[0].x:
 			return 0.0
@@ -754,5 +788,34 @@ class FogFeel:
 				var t := (depth_m - prev.x) / maxf(0.001, cur.x - prev.x)
 				return lerpf(prev.y, cur.y, clampf(t, 0.0, 1.0))
 		return zone_caps[-1].y
+
+	## The far-field darkness alpha the radial gradient ramps up to, past
+	## clear_radius_m_at(depth_m) -- 0 in the fog-free Shallows, reaching fully
+	## OPAQUE (1.0) only at the deepest zone_caps breakpoint. Re-normalizes
+	## darkness_alpha's own curve (whose raw ceiling is zone_caps[-1].y, e.g.
+	## 0.92) onto a 0..1 range, so the SAME multi-stage zone gradient still
+	## applies -- 2026-06-29 follow-up #3 (Snir): "hitting" the first
+	## threshold should only darken the outer edges a little, gradually
+	## deepening toward the next threshold, not snap straight to black.
+	func outer_alpha(depth_m: float) -> float:
+		var max_cap: float = zone_caps[-1].y
+		if max_cap <= 0.0:
+			return 0.0
+		return clampf(darkness_alpha(depth_m) / max_cap, 0.0, 1.0)
+
+	## How far (m) around the sub stays fully clear at this depth -- linearly
+	## interpolates clear_radius_anchors the same way darkness_alpha()
+	## interpolates zone_caps: the whole screen at the first anchor, shrinking
+	## at each subsequent one, holding at the last anchor's value beyond it.
+	func clear_radius_m_at(depth_m: float) -> float:
+		if depth_m <= clear_radius_anchors[0].x:
+			return clear_radius_anchors[0].y
+		for i in range(1, clear_radius_anchors.size()):
+			var prev: Vector2 = clear_radius_anchors[i - 1]
+			var cur: Vector2 = clear_radius_anchors[i]
+			if depth_m <= cur.x:
+				var t := (depth_m - prev.x) / maxf(0.001, cur.x - prev.x)
+				return lerpf(prev.y, cur.y, clampf(t, 0.0, 1.0))
+		return clear_radius_anchors[-1].y
 
 var fog: FogFeel = FogFeel.new()

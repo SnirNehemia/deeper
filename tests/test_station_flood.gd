@@ -97,7 +97,7 @@ func _test_swim_dampening() -> void:
 	var wet_sub := Sub.new()
 	wet_sub.position = Vector2(5000, 0)  # far from the dry sub so nothing overlaps
 	add_child(wet_sub)
-	wet_sub.water_levels[0] = 1.0  # fully flood the engine room
+	wet_sub.water_levels[1] = 1.0  # fully flood the telescope_room (M11: water index 1, was 0)
 	var wet_crew := Crew.new()
 	wet_crew.player_index = 1
 	wet_crew.position = Vector2(-SubGrid.CELL_W_PX, -60)  # engine room center (one cell left of middle)
@@ -127,7 +127,13 @@ func _test_feet_vs_waist() -> void:
 	GameFeel.water.drain_rate = 0.0  # keep the puddle from draining mid-test
 	var sub := Sub.new()
 	add_child(sub)
-	sub.water_levels[0] = 0.1  # ~0.3 m in a 3 m room — ankle-deep
+	## MILESTONE_11.md: telescope_room now has a doorway on BOTH sides
+	## (floodlight_room added to its left) instead of one, so a shallow
+	## puddle spills/dilutes into two neighbors instead of one over the
+	## settle time below -- bumped from 0.1 to 0.25 (still clearly ankle/
+	## shin-deep, nowhere near the 0.7 "waist-deep" level used elsewhere in
+	## this file) so the feet are still wet by the time the check runs.
+	sub.water_levels[1] = 0.25  # ~0.75 m in a 3 m room — shin-deep
 	var crew := Crew.new()
 	crew.player_index = 0
 	crew.position = Vector2(-SubGrid.CELL_W_PX, -60)  # engine room center (one cell left of middle)  # engine room
@@ -160,7 +166,7 @@ func _test_jump_reduced_when_deep() -> void:
 	var wet_sub := Sub.new()
 	wet_sub.position = Vector2(6000, 0)
 	add_child(wet_sub)
-	wet_sub.water_levels[0] = 0.7
+	wet_sub.water_levels[1] = 0.7  ## M11: water index 1, was 0
 	var wet_crew := Crew.new()
 	wet_crew.player_index = 1
 	wet_crew.position = Vector2(-SubGrid.CELL_W_PX, -60)  # engine room center (one cell left of middle)

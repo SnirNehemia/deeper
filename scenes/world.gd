@@ -41,9 +41,10 @@ func _ready() -> void:
 	_spawn_sub_and_crew(_sub_spawn)
 	_spawn_entities()
 
-	# Fixed-zoom follow camera: ~60 m visible width, smoothed.
+	# Fixed-zoom follow camera: ~120 m visible width, smoothed. (2026-06-28
+	# follow-up #2, Snir: half the previous zoom -- double the visible width.)
 	_cam = Camera2D.new()
-	var visible_width_m := 60.0
+	var visible_width_m := 120.0
 	var zoom := get_viewport().get_visible_rect().size.x / (visible_width_m * M)
 	_cam.zoom = Vector2(zoom, zoom)
 	_cam.position_smoothing_enabled = true

@@ -131,15 +131,17 @@ func _test_turret_firing_face_blocked_vs_clear() -> void:
 
 func _test_telescope_reach_blocked_vs_clear() -> void:
 	print("[telescope reach]")
-	# Starting layout has telescope_room at (-1,0) facing "left"; reach cell is (-2,0)
-	# which is exterior — must be valid.
+	# MILESTONE_11.md follow-up (2026-06-28): the starting layout's
+	# telescope_room (-1,0) now faces "bottom" (the floodlight_room took the
+	# left face at (-2,0)), so its reach cell is (-1,1), which is exterior —
+	# must be valid.
 	var clear_layout := SubLayout.starting_layout()
 	var clear_result := SubValidator.validate(clear_layout)
 	_check(clear_result["ok"], "the starting layout's telescope_room (clear reach) is valid")
 
-	# Add a room at (-2,0) to block the telescope's reach — must become invalid.
+	# Add a room at (-1,1) to block the telescope's reach — must become invalid.
 	var blocked_layout := SubLayout.starting_layout()
-	blocked_layout.placements.append(SubLayout.Placement.new("storage", Vector2i(-2, 0)))
+	blocked_layout.placements.append(SubLayout.Placement.new("storage", Vector2i(-1, 1)))
 	var blocked_result := SubValidator.validate(blocked_layout)
 	_check(not blocked_result["ok"], "a telescope_room with its reach cell bricked in is invalid")
 	var found_msg := false

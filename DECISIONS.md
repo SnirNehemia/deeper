@@ -1446,3 +1446,74 @@ Snir's 7-part request, scoped via AskUserQuestion:
   15013px and 7202px). Fixed by clustering dock pixels into separate physical
   docks (same 8-connected-blob technique as the fauna markers), each tracked
   independently (`MapLoader.docks: Array[Dictionary]`).
+
+## Settled (2026-06-28, M11 follow-up — radial fog + Floodlight Room)
+- **Fog redesign, locked (Snir):** the depth-fog overlay is a radial gradient
+  centered on the sub, not a flat depth-only darkness — the outskirts of the
+  screen go pitch-black while a clear radius shrinks with depth, until the
+  deepest zones are practically all black even right next to the hull. Built as
+  a `canvas_item` shader (`shaders/depth_fog.gdshader`) keyed off `center_world`
+  (the sub's live position), `clear_radius_m_at(depth_m)`, and
+  `falloff_width_m`. Replaces the flat-alpha-overlay technique shipped earlier
+  the same day.
+- **Floodlight Room added to the base sub, locked (Snir):** the starting layout
+  gains a 5th room — `floodlight_room` — placed in the **leftmost** slot, with
+  its `floodlight_pod` pre-attached. `telescope_room`'s reach face moves from
+  **left to bottom** to make room for it.
+- **Accepted consequence:** the hull is now one full cell (5m) wider in total,
+  and the geometry builder recenters the whole bounding box around the sub's
+  origin — so the bow moved out as much as the stern did, not just the side the
+  new room was added to. **Open item, not yet resolved:** this makes the sub too
+  wide to fit through one existing cave passage in `cavern_depths_01`
+  (`tests/test_world.gd`'s cave test now correctly fails) — Snir to decide
+  whether to widen that passage (the map is already mid-rework) or accept the
+  tighter squeeze as intentional.
+
+## Settled (2026-06-29, M11 follow-up #2 — opaque far field, x0.5 zoom, real floodlight carve)
+- **Far-field opacity, locked (Snir):** once the sub is deep enough for any
+  fog at all, the far edges of the screen are fully OPAQUE — depth controls
+  only how big the clear radius around the sub is, never how dark the far
+  field gets. The Shallows stay completely fog-free (no change there).
+  Implemented as a binary `FogFeel.outer_alpha(depth_m)` rather than the
+  previous continuous per-zone alpha cap.
+- **Camera zoom, locked (Snir):** halved — `scenes/world.gd`'s visible width
+  doubled from ~60m to ~120m.
+- **Floodlight "repel," locked (Snir):** the beam must genuinely carve
+  visibility into the darkness, not just be painted brightly on top of
+  unchanged fog. Implemented as real uniforms in
+  `shaders/depth_fog.gdshader` (a directional wedge matching the beam's own
+  chord-of-circle taper), fed from a new `Sub.active_floodlight()`. The
+  beam's own draw alpha (`FloodlightFeel.max_alpha`) also went up
+  significantly (0.35→0.85) so it reads as a strong light, not a tint.
+
+## Settled (2026-06-29, M11 follow-up #3 — gradual far field, hull-shaped glow, near-transparent floodlight, foreground beneath fog)
+- **Gradual far-field darkening, locked (Snir):** crossing into a fogged
+  depth zone should only darken the outer edges a little, deepening
+  gradually toward the NEXT threshold — not snap straight to fully opaque.
+  `FogFeel.outer_alpha()` re-normalizes the existing zone_caps curve onto a
+  0..1 range instead of being a binary 0/1 gate.
+- **Hull-shaped glow, locked (Snir):** the clear/visible area around the sub
+  should hug its actual hull silhouette, not be a circle from a single
+  center point — confirmed cheap to implement (a small fixed-size array of
+  hull rects fed into the fog shader, same per-pixel cost class as the
+  existing fish-AI hull-distance check). Chosen over a softened circle or
+  an organic/noisy glow.
+- **Floodlight color near-transparent, locked (Snir):** the painted yellow
+  beam itself should be almost invisible — the real "is the floodlight
+  helping me see" signal is the darkness it repels (the shader carve), not
+  a colored cone. Reverses the earlier follow-up #2 bump (0.35→0.85);
+  now 0.04.
+- **Foreground layer beneath the fog, locked (Snir):** `visual_foreground`
+  map art was rendering in front of literally everything, including the
+  depth-fog overlay — it used to stay fully bright regardless of depth.
+  Moved below the fog (still above plain gameplay) so it darkens with
+  everything else outside the sub.
+
+## Settled (2026-06-29, M11 follow-up #4 — clear radius starts as the whole screen, shrinks with depth)
+- **Clear-radius anchor points, locked (Snir):** the visible "hug" area
+  around the sub should be the WHOLE SCREEN right at the first depth
+  threshold, then gradually shrink toward the sub at predefined depth anchor
+  points — not always be a small contour. `FogFeel.clear_radius_anchors`
+  (depth_m, radius_m pairs on the same depths as `zone_caps`) replaces the
+  old single `clear_radius_m` constant: 500m → 35m → 15m → 7m. By medium
+  depth, areas away from the sub should already read as dark.

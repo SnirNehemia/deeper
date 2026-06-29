@@ -131,7 +131,7 @@ func _test_buy_room_into_inventory() -> void:
 	_check(SaveData.banked_scrap == 20 - int(cost.get("sc", 0)),
 		"the room's scrap cost was deducted")
 	# Buying a room does NOT place it — placements are unchanged (that's M4-8).
-	_check(SaveData.layout.placements.size() == 4, "buying a room leaves the placed rooms alone")
+	_check(SaveData.layout.placements.size() == 5, "buying a room leaves the placed rooms alone")  ## M11: floodlight_room added
 
 func _test_buy_room_refused_when_broke() -> void:
 	print("[room too expensive]")
@@ -237,7 +237,7 @@ func _test_return_room_refused_for_tower() -> void:
 	SaveData.reset_for_test()
 	var ok := SaveData.return_room_to_inventory(Vector2i(0, -1))  # tower
 	_check(not ok, "returning the tower is refused")
-	_check(SaveData.layout.placements.size() == 4, "no placement was removed")
+	_check(SaveData.layout.placements.size() == 5, "no placement was removed")  ## M11: floodlight_room added
 
 ## The helm is core but, since 2026-06-15, can be picked up and placed back
 ## like any other room — the dry dock just won't let the player leave with it
@@ -354,7 +354,9 @@ func _test_place_pod_happy_path() -> void:
 	_check(ok, "attaching the floodlight pod to its room's exterior face succeeds")
 	_check(SaveData.layout.inventory.get("floodlight_pod", 0) == 0,
 		"the attached pod is removed from inventory")
-	_check(SaveData.layout.pods.size() == 1, "the pod is now in the layout's pod list")
+	## M11: the base sub already has 1 floodlight_pod (on the base floodlight_room) --
+	## this test attaches a second one onto the (0,1) floodlight_room.
+	_check(SaveData.layout.pods.size() == 2, "the pod is now in the layout's pod list")
 	_check(SubValidator.validate(SaveData.layout)["ok"], "the sub still validates after attaching")
 
 func _test_place_pod_refused_on_non_exterior_face() -> void:
@@ -394,7 +396,13 @@ func _test_place_pod_refused_without_inventory() -> void:
 	SaveData.layout.inventory.erase("floodlight_pod")
 	var ok := SaveData.place_pod("floodlight_pod", Vector2i(0, 1), "right")
 	_check(not ok, "attaching a pod not owned in inventory is refused")
-	_check(SaveData.layout.pods.is_empty(), "no pod was attached")
+	## M11: the base sub's own floodlight_pod (at -2,0) is always present --
+	## check specifically that nothing landed on (0,1), not that the list is empty.
+	var attached_here := false
+	for pod in SaveData.layout.pods:
+		if pod.host_cell == Vector2i(0, 1) and pod.face == "right":
+			attached_here = true
+	_check(not attached_here, "no pod was attached")
 
 func _test_return_pod_to_inventory() -> void:
 	print("[detach a pod back to inventory]")
@@ -406,7 +414,13 @@ func _test_return_pod_to_inventory() -> void:
 	_check(ok, "detaching an attached pod succeeds")
 	_check(SaveData.layout.inventory.get("floodlight_pod", 0) == 1,
 		"the pod is back in inventory")
-	_check(SaveData.layout.pods.is_empty(), "the pod is no longer in the layout's pod list")
+	## M11: the base sub's own floodlight_pod (at -2,0) is always present --
+	## check specifically that (0,1)/"right" is gone, not that the list is empty.
+	var still_attached_here := false
+	for pod in SaveData.layout.pods:
+		if pod.host_cell == Vector2i(0, 1) and pod.face == "right":
+			still_attached_here = true
+	_check(not still_attached_here, "the pod is no longer in the layout's pod list")
 	_check(not SaveData.return_pod_to_inventory(Vector2i(0, 1), "right"),
 		"detaching a pod that isn't there is refused")
 	_check(not SaveData.return_pod_to_inventory(Vector2i(1, 0), "top"),

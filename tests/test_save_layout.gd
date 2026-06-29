@@ -54,7 +54,7 @@ func _test_layout_round_trip() -> void:
 	SaveData.load_data()
 
 	_check(SaveData.banked_scrap == 12, "banked scrap still round-trips")
-	_check(SaveData.layout.placements.size() == 4, "the 4 placed rooms persisted")
+	_check(SaveData.layout.placements.size() == 5, "the 5 placed rooms persisted")  ## MILESTONE_11.md: floodlight_room added
 	_check(bought_slot in SaveData.layout.slots, "the bought slot persisted")
 	_check(SaveData.layout.inventory.get("turret_room", 0) == 1,
 		"the inventoried room persisted")
@@ -75,8 +75,8 @@ func _test_legacy_save_upgrades_to_starting_layout() -> void:
 	SaveData.load_data()
 
 	_check(SaveData.banked_scrap == 7, "legacy banked scrap loads")
-	_check(SaveData.layout.placements.size() == 4,
-		"a save with no layout boots to the M7 base sub (4 rooms)")
+	_check(SaveData.layout.placements.size() == 5,
+		"a save with no layout boots to the M11 base sub (5 rooms)")
 	_check(SubValidator.validate(SaveData.layout)["ok"], "the upgraded layout validates")
 
 func _test_invalid_layout_recovers_on_load() -> void:

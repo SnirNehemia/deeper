@@ -36,8 +36,8 @@ func _test_starting_layout_has_no_slots() -> void:
 	print("[starting layout]")
 	var layout := SubLayout.starting_layout()
 	_check(layout.slots.is_empty(), "the starting layout has no bought-but-empty slots")
-	_check(layout.occupied_cells().size() == 4,
-		"occupied_cells covers all 4 starting rooms (1x1 each)")
+	_check(layout.occupied_cells().size() == 5,
+		"occupied_cells covers all 5 starting rooms (1x1 each)")  ## MILESTONE_11.md: floodlight_room added
 
 func _test_buyable_positions_are_adjacent_and_empty() -> void:
 	print("[buyable slot positions]")

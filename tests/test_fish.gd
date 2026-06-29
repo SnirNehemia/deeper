@@ -47,6 +47,17 @@ func _frames(n: int) -> void:
 func _ppm() -> float:
 	return GameFeel.PIXELS_PER_METER
 
+## The hull's leftmost local-space edge, in px. MILESTONE_11.md: adding the
+## floodlight_room re-centers the whole hull bounding box, so both the bow
+## and stern edges sit ~2.5m further from the sub's origin than before --
+## tests that place a sub at a fixed offset from a fish must measure against
+## the hull's real edge, not a hardcoded "hull is ~8.3m wide" constant.
+func _hull_left_edge_px(sub: Sub) -> float:
+	var min_x := INF
+	for r in sub.hull_rects():
+		min_x = minf(min_x, r.position.x)
+	return min_x
+
 func _test_territory_states() -> void:
 	print("[territory states]")
 	var sub := Sub.new()
@@ -64,10 +75,14 @@ func _test_territory_states() -> void:
 		< GameFeel.fish.territory_radius_m * _ppm(),
 		"patrolling fish stays inside its territory")
 
-	# Sub enters the territory: chase. (Center 9.5 m out: inside the 10 m
-	# territory but the ~8.3 m-wide hull doesn't touch the fish yet, so we see
-	# pure chasing, not an instant bite.)
-	sub.global_position = fish.home + Vector2(9.5 * _ppm(), 0)
+	# Sub enters the territory: chase. Pick the offset so the hull's near
+	# (left/stern) edge sits a clear 3m inside the territory radius -- inside
+	# the radius (so it chases) but not touching (so we see pure chasing, not
+	# an instant bite). MILESTONE_11.md: computed from the real hull edge
+	# rather than a hardcoded width, since the floodlight_room re-centered it.
+	var radius_m: float = GameFeel.fish.territory_radius_m
+	var offset_m: float = radius_m - 3.0 - (_hull_left_edge_px(sub) / _ppm())
+	sub.global_position = fish.home + Vector2(offset_m * _ppm(), 0)
 	await _frames(5)
 	_check(fish.state == Fish.State.CHASE, "fish chases when the sub enters its territory")
 	var d0 := fish.global_position.distance_to(sub.global_position)
@@ -107,8 +122,10 @@ func _test_bite() -> void:
 	# Fish right at the hull's bow edge, inside its own territory.
 	var fish := Fish.new()
 	fish.sub = sub
-	# Just off the helm room's bow wall, mid-height (within the hull margin).
-	fish.position = Vector2(sub.room_rect(2).end.x + 30.0, -72.0)
+	## MILESTONE_11.md: floodlight_room shifted every later room's water index
+	## by +1 -- bullet_room (the true bow/rightmost room) is now index 3, was 2.
+	# Just off the bullet room's bow wall, mid-height (within the hull margin).
+	fish.position = Vector2(sub.room_rect(3).end.x + 30.0, -72.0)
 	add_child(fish)
 	# Poll instead of a blind wait so the knockback check below sees the
 	# impulse fresh (it decays back over the next several frames).
@@ -123,7 +140,7 @@ func _test_bite() -> void:
 		var expected_severity: float = fish.enemy_def.class_small.damage
 		_check(absf(breach.leak_rate - GameFeel.breach.severity_to_inflow(expected_severity)) < 0.0001,
 			"bite breach is drip-tier")
-		_check(breach.room == 2, "bow bite breaches the helm (bow) room")
+		_check(breach.room == 3, "bow bite breaches the bullet_room (bow) room")
 		# MILESTONE_8.md Module 1: the bite also shoves the sub (stern-ward,
 		# away from the bow-mounted fish), on top of the breach above.
 		_check(sub.velocity.x < 0.0, "bite also shoves the sub away from the fish")
@@ -496,15 +513,22 @@ func _test_chaser_does_not_detect_through_walls() -> void:
 	add_child(fish)
 	await _frames(2)
 
+	# Within chaser_detect_m (18m) but the wall below must sit between the
+	## fish and the sub's actual nearest hull point -- compute that point now
+	## (MILESTONE_11.md: the floodlight_room re-centered the hull, so the near
+	## edge is no longer where a hardcoded "~8.3m-wide hull" constant assumed).
+	var sub_offset_m := 15.0
+	var hull_edge_m: float = sub_offset_m + (_hull_left_edge_px(sub) / _ppm())
+	var wall_x_m: float = hull_edge_m * 0.5  # squarely between the fish and the hull
+
 	# A solid wall directly between the fish's home and where the sub is about
 	# to move to.
 	var rock := TerrainBody.new()
-	rock.add_rect(Rect2(7.0 * _ppm(), -300.0, 1.0 * _ppm(), 600.0))
+	rock.add_rect(Rect2(wall_x_m * _ppm(), -300.0, 1.0 * _ppm(), 600.0))
 	add_child(rock)
 	await _frames(2)
 
-	# Within chaser_detect_m (18m) but hidden behind the wall.
-	sub.global_position = fish.home + Vector2(15.0 * _ppm(), 0)
+	sub.global_position = fish.home + Vector2(sub_offset_m * _ppm(), 0)
 	await _frames(10)
 	_check(fish.state != Fish.State.HUNT,
 		"a chaser doesn't detect a sub hidden behind solid rock, even within range")

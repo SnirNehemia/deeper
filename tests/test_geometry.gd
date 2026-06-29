@@ -43,12 +43,12 @@ func _room_at(geo: SubGeometry, cell: Vector2i) -> SubGeometry.Room:
 func _test_room_count_and_indices() -> void:
 	print("[rooms]")
 	var geo := SubGeometry.build(SubLayout.starting_layout())
-	_check(geo.rooms.size() == 4, "the M7 base sub compiles to 4 rooms")
-	# Water indices are the placement order, 0..3, unique.
+	_check(geo.rooms.size() == 5, "the M11 base sub compiles to 5 rooms")  ## floodlight_room added
+	# Water indices are the placement order, 0..4, unique.
 	var seen: Dictionary = {}
 	for room in geo.rooms:
 		seen[room.water_index] = true
-	_check(seen.size() == 4, "every room has a distinct water index")
+	_check(seen.size() == 5, "every room has a distinct water index")
 	_check(geo.index_at(Vector2i(1, 0)) == _room_at(geo, Vector2i(1, 0)).water_index,
 		"index_at agrees with the room's water index")
 	_check(geo.index_at(Vector2i(9, 9)) == -1, "an empty cell has no room index")
@@ -77,8 +77,9 @@ func _test_cell_size() -> void:
 func _test_doors_match_horizontal_adjacency() -> void:
 	print("[doors]")
 	var geo := SubGeometry.build(SubLayout.starting_layout())
-	# Horizontal neighbours: telescope_room(-1,0)-helm(0,0), helm(0,0)-bullet_room(1,0) = 2 doorways.
-	_check(geo.doors.size() == 2, "two doorways (the horizontally adjacent room pairs)")
+	# Horizontal neighbours: floodlight_room(-2,0)-telescope_room(-1,0),
+	# telescope_room(-1,0)-helm(0,0), helm(0,0)-bullet_room(1,0) = 3 doorways.
+	_check(geo.doors.size() == 3, "three doorways (the horizontally adjacent room pairs)")
 	# A door sits on the shared wall between its two cells.
 	var found := false
 	for door in geo.doors:
@@ -138,7 +139,7 @@ func _test_slots_are_not_rooms_but_count_for_centering() -> void:
 			bought = c
 	layout.slots.append(bought)
 	var geo := SubGeometry.build(layout)
-	_check(geo.rooms.size() == 4, "a bought-but-empty slot is not a generated room")
+	_check(geo.rooms.size() == 5, "a bought-but-empty slot is not a generated room")
 	# The slot widened/shifted the bounding box, so the box now spans the slot.
 	_check(geo.grid_max.x >= bought.x and geo.grid_min.x <= bought.x,
 		"the slot is inside the geometry's bounding box (counts as hull)")
@@ -147,7 +148,7 @@ func _test_connections_topology() -> void:
 	print("[connections]")
 	var geo := SubGeometry.build(SubLayout.starting_layout())
 	var conns := geo.connections()
-	_check(conns.size() == 3, "three water connections (2 doors + 1 ladder)")
+	_check(conns.size() == 4, "four water connections (3 doors + 1 ladder)")
 	var doors := 0
 	var ladders := 0
 	for c in conns:
@@ -155,4 +156,4 @@ func _test_connections_topology() -> void:
 			doors += 1
 		elif c["kind"] == "ladder":
 			ladders += 1
-	_check(doors == 2 and ladders == 1, "connections split 2 doors / 1 ladder")
+	_check(doors == 3 and ladders == 1, "connections split 3 doors / 1 ladder")
