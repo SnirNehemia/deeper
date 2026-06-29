@@ -88,26 +88,39 @@ multi-dock bug fix.
 - **Commit:** `M11: depth fog (atmosphere layer, floodlight + ambient
   cutout) + dock-return fix (multi-dock-aware)`.
 
-**M11 follow-up — radial fog + Floodlight Room (2026-06-28, same day):**
-- **Radial gradient fog:** the depth-fog overlay no longer darkens uniformly
-  across the screen — it's a gradient circle that closes in on the sub. A
-  clear radius around the hull shrinks with depth until the deepest zones are
-  practically all black everywhere, even close to the sub.
-  - **`shaders/depth_fog.gdshader`** (new): a `canvas_item` shader computing
-    distance in world-space from a `center_world` uniform (the sub's
-    position, updated every frame) — `darkness_alpha` outside
-    `clear_radius_px`, fading in over `falloff_width_px`.
-  - **`autoload/game_feel.gd`:** `FogFeel` gained `clear_radius_m` (30m) and
-    `falloff_width_m` (25m), plus `clear_radius_m_at(depth_m)` — shrinks the
-    clear radius toward 0 as darkness approaches the deepest zone cap.
-  - **`scripts/maps/depth_fog_overlay.gd`:** rebuilt on a `ShaderMaterial`
-    instead of a flat `color`; feeds `center_world`/`clear_radius_px`/
-    `falloff_width_px` every `_process()` from the sub's live position.
-  - **`scripts/sub/sub_visual.gd`:** the ambient bubble glow and the
-    floodlight's outer fog-fringe are both gated by `darkness_alpha(depth)`
-    so neither shows in the fog-free Shallows (verified via capture).
-  - Verified with 3 captures sent to Snir (clear surface / thickening
-    mid-descent / floodlight carving a lit pocket out of near-black).
+**M11 follow-up — radial gradient fog + Floodlight Room, then three feel
+passes (2026-06-28/29, squashed into one commit):** after the M11 captures,
+Snir drove four rounds of iteration on the fog's feel in one session — the
+entries below are the end state, not every intermediate value tried along
+the way.
+- **Radial gradient fog, closing in on the sub:** the depth-fog overlay no
+  longer darkens uniformly across the screen. The far field is fully opaque
+  once any fog is active, but darkens GRADUALLY through each zone threshold
+  (`FogFeel.outer_alpha(depth_m)`, re-normalizing the existing `zone_caps`
+  curve) rather than snapping straight to black. The visible/clear area
+  around the sub starts as effectively the WHOLE SCREEN right at the first
+  depth threshold and shrinks at predefined depth anchors
+  (`FogFeel.clear_radius_anchors`: 500m → 35m → 15m → 7m, on the same depths
+  as `zone_caps`) down to a small hull-hugging contour at the deepest zone.
+  - **`shaders/depth_fog.gdshader`** (new): a `canvas_item` shader. The clear
+    area is measured against the sub's actual hull rects (`hull_rects[16]`
+    uniform, world-space min/max per rect, fed from `Sub.hull_rects()` each
+    frame) rather than a single center point, so a long/lumpy sub silhouette
+    reads as a long/lumpy glow instead of a circle.
+  - **`scripts/maps/depth_fog_overlay.gd`:** rebuilt on a `ShaderMaterial`;
+    feeds `clear_radius_px`/`falloff_width_px`/`hull_rects`/`hull_rect_count`
+    every `_process()` from the sub's live geometry + depth.
+  - The floodlight beam genuinely carves a directional wedge into the
+    darkness (the same chord-of-circle taper `FloodlightFeel` already draws
+    the beam with), fed from a new `Sub.active_floodlight()` — the real
+    visibility cue is the darkness it repels, not the painted beam color,
+    which is now near-transparent (`FloodlightFeel.max_alpha` = 0.04).
+    Removed the old "fake cutout" fringe hack from `sub_visual.gd`'s beam
+    draw, now redundant.
+  - Camera zoom halved (`scenes/world.gd`'s `visible_width_m` 60→120) and the
+    map's `visual_foreground` layer moved to render beneath the fog instead
+    of on top of it (`map_visual_layers.gd`'s `Z_FOREGROUND` 100→10).
+  - Verified with 4 rounds of fresh captures sent to Snir along the way.
 - **Floodlight Room added to the base sub:** `SubLayout.starting_layout()`
   (`scripts/sub/sub_layout.gd`) now places `floodlight_room` at the
   **leftmost** slot (was 4 rooms, now 5: floodlight_room, telescope_room,
@@ -116,7 +129,7 @@ multi-dock bug fix.
   took its old left-facing slot).
   - **Side effect — every room/water index shifted by +1**
     (floodlight=0, telescope=1, helm=2, bullet=3, tower=4, was
-    telescope=0/helm=1/bullet=2/tower=3). Touched 13 test files to follow the
+    telescope=0/helm=1/bullet=2/tower=3). Touched 14 test files to follow the
     new indices (room counts, water-level arrays, pod-list assumptions that
     now must account for the base sub's own pre-attached pod).
   - **Side effect — the hull got one cell (5m) physically wider,** and the
@@ -134,128 +147,23 @@ multi-dock bug fix.
     bug) rather than loosening it. Since the map is already mid-rework
     (`cavern_depths_02/` in progress), worth deciding: widen that passage, or
     accept the tighter squeeze as intentional.
-- **Full regression (37 suites) after the follow-up:** zero new failures
-  beyond the documented pre-existing baseline (test_claw×1, test_input×2,
-  test_sub×2, test_fish×1 "territorial fish ignores a sub beyond its
-  territory radius", test_dock_shop_ui×4 — stale grid positions predating a
-  2026-06-16 tower/helm relocation, test_lower_deck×8 — an already-retired
-  fixture referencing rooms that don't exist in any current layout,
-  test_implosion×1 and test_world's cave failure — both caused by Snir's own
-  in-progress `cavern_depths_01`/`cavern_depths_02` map edits/the hull-width
-  change above, not code bugs). test_turret and test_lower_deck both needed
-  one more index bump each (`gunner seat is in the Bullet Room`, an
-  already-broken assertion inside the already-stale lower-deck fixture) on
-  top of the first pass.
-- **Not yet committed** — pending Snir's review of the cave-clearance
-  question above.
-
-**M11 follow-up #2 (2026-06-29, same session) — opaque far field, x0.5 zoom,
-real floodlight carve:** after seeing the first follow-up's captures, Snir
-asked for three more changes.
-- **Far field now fully opaque:** `FogFeel.outer_alpha(depth_m)` (new) —
-  0 in the fog-free Shallows, otherwise a hard 1.0. Depth no longer scales how
-  dark the edges of the screen get, only `clear_radius_m_at(depth_m)` (the
-  radius around the sub that's clear) — Snir's framing: "the main thing that
-  should change with depth is the gradient/radius, not the far-field alpha."
-  `clear_radius_m` shrunk from 30m to 7m and `falloff_width_m` from 25m to 6m
-  to read as a genuinely small "contour," not a wide bubble.
-- **Camera zoom halved:** `scenes/world.gd`'s `visible_width_m` doubled
-  60→120 (half the zoom value = double the visible width) — more of the map
-  on screen at once.
-- **The floodlight now genuinely repels the darkness,** not just a painted
-  overlay on top of unchanged fog:
-  - **`shaders/depth_fog.gdshader`:** new uniforms
-    (`floodlight_on/tip/dir/range_px/half_width_px/softness_px`) compute a
-    triangular wedge (the same chord-of-circle taper `FloodlightFeel` already
-    draws the beam with) and carve it directly into the darkness alpha — the
-    union of the ambient clear circle and the beam wedge stays visible.
-  - **`scripts/sub/sub.gd`:** new `active_floodlight()` — the first
-    currently-lit `FloodlightStation`, so the overlay knows what to carve
-    (only one beam carved at a time even with multiple Floodlight Rooms
-    placed — fine for now, nothing currently lets more than one be lit at
-    once in a meaningful way).
-  - **`scripts/maps/depth_fog_overlay.gd`:** feeds the new uniforms from the
-    sub's active floodlight every `_process()`.
-  - **`scripts/sub/sub_visual.gd`:** removed the old "fake cutout" fringe in
-    `_draw_floodlight_beam()` (a painted halo that used to approximate the
-    cutout before the shader could do it for real) — the beam's drawn art is
-    now purely cosmetic, the actual fog repulsion happens underneath it.
-  - **`autoload/game_feel.gd`:** `FloodlightFeel.max_alpha` bumped 0.35→0.85
-    — Snir: "the indication for the floodlight should be the actual repel
-    the darkness," wants it reading as bright, not a faint tint.
-- **Verified with 3 fresh captures** (ambient-only at depth, the beam's real
-  carve, the new wider zoom) sent to Snir — confirmed the far field reads as
-  solid navy-black, the beam visibly extends sight rather than just looking
-  bright, and the wider framing shows more of the map.
-- **Fixed an M11-fallout test bug surfaced by this session's regression, not
-  by the visual changes themselves:** `tests/test_water.gd` still had
-  4-element `water_levels` array literals from before the Floodlight Room
-  existed (5 rooms now) — bumped to 5 elements, fixed the room-index comments.
-  Was previously passing its own marker check while logging a masked
-  out-of-bounds script error every run; now clean.
-- **Regression:** ran the fog/floodlight/camera-touching test scenes plus
-  test_water — zero new failures, only the already-documented pre-existing
-  baseline.
-
-**M11 follow-up #3 (2026-06-29, same session) — gradual far field, hull-
-shaped glow, near-transparent floodlight, foreground beneath fog:** after
-seeing follow-up #2's captures, Snir asked for four more refinements.
-- **Far-field darkening is now gradual, not a snap:** `FogFeel.outer_alpha()`
-  was a binary 0/1 jump the instant any fog activated; it's now
-  `darkness_alpha(depth_m) / zone_caps[-1].y` — the SAME multi-stage zone
-  curve, just re-normalized so it only reaches 1.0 (fully opaque) at the
-  deepest zone cap. Crossing the first threshold now only darkens the edges
-  a little, deepening gradually toward the next threshold, as Snir asked.
-- **The clear area now hugs the sub's real hull shape, not a circle from one
-  point** (Snir confirmed: "hug the hull's real shape," cheap to do, no
-  perf concern):
-  - **`shaders/depth_fog.gdshader`:** replaced the single `center_world`
-    uniform with `hull_rects[16]` (world-space min/max per hull rect) +
-    `hull_rect_count` — the fragment shader takes the minimum clamped-point
-    distance across all of them (the same technique `fish.gd`'s
-    `_nearest_hull_point()` already used for AI detection, just per-pixel
-    now). A long/lumpy sub silhouette reads as a long/lumpy glow.
-  - **`scripts/maps/depth_fog_overlay.gd`:** feeds `Sub.hull_rects()` into
-    the array every `_process()`, padded to the fixed 16-slot size (silently
-    truncates beyond that — `SubGrid.MAX_CELLS` keeps real room counts well
-    under it).
-- **The floodlight's painted color is now almost invisible:**
-  `FloodlightFeel.max_alpha` 0.85→0.04 — Snir: "the real indication for it
-  will be the darkness repellent," not a colored beam. The shader-carved
-  wedge (from follow-up #2) is unaffected and still does the actual work.
-- **The foreground map layer (`visual_foreground`) moved beneath the fog:**
-  `scripts/maps/map_visual_layers.gd`'s `Z_FOREGROUND` was 100 (in front of
-  literally everything, including the depth-fog overlay at z=40) — it used
-  to poke through the darkness untouched. Now `Z_FOREGROUND = 10`: still
-  above plain gameplay (fish/wrecks, z=0) for its original parallax-
-  occlusion purpose, but below the fog so it darkens like the rest of the
-  outside world.
-- **Verified with 3 fresh captures** (just-past-threshold barely dark,
-  deep-with-visible-hull-shaped-glow, floodlight-on-with-transparent-beam)
-  sent to Snir.
-- **Regression:** ran the fog/hull/floodlight/visual-layer-touching test
-  scenes — zero new failures, only the already-documented pre-existing
-  baseline (including the same test_fish×1/test_world×1 from before).
-
-**M11 follow-up #4 (2026-06-29, same session) — the clear radius now starts
-as the whole screen and shrinks toward the sub with depth:** Snir's framing
-after follow-up #3: hitting the first threshold should show the ENTIRE
-screen clear, then gradually "shrink" toward the sub as it descends through
-predefined anchor points, so by medium depth areas away from the sub are
-already dark.
-- **`autoload/game_feel.gd`:** replaced the single `clear_radius_m` value
-  with `clear_radius_anchors: Array[Vector2]` — (depth_m, radius_m) pairs on
-  the SAME depths as `zone_caps` (50/300/350/400m): 500m (effectively the
-  whole screen) → 35m → 15m → 7m (the small hull-hugging contour from
-  follow-up #3, now just the FINAL anchor instead of the only value).
-  `clear_radius_m_at()` rewritten to linearly interpolate between anchors,
-  mirroring how `darkness_alpha()` already interpolates `zone_caps`.
-- **Verified with 3 fresh captures** (right at the first threshold — whole
-  screen clear; medium depth ~205m — visibly shrunk, open water away from
-  the sub reads darker; deep ~390m — back down to the familiar small
-  contour) sent to Snir.
-- **Regression:** zero new failures; no test referenced the removed
-  `clear_radius_m` value.
+- **Full regression after every round:** zero new failures beyond the
+  documented pre-existing baseline (test_claw×1, test_input×2, test_sub×2,
+  test_fish×1 "territorial fish ignores a sub beyond its territory radius",
+  test_dock_shop_ui×4 — stale grid positions predating a 2026-06-16
+  tower/helm relocation, test_lower_deck×8 — an already-retired fixture
+  referencing rooms that don't exist in any current layout, test_implosion×1
+  and test_world's cave failure — both caused by Snir's own in-progress
+  `cavern_depths_01`/`cavern_depths_02` map edits/the hull-width change
+  above, not code bugs). Also caught and fixed a real fallout bug along the
+  way: `tests/test_water.gd` still had 4-element `water_levels` array
+  literals from before the Floodlight Room existed — was silently logging a
+  masked out-of-bounds script error every run despite passing its own marker
+  check; now clean at 5 elements.
+- **Commit:** `5138f0f` "M11 follow-up: radial gradient fog + Floodlight
+  Room, then three feel passes" (squashed from 4 same-session commits).
+  Not yet pushed — pending Snir's review of the cave-clearance question
+  above.
 
 **M10 — THE SHOAL, shipped (2026-06-26):** a school of tiny fish that moves and
 decides as ONE organism — the first GROUP enemy in a codebase where every prior
